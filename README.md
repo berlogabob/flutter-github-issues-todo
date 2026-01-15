@@ -6,6 +6,9 @@ GitDoIt is a mobile app built with Flutter for managing GitHub Issues as a simpl
 [![Flutter version](https://img.shields.io/badge/Flutter-3.16%2B-blue)](https://flutter.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## ## Current Roadmap
+See open [issues](https://github.com/berlogabob/flutter-github-issues-todo/issues)
+
 ## Features
 - View open/closed GitHub Issues
 - Create new issues (title, body, labels, assignees, milestone)

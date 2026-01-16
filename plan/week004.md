@@ -1,0 +1,56 @@
+Вот **Неделя 4** — продолжение в том же стиле: максимально мелкие шаги (2–10 минут каждый), под VS Code + Zed, для полного новичка. Всё с объяснениями «что», «где», «зачем» и «что должно получиться».
+
+**Неделя 4: Создание новой задачи (Create Issue)**  
+**Цель**:  
+- Добавить экран для создания новой issue  
+- Реализовать POST-запрос в GitHub API  
+- После создания — автоматически обновить список на HomeScreen  
+- Добавить базовую валидацию (title не пустой)
+
+**Общее время**: ~7–8 часов (60–90 мин/день)  
+**Что понадобится**:  
+- Завершённые недели 1–3 (токен, список, refresh)  
+- Тестовый репозиторий с правами на запись issues (твой PAT должен иметь write:issues)
+
+| День | Шаг | Что именно сделать | Где / Как | Время | Что должно получиться / зачем |
+|------|-----|---------------------|-----------|-------|--------------------------------|
+| **1** | 1.1 | Открой проект в VS Code | File → Open Folder → gitdoit | 1 мин | Готов к работе |
+| 1 | 1.2 | Создай новый файл: lib/screens/create_issue_screen.dart | Правой кнопкой на screens → New File | 30 сек | Экран для создания задачи |
+| 1 | 1.3 | Вставь базовый код экрана:<br>```dart:disable-run
+| 1 | 1.4 | Добавь импорт в home_screen.dart:<br>import 'create_issue_screen.dart'; | Верх файла | 30 сек | Чтобы переходить на экран |
+| 1 | 1.5 | В HomeScreen добавь FAB (плавающая кнопка):<br>floatingActionButton: FloatingActionButton(<br>  onPressed: () {<br>    Navigator.push(<br>      context,<br>      MaterialPageRoute(builder: (_) => const CreateIssueScreen()),<br>    );<br>  },<br>  child: const Icon(Icons.add),<br>), | В Scaffold | 3 мин | Кнопка «+» для создания задачи |
+| 1 | 1.6 | Запусти app → перейди на Home → нажми + → увидишь новый экран | Эмулятор | 2 мин | Переход работает |
+| 1 | 1.7 | Коммит: `git add lib/screens/` → `git commit -m "Week 4 Day 1: Created CreateIssueScreen skeleton"` | Терминал | 1 мин | — |
+| **2** | 2.1 | В create_issue_screen.dart сделай StatefulWidget (чтобы был setState):<br>class CreateIssueScreen extends StatefulWidget {<br>  const CreateIssueScreen({super.key});<br><br>  @override<br>  State<CreateIssueScreen> createState() => _CreateIssueScreenState();<br>}<br><br>class _CreateIssueScreenState extends State<CreateIssueScreen> {<br>  @override<br>  Widget build(BuildContext context) { ... }<br>} | VS Code | 4 мин | Теперь можно менять состояние (например, показывать ошибки) |
+| 2 | 2.2 | Добавь два поля: title и body<br>late TextEditingController _titleController;<br>late TextEditingController _bodyController;<br><br>@override<br>void initState() {<br>  super.initState();<br>  _titleController = TextEditingController();<br>  _bodyController = TextEditingController();<br>}<br><br>@override<br>void dispose() {<br>  _titleController.dispose();<br>  _bodyController.dispose();<br>  super.dispose();<br>} | В классе состояния | 4 мин | Контроллеры для чтения текста |
+| 2 | 2.3 | В build body: Padding(<br>  padding: const EdgeInsets.all(16),<br>  child: Column(<br>    children: [<br>      TextField(<br>        controller: _titleController,<br>        decoration: const InputDecoration(labelText: 'Title *'),<br>      ),<br>      const SizedBox(height: 16),<br>      TextField(<br>        controller: _bodyController,<br>        decoration: const InputDecoration(labelText: 'Description'),<br>        maxLines: 5,<br>      ),<br>    ],<br>  ),<br>) | VS Code | 5 мин | Поля ввода для заголовка и описания |
+| 2 | 2.4 | Запусти / hot reload → проверь поля | Эмулятор | 2 мин | Можно писать текст |
+| 2 | 2.5 | Коммит: `git add lib/screens/create_issue_screen.dart` → `git commit -m "Week 4 Day 2: Added title and body fields"` | Терминал | 1 мин | — |
+| **3** | 3.1 | Добавь кнопку Save внизу Column:<br>const SizedBox(height: 24),<br>ElevatedButton(<br>  onPressed: () {},<br>  child: const Text('Create Issue'),<br>), | В Column children | 2 мин | Кнопка пока ничего не делает |
+| 3 | 3.2 | Сделай кнопку async и добавь валидацию:<br>onPressed: () async {<br>  if (_titleController.text.trim().isEmpty) {<br>    ScaffoldMessenger.of(context).showSnackBar(<br>      const SnackBar(content: Text('Title is required')),<br>    );<br>    return;<br>  }<br>  // здесь будет создание<br>}, | VS Code | 4 мин | Не даём создать без заголовка |
+| 3 | 3.3 | Запусти → попробуй сохранить пустой title → увидишь ошибку | Эмулятор | 2 мин | Валидация работает |
+| 3 | 3.4 | Коммит: `git add lib/screens/create_issue_screen.dart` → `git commit -m "Week 4 Day 3: Added save button + title validation"` | Терминал | 1 мин | — |
+| **4** | 4.1 | Импортируй GitHubService в create_issue_screen.dart:<br>import '../services/github_service.dart'; | Верх файла | 30 сек | — |
+| 4 | 2.2 | В onPressed добавь создание:<br>try {<br>  final service = GitHubService();<br>  await service.createIssue(<br>    owner: 'berlogabob',<br>    repo: 'flutter-github-issues-todo',<br>    title: _titleController.text.trim(),<br>    body: _bodyController.text.trim().isEmpty ? null : _bodyController.text.trim(),<br>  );<br>  ScaffoldMessenger.of(context).showSnackBar(<br>    const SnackBar(content: Text('Issue created!')),<br>  );<br>  Navigator.pop(context); // назад на список<br>} catch (e) {<br>  ScaffoldMessenger.of(context).showSnackBar(<br>    SnackBar(content: Text('Error: $e')),<br>  );<br>} | VS Code | 6 мин | Пока метод createIssue не существует — будет ошибка |
+| 4 | 4.3 | Запусти → попробуй создать → увидишь ошибку (метод не реализован) | Эмулятор | 2 мин | Тест на будущий код |
+| 4 | 4.4 | Коммит: `git add lib/screens/create_issue_screen.dart` → `git commit -m "Week 4 Day 4: Added create logic (stub)"` | Терминал | 1 мин | — |
+| **5** | 5.1 | Перейди в lib/services/github_service.dart | VS Code | 30 сек | — |
+| 5 | 5.2 | Добавь метод createIssue:<br>Future<Issue> createIssue({<br>  required String owner,<br>  required String repo,<br>  required String title,<br>  String? body,<br>}) async {<br>  final token = await _getToken();<br>  final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/issues');<br>  final response = await http.post(<br>    uri,<br>    headers: {<br>      'Authorization': 'Bearer $token',<br>      'Accept': 'application/vnd.github.v3+json',<br>      'Content-Type': 'application/json',<br>    },<br>    body: json.encode({<br>      'title': title,<br>      'body': body,<br>    }),<br>  );<br><br>  if (response.statusCode == 201) {<br>    return Issue.fromJson(json.decode(response.body));<br>  } else {<br>    throw Exception('Failed to create issue: ${response.statusCode} - ${response.body}');<br>  }<br>} | VS Code | 6–8 мин | POST-запрос на создание issue |
+| 5 | 5.3 | Сохрани → запусти app → создай задачу → если всё ок — увидишь "Issue created!" и вернёшься на список | Эмулятор | 4 мин | Первая созданная задача из приложения! |
+| 5 | 5.4 | Проверь в GitHub веб-интерфейсе — новая issue должна появиться | Браузер | 2 мин | Подтверждение |
+| 5 | 5.5 | Коммит: `git add lib/services/github_service.dart` → `git commit -m "Week 4 Day 5: Implemented createIssue API method"` | Терминал | 1 мин | — |
+| **6** | 6.1 | Автообновление списка после создания: в create_issue_screen.dart после успешного создания добавь:<br>Provider.of<IssuesProvider>(context, listen: false).loadIssues('berlogabob', 'flutter-github-issues-todo'); | Перед Navigator.pop | 2 мин | Список обновится сам |
+| 6 | 6.2 | Запусти → создай задачу → вернись → увидишь новую в списке без ручного refresh | Эмулятор | 3 мин | Удобство для пользователя |
+| 6 | 6.3 | Добавь индикатор загрузки при создании: bool _isLoading = false; → setState(() => _isLoading = true); перед запросом → false после | В _CreateIssueScreenState | 5 мин | Кнопка неактивна во время запроса |
+| 6 | 6.4 | В ElevatedButton: child: _isLoading ? const CircularProgressIndicator() : const Text('Create Issue'),<br>onPressed: _isLoading ? null : () async { ... } | VS Code | 3 мин | Не даём кликать дважды |
+| 6 | 6.5 | Коммит: `git add lib/screens/create_issue_screen.dart` → `git commit -m "Week 4 Day 6: Auto-refresh list + loading indicator"` | Терминал | 1 мин | — |
+| **7** | 7.1 | Полный тест: токен → список → создать задачу → проверить в списке и на GitHub | Эмулятор + браузер | 10 мин | Всё работает |
+| 7 | 7.2 | Добавь очистку полей после создания:<br>_titleController.clear();<br>_bodyController.clear(); | Перед pop | 2 мин | Форма чистая при повторном создании |
+| 7 | 7.3 | Коммит недели: `git add .` → `git commit -m "Week 4 complete: Create Issue screen and API integration"` | Терминал | 2 мин | Неделя закончена |
+| 7 | 7.4 | Сделай APK: `flutter build apk --release` → установи | Терминал | 5 мин | v0.4 на телефоне |
+| 7 | 7.5 | Создай issue в репо: "Week 5: Edit and close issues" | GitHub веб | 3 мин | Планирование продолжается |
+
+Теперь у тебя есть **создание задач** — основной функционал TODO-приложения готов!  
+Готов начать **День 1 Недели 4**?  
+Просто скажи «поехали» или «день 1 недели 4». 😊
+```

@@ -1,0 +1,56 @@
+Вот **Неделя 5** — продолжение в том же детальном стиле: каждый шаг разбит на 2–10 минут, под VS Code + Zed, для полного новичка. Всё с объяснениями «что», «где», «зачем» и «что должно получиться».
+
+**Неделя 5: Редактирование и закрытие задач (Edit & Close Issue)**  
+**Цель**:  
+- Добавить экран редактирования существующей issue  
+- Реализовать PATCH-запрос в GitHub API для изменения title/body/state  
+- Добавить быстрые действия: «Close» прямо из списка  
+- Обновлять список после редактирования/закрытия  
+
+**Общее время**: ~7–8 часов (60–90 мин/день)  
+**Что понадобится**:  
+- Завершённые недели 1–4 (токен, список, создание)  
+- PAT с правами **write:issues** (если у тебя read-only — обнови токен на github.com/settings/tokens)  
+- Хотя бы 2–3 открытые issues в твоём репо для теста
+
+| День | Шаг | Что именно сделать | Где / Как | Время | Что должно получиться / зачем |
+|------|-----|---------------------|-----------|-------|--------------------------------|
+| **1** | 1.1 | Открой проект в VS Code | File → Open Folder → gitdoit | 1 мин | Готов к работе |
+| 1 | 1.2 | Создай файл: lib/screens/edit_issue_screen.dart | Правой кнопкой на screens → New File | 30 сек | Экран для редактирования |
+| 1 | 1.3 | Вставь базовый код (StatefulWidget):<br>```dart:disable-run
+| 1 | 1.4 | Добавь кнопку Save (пока пустая):<br>const SizedBox(height: 24),<br>ElevatedButton(<br>  onPressed: () {},<br>  child: const Text('Save Changes'),<br>), | В Column children | 2 мин | — |
+| 1 | 1.5 | Импортируй в home_screen.dart:<br>import 'edit_issue_screen.dart'; | Верх файла | 30 сек | — |
+| 1 | 1.6 | В ListTile на HomeScreen добавь onTap:<br>onTap: () {<br>  Navigator.push(<br>    context,<br>    MaterialPageRoute(<br>      builder: (_) => EditIssueScreen(issue: issue),<br>    ),<br>  );<br>}, | В itemBuilder ListView | 3 мин | Тап по задаче → открывает редактирование |
+| 1 | 1.7 | Запусти → тапни по задаче → увидишь экран с её title и body | Эмулятор | 3 мин | Переход работает |
+| 1 | 1.8 | Коммит: `git add lib/screens/` → `git commit -m "Week 5 Day 1: Created EditIssueScreen skeleton"` | Терминал | 1 мин | — |
+| **2** | 2.1 | В edit_issue_screen.dart добавь импорт сервиса:<br>import '../services/github_service.dart'; | Верх файла | 30 сек | — |
+| 2 | 2.2 | Добавь переменную загрузки: bool _isLoading = false; | В _EditIssueScreenState | 30 сек | Для индикатора |
+| 2 | 2.3 | Сделай кнопку асинхронной с валидацией:<br>onPressed: _isLoading ? null : () async {<br>  if (_titleController.text.trim().isEmpty) {<br>    ScaffoldMessenger.of(context).showSnackBar(<br>      const SnackBar(content: Text('Title is required')),<br>    );<br>    return;<br>  }<br>  setState(() => _isLoading = true);<br>  try {<br>    final service = GitHubService();<br>    await service.updateIssue(<br>      owner: 'berlogabob',<br>      repo: 'flutter-github-issues-todo',<br>      number: widget.issue.number,<br>      title: _titleController.text.trim(),<br>      body: _bodyController.text.trim(),<br>    );<br>    ScaffoldMessenger.of(context).showSnackBar(<br>      const SnackBar(content: Text('Issue updated!')),<br>    );<br>    Navigator.pop(context);<br>  } catch (e) {<br>    ScaffoldMessenger.of(context).showSnackBar(<br>      SnackBar(content: Text('Error: $e')),<br>    );<br>  } finally {<br>    setState(() => _isLoading = false);<br>  }<br>}, | В ElevatedButton | 6 мин | Пока updateIssue не существует — будет ошибка |
+| 2 | 2.4 | Добавь индикатор в кнопку:<br>child: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save Changes'), | В ElevatedButton | 2 мин | Показывает, что идёт запрос |
+| 2 | 2.5 | Запусти → попробуй сохранить → увидишь ошибку (метод не реализован) | Эмулятор | 3 мин | Тест на будущий код |
+| 2 | 2.6 | Коммит: `git add lib/screens/edit_issue_screen.dart` → `git commit -m "Week 5 Day 2: Added edit logic stub + loading"` | Терминал | 1 мин | — |
+| **3** | 3.1 | Перейди в github_service.dart | VS Code | 30 сек | — |
+| 3 | 3.2 | Добавь метод updateIssue:<br>Future<void> updateIssue({<br>  required String owner,<br>  required String repo,<br>  required int number,<br>  String? title,<br>  String? body,<br>  String? state,<br>}) async {<br>  final token = await _getToken();<br>  final uri = Uri.parse('https://api.github.com/repos/$owner/$repo/issues/$number');<br><br>  final bodyMap = <String, dynamic>{};<br>  if (title != null) bodyMap['title'] = title;<br>  if (body != null) bodyMap['body'] = body;<br>  if (state != null) bodyMap['state'] = state;<br><br>  final response = await http.patch(<br>    uri,<br>    headers: {<br>      'Authorization': 'Bearer $token',<br>      'Accept': 'application/vnd.github.v3+json',<br>      'Content-Type': 'application/json',<br>    },<br>    body: json.encode(bodyMap),<br>  );<br><br>  if (response.statusCode != 200) {<br>    throw Exception('Failed to update: ${response.statusCode} - ${response.body}');<br>  }<br>} | VS Code | 7–9 мин | PATCH-запрос для изменения |
+| 3 | 3.3 | Сохрани → вернись в приложение → отредактируй задачу → сохрани → увидишь "Issue updated!" и вернёшься на список | Эмулятор | 4 мин | Редактирование работает! |
+| 3 | 3.4 | Проверь в GitHub веб — изменения применились | Браузер | 2 мин | Подтверждение |
+| 3 | 3.5 | Коммит: `git add lib/services/github_service.dart` → `git commit -m "Week 5 Day 3: Implemented updateIssue API method"` | Терминал | 1 мин | — |
+| **4** | 4.1 | Добавь в EditIssueScreen выбор статуса (Dropdown):<br>String _currentState = widget.issue.state;<br><br>DropdownButton<String>(<br>  value: _currentState,<br>  items: const [<br>    DropdownMenuItem(value: 'open', child: Text('Open')),<br>    DropdownMenuItem(value: 'closed', child: Text('Closed')),<br>  ],<br>  onChanged: (value) {<br>    setState(() => _currentState = value!);<br>  },<br>), | В Column после body | 5 мин | Можно менять статус |
+| 4 | 4.2 | В вызове updateIssue добавь state: _currentState != widget.issue.state ? _currentState : null, | В onPressed | 2 мин | Отправляем только если изменили |
+| 4 | 4.3 | Запусти → измени статус → сохрани → увидишь изменения в списке (после автообновления) | Эмулятор | 3 мин | Статус меняется |
+| 4 | 4.4 | Коммит: `git add lib/screens/edit_issue_screen.dart` → `git commit -m "Week 5 Day 4: Added state dropdown in edit"` | Терминал | 1 мин | — |
+| **5** | 5.1 | Добавь быстрый "Close" в список: в ListTile trailing:<br>if (issue.state == 'open')<br>  IconButton(<br>    icon: const Icon(Icons.close, color: Colors.red),<br>    onPressed: () async {<br>      try {<br>        final service = GitHubService();<br>        await service.updateIssue(<br>          owner: 'berlogabob',<br>          repo: 'flutter-github-issues-todo',<br>          number: issue.number,<br>          state: 'closed',<br>        );<br>        Provider.of<IssuesProvider>(context, listen: false).loadIssues('berlogabob', 'flutter-github-issues-todo');<br>        ScaffoldMessenger.of(context).showSnackBar(<br>          const SnackBar(content: Text('Issue closed')),<br>        );<br>      } catch (e) {<br>        ScaffoldMessenger.of(context).showSnackBar(<br>          SnackBar(content: Text('Error: $e')),<br>        );<br>      }<br>    },<br>  ), | В itemBuilder ListView (home_screen.dart) | 6 мин | Кнопка закрытия прямо в списке |
+| 5 | 5.2 | Запусти → найди открытую задачу → нажми крестик → увидишь "Issue closed" и задача исчезнет из open | Эмулятор | 3 мин | Быстрое закрытие |
+| 5 | 5.3 | Коммит: `git add lib/screens/home_screen.dart` → `git commit -m "Week 5 Day 5: Added quick close button in list"` | Терминал | 1 мин | — |
+| **6** | 6.1 | Добавь автообновление списка после редактирования: в edit_issue_screen.dart после успешного update добавь:<br>Provider.of<IssuesProvider>(context, listen: false).loadIssues('berlogabob', 'flutter-github-issues-todo'); | Перед Navigator.pop | 2 мин | Список обновляется сам |
+| 6 | 6.2 | Добавь индикатор загрузки в HomeScreen при update (опционально): используй FutureBuilder или просто setState в provider | В HomeScreen | 5 мин | Красивее UX |
+| 6 | 6.3 | Запусти полный тест: edit title → save → check list | Эмулятор | 4 мин | Всё гладко |
+| 6 | 6.4 | Коммит: `git add .` → `git commit -m "Week 5 Day 6: Auto-refresh after edit"` | Терминал | 1 мин | — |
+| **7** | 7.1 | Полный тест недели: создать → edit → close → проверить в GitHub | Эмулятор + браузер | 10 мин | Всё работает |
+| 7 | 7.2 | Добавь в README раздел "Current Features" с пунктом "Edit & Close issues" | GitHub веб | 5 мин | Репо выглядит живее |
+| 7 | 7.3 | Коммит недели: `git add .` → `git commit -m "Week 5 complete: Edit and close functionality"` | Терминал | 2 мин | Неделя закончена |
+| 7 | 7.4 | Сделай APK: `flutter build apk --release` → установи | Терминал | 5 мин | v0.5 на телефоне |
+
+Теперь у тебя **полный CRUD** для issues: create, read, update, close — это уже полноценный TODO-инструмент!  
+Готов начать **День 1 Недели 5**?  
+Скажи «поехали» или «день 1 недели 5» — и начнём. 😊
+```

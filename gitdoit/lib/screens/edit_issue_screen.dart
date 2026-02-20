@@ -47,8 +47,13 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () => _confirmDiscardChanges(),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop && _hasChanges) {
+          _confirmDiscardChanges();
+        }
+      },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Edit Issue'),

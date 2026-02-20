@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/issue.dart';
 import '../providers/issues_provider.dart';
 import '../utils/logger.dart';
+import 'edit_issue_screen.dart';
 
 class IssueDetailScreen extends StatelessWidget {
   final Issue issue;
@@ -119,7 +120,6 @@ class IssueDetailScreen extends StatelessWidget {
 
   Widget _buildMetadata(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -321,12 +321,19 @@ class IssueDetailScreen extends StatelessWidget {
     );
   }
 
-  void _editIssue(BuildContext context) {
+  void _editIssue(BuildContext context) async {
     Logger.d('Edit issue #${issue.number}', context: 'Detail');
-    // TODO: Navigate to edit screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit functionality coming soon')),
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EditIssueScreen(issue: issue)),
     );
+
+    if (result == true && context.mounted) {
+      // Refresh the issue list
+      Provider.of<IssuesProvider>(context, listen: false).loadIssues();
+      Navigator.pop(context, true); // Return to home screen
+    }
   }
 
   Future<void> _openInBrowser(BuildContext context) async {

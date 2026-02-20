@@ -1,66 +1,66 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'providers/auth_provider.dart';
 import 'screens/auth_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const GitDoItApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// GitDoIt - GitHub Issues TODO Tool
+///
+/// A minimalist Flutter app for managing GitHub Issues as a TODO list.
+class GitDoItApp extends StatelessWidget {
+  const GitDoItApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'GitDoIt',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 27, 180, 34),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()..loadSavedToken()),
+        // TODO: Add more providers as needed:
+        // ChangeNotifierProvider(create: (_) => IssuesProvider()),
+        // ChangeNotifierProvider(create: (_) => SyncProvider()),
+      ],
+      child: MaterialApp(
+        title: 'GitDoIt',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF1BAC0C), // GitHub green
+            brightness: Brightness.light,
+          ),
+          useMaterial3: true,
+          appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
+          cardTheme: CardThemeData(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
         ),
+        home: const AuthScreen(),
+        // TODO: Add routes
+        // routes: {
+        //   '/auth': (context) => const AuthScreen(),
+        //   '/home': (context) => const HomeScreen(),
+        //   '/issue': (context) => const IssueDetailScreen(),
+        // },
       ),
-      home: const MyHomePage(title: 'GitDoIt'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our "appbar" title.
-        title: Text(widget.title),
-      ),
-      body: Center(child: Text('Hello GitDoIt!')),
     );
   }
 }

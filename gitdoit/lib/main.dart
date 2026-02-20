@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import 'providers/auth_provider.dart';
+import 'providers/issues_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'utils/logger.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Hive
+  await Hive.initFlutter();
+  // Note: Adapters will be added when models are properly configured for Hive
+
+  Logger.i('Hive initialized', context: 'Main');
+
   runApp(const GitDoItApp());
 }
 
@@ -22,9 +31,13 @@ class GitDoItApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..loadSavedToken()),
-        // TODO: Add more providers as needed:
-        // ChangeNotifierProvider(create: (_) => IssuesProvider()),
-        // ChangeNotifierProvider(create: (_) => SyncProvider()),
+        ChangeNotifierProvider(
+          create: (context) {
+            final issuesProvider = IssuesProvider();
+            issuesProvider.initialize();
+            return issuesProvider;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'GitDoIt',

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/issues_provider.dart';
 import '../utils/logger.dart';
+import 'settings_screen.dart';
+import '../widgets/issue_card.dart';
 
 /// Home Screen - Main dashboard after authentication
 ///
@@ -26,7 +29,10 @@ class HomeScreen extends StatelessWidget {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               Logger.d('Refresh pressed', context: 'Home');
-              // TODO: Implement refresh
+              Provider.of<IssuesProvider>(
+                context,
+                listen: false,
+              ).refreshIssues();
             },
           ),
           // Settings button
@@ -46,9 +52,87 @@ class HomeScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Logger.d('Create issue pressed', context: 'Home');
-          // TODO: Navigate to create issue screen
+          _showCreateIssueDialog(context);
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _showCreateIssueDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final bodyController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create Issue'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  hintText: 'Enter issue title',
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: bodyController,
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  hintText: 'Enter issue description',
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final title = titleController.text.trim();
+              if (title.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Title is required')),
+                );
+                return;
+              }
+
+              Logger.i('Creating issue: "$title"', context: 'Home');
+
+              final issuesProvider = Provider.of<IssuesProvider>(
+                context,
+                listen: false,
+              );
+              final issue = await issuesProvider.createIssue(
+                title: title,
+                body: bodyController.text.trim(),
+              );
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
+
+              if (issue != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Created issue #${issue.number}')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to create issue')),
+                );
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
       ),
     );
   }
@@ -59,7 +143,7 @@ class _HomeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    final issuesProvider = Provider.of<IssuesProvider>(context);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
@@ -72,7 +156,7 @@ class _HomeContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Welcome back, ${authProvider.username ?? 'User'}!',
+                'Welcome back, ${context.watch<AuthProvider>().username ?? 'User'}!',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 4),
@@ -82,187 +166,149 @@ class _HomeContent extends StatelessWidget {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(height: 16),
+              // Filter chips
+              _buildFilterBar(context, issuesProvider),
             ],
           ),
         ),
 
-        // TODO: Issue list will go here
+        // Issue list or empty state
         Expanded(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.task_alt,
-                  size: 64,
-                  color: colorScheme.primary.withAlpha(128),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No issues loaded yet',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Issues will appear here',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+          child: issuesProvider.isLoading && issuesProvider.issues.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : issuesProvider.error != null
+              ? _buildErrorState(context, issuesProvider)
+              : issuesProvider.issues.isEmpty
+              ? _buildEmptyState(context)
+              : RefreshIndicator(
+                  onRefresh: () => issuesProvider.refreshIssues(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: issuesProvider.filteredIssues.length,
+                    itemBuilder: (context, index) {
+                      final issue = issuesProvider.filteredIssues[index];
+                      return IssueCard(
+                        issue: issue,
+                        onTap: () => Logger.d(
+                          'Issue tapped: #${issue.number}',
+                          context: 'Home',
+                        ),
+                        onToggleStatus: () {
+                          if (issue.isOpen) {
+                            issuesProvider.closeIssue(issue.number);
+                          } else {
+                            issuesProvider.reopenIssue(issue.number);
+                          }
+                        },
+                      );
+                    },
                   ),
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Logger.d('Load issues pressed', context: 'Home');
-                    // TODO: Implement load issues
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Load Issues'),
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );
   }
-}
 
-/// Settings Screen - App configuration
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  Widget _buildFilterBar(BuildContext context, IssuesProvider issuesProvider) {
+    return Wrap(
+      spacing: 8,
+      children: [
+        FilterChip(
+          label: const Text('Open'),
+          selected: issuesProvider.filter == 'open',
+          onSelected: (selected) {
+            if (selected) {
+              issuesProvider.setFilter('open');
+              issuesProvider.loadIssues(state: 'open');
+            }
+          },
+        ),
+        FilterChip(
+          label: const Text('Closed'),
+          selected: issuesProvider.filter == 'closed',
+          onSelected: (selected) {
+            if (selected) {
+              issuesProvider.setFilter('closed');
+              issuesProvider.loadIssues(state: 'closed');
+            }
+          },
+        ),
+        FilterChip(
+          label: const Text('All'),
+          selected: issuesProvider.filter == 'all',
+          onSelected: (selected) {
+            if (selected) {
+              issuesProvider.setFilter('all');
+              issuesProvider.loadIssues(state: 'all');
+            }
+          },
+        ),
+      ],
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    Logger.d('Building SettingsScreen', context: 'Settings');
+  Widget _buildErrorState(BuildContext context, IssuesProvider issuesProvider) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Failed to load issues',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              issuesProvider.error ?? 'Unknown error',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => issuesProvider.loadIssues(),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+  Widget _buildEmptyState(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Account section
-          _buildSectionTitle('Account'),
-          const _SettingsTile(
-            icon: Icons.person,
-            title: 'GitHub Account',
-            subtitle: 'Manage your GitHub connection',
+          Icon(
+            Icons.task_alt,
+            size: 64,
+            color: colorScheme.primary.withAlpha(128),
           ),
-
-          const Divider(height: 32),
-
-          // Repository section
-          _buildSectionTitle('Repository'),
-          const _SettingsTile(
-            icon: Icons.folder,
-            title: 'Default Repository',
-            subtitle: 'Select which repo to use for TODOs',
+          const SizedBox(height: 16),
+          Text(
+            'No issues found',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
-
-          const Divider(height: 32),
-
-          // App section
-          _buildSectionTitle('App'),
-          const _SettingsTile(
-            icon: Icons.palette,
-            title: 'Theme',
-            subtitle: 'Light / Dark / System',
-          ),
-          const _SettingsTile(
-            icon: Icons.notifications,
-            title: 'Notifications',
-            subtitle: 'Configure issue notifications',
-          ),
-
-          const Divider(height: 32),
-
-          // Danger zone
-          _buildSectionTitle('Danger Zone', color: Colors.red),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout', style: TextStyle(color: Colors.red)),
-            subtitle: const Text('Remove saved token'),
-            onTap: () => _showLogoutDialog(context),
-          ),
-
-          const SizedBox(height: 32),
-
-          // App version
-          Center(
-            child: Text(
-              'GitDoIt v0.1.2-day3',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          const SizedBox(height: 8),
+          Text(
+            'Create your first issue to get started',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: color,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text(
-          'Are you sure you want to logout? You will need to enter your token again.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Logger.i('User logged out', context: 'Settings');
-              Provider.of<AuthProvider>(context, listen: false).logout();
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Reusable settings tile
-class _SettingsTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-
-  const _SettingsTile({required this.icon, required this.title, this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        // TODO: Navigate to specific settings page
-        Logger.d('Settings tapped: $title', context: 'Settings');
-      },
     );
   }
 }

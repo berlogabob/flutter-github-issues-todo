@@ -114,8 +114,9 @@ class _AuthContentState extends State<_AuthContent> {
   }
 
   void _navigateToHome() {
-    // TODO: Navigate to home screen
-    Logger.d('Navigation to home - not implemented yet', context: 'Auth');
+    Logger.i('Navigating to HomeScreen', context: 'Auth');
+    // Replace the entire navigation stack with HomeScreen
+    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
   }
 
   void _openGitHubTokenPage() async {

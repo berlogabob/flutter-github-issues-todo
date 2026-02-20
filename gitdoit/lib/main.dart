@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
 import 'screens/auth_screen.dart';
+import 'screens/home_screen.dart';
+import 'utils/logger.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,14 +55,43 @@ class GitDoItApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const AuthScreen(),
-        // TODO: Add routes
-        // routes: {
-        //   '/auth': (context) => const AuthScreen(),
-        //   '/home': (context) => const HomeScreen(),
-        //   '/issue': (context) => const IssueDetailScreen(),
-        // },
+        home: const AuthWrapper(),
+        routes: {
+          '/auth': (context) => const AuthScreen(),
+          '/home': (context) => const HomeScreen(),
+        },
       ),
+    );
+  }
+}
+
+/// Authentication Wrapper - Decides which screen to show
+///
+/// Shows AuthScreen if not authenticated, HomeScreen if authenticated
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    Logger.d('Building AuthWrapper', context: 'Navigation');
+
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        // Check authentication state
+        if (authProvider.isAuthenticated) {
+          Logger.d(
+            'User authenticated, showing HomeScreen',
+            context: 'Navigation',
+          );
+          return const HomeScreen();
+        } else {
+          Logger.d(
+            'User not authenticated, showing AuthScreen',
+            context: 'Navigation',
+          );
+          return const AuthScreen();
+        }
+      },
     );
   }
 }

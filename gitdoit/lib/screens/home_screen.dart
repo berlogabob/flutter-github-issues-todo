@@ -1,29 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/auth_provider.dart';
 import '../providers/issues_provider.dart';
 import '../utils/logger.dart';
 import 'settings_screen.dart';
+import 'issue_detail_screen.dart';
 import '../widgets/issue_card.dart';
+import '../widgets/offline_indicator.dart';
 
 /// Home Screen - Main dashboard after authentication
-///
-/// Shows list of GitHub issues as TODO items
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String _searchQuery = '';
+  bool _showSearch = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final username = authProvider.username ?? 'User';
-
-    Logger.d('Building HomeScreen for user: $username', context: 'Home');
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('GitDoIt'),
+        title: _showSearch
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: Theme.of(context).textTheme.titleLarge,
+                decoration: InputDecoration(
+                  hintText: 'Search issues...',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onChanged: (query) {
+                  setState(() => _searchQuery = query);
+                },
+              )
+            : const Text('GitDoIt'),
         actions: [
+          // Search button
+          IconButton(
+            icon: Icon(_showSearch ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                _showSearch = !_showSearch;
+                if (!_showSearch) {
+                  _searchController.clear();
+                  _searchQuery = '';
+                }
+              });
+            },
+          ),
           // Refresh button
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -48,12 +84,9 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: const _HomeContent(),
+      body: _HomeContent(searchQuery: _searchQuery),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Logger.d('Create issue pressed', context: 'Home');
-          _showCreateIssueDialog(context);
-        },
+        onPressed: () => _showCreateIssueDialog(context),
         child: const Icon(Icons.add),
       ),
     );
@@ -139,38 +172,23 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent();
+  final String searchQuery;
+
+  const _HomeContent({required this.searchQuery});
 
   @override
   Widget build(BuildContext context) {
     final issuesProvider = Provider.of<IssuesProvider>(context);
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Welcome header
+        // Offline indicator
+        const OfflineIndicator(),
+
+        // Filter chips
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Welcome back, ${context.watch<AuthProvider>().username ?? 'User'}!',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Manage your GitHub Issues as TODOs',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Filter chips
-              _buildFilterBar(context, issuesProvider),
-            ],
-          ),
+          child: _buildFilterBar(context, issuesProvider),
         ),
 
         // Issue list or empty state
@@ -179,32 +197,7 @@ class _HomeContent extends StatelessWidget {
               ? const Center(child: CircularProgressIndicator())
               : issuesProvider.error != null
               ? _buildErrorState(context, issuesProvider)
-              : issuesProvider.issues.isEmpty
-              ? _buildEmptyState(context)
-              : RefreshIndicator(
-                  onRefresh: () => issuesProvider.refreshIssues(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: issuesProvider.filteredIssues.length,
-                    itemBuilder: (context, index) {
-                      final issue = issuesProvider.filteredIssues[index];
-                      return IssueCard(
-                        issue: issue,
-                        onTap: () => Logger.d(
-                          'Issue tapped: #${issue.number}',
-                          context: 'Home',
-                        ),
-                        onToggleStatus: () {
-                          if (issue.isOpen) {
-                            issuesProvider.closeIssue(issue.number);
-                          } else {
-                            issuesProvider.reopenIssue(issue.number);
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ),
+              : _buildIssueList(context, issuesProvider),
         ),
       ],
     );
@@ -248,6 +241,40 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
+  Widget _buildIssueList(BuildContext context, IssuesProvider issuesProvider) {
+    final issues = issuesProvider.searchIssues(searchQuery);
+
+    return RefreshIndicator(
+      onRefresh: () => issuesProvider.refreshIssues(),
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: issues.length,
+        itemBuilder: (context, index) {
+          final issue = issues[index];
+          return IssueCard(
+            issue: issue,
+            onTap: () => _navigateToDetail(context, issue),
+            onToggleStatus: () {
+              if (issue.isOpen) {
+                issuesProvider.closeIssue(issue.number);
+              } else {
+                issuesProvider.reopenIssue(issue.number);
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _navigateToDetail(BuildContext context, dynamic issue) {
+    Logger.d('Navigating to issue #${issue.number}', context: 'Home');
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => IssueDetailScreen(issue: issue)),
+    );
+  }
+
   Widget _buildErrorState(BuildContext context, IssuesProvider issuesProvider) {
     return Center(
       child: Padding(
@@ -279,35 +306,6 @@ class _HomeContent extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.task_alt,
-            size: 64,
-            color: colorScheme.primary.withAlpha(128),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No issues found',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create your first issue to get started',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
       ),
     );
   }

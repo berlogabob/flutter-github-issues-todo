@@ -1,8 +1,8 @@
 name: gitdoit
-description: "A new Flutter project."
+description: "GitDoIt - A minimalist Flutter app for managing GitHub Issues as a TODO list"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: ^3.10.4
@@ -30,12 +30,28 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # HTTP client for GitHub API
   http: ^1.2.0
+
+  # Secure storage for PAT tokens
   flutter_secure_storage: ^9.2.0
+
+  # State management
   provider: ^6.1.2
+
+  # JSON serialization
   json_annotation: ^4.9.0
+
+  # Internationalization and date formatting
   intl: ^0.19.0
 
+  # Offline storage (Hive for local caching)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Connectivity check for offline detection
+  connectivity_plus: ^5.0.2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -58,7 +74,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

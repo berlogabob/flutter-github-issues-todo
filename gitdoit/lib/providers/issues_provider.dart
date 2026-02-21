@@ -5,6 +5,14 @@ import '../models/issue.dart';
 import '../services/github_service.dart';
 import '../utils/logger.dart';
 
+/// Repository configuration model
+class Repository {
+  final String owner;
+  final String name;
+
+  Repository({required this.owner, required this.name});
+}
+
 /// Issues Provider - Manages GitHub issues state
 ///
 /// Handles:
@@ -40,6 +48,12 @@ class IssuesProvider extends ChangeNotifier {
   bool get hasIssues => _issues.isNotEmpty;
   int get openCount => _issues.where((i) => i.isOpen).length;
   int get closedCount => _issues.where((i) => i.isClosed).length;
+  String get owner => _owner;
+  String get repo => _repo;
+  Repository? get repository {
+    if (_owner.isEmpty || _repo.isEmpty) return null;
+    return Repository(owner: _owner, name: _repo);
+  }
 
   /// Initialize Hive for local caching
   Future<void> initialize() async {

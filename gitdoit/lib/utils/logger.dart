@@ -72,13 +72,29 @@ class Logger {
   }
 
   /// Error level log
-  static void e(String message, {Object? error, StackTrace? stackTrace, String? context}) {
-    _log(LogLevel.error, message, error: error, stackTrace: stackTrace, context: context);
+  static void e(
+    String message, {
+    Object? error,
+    StackTrace? stackTrace,
+    String? context,
+  }) {
+    _log(
+      LogLevel.error,
+      message,
+      error: error,
+      stackTrace: stackTrace,
+      context: context,
+    );
   }
 
   /// Internal log method
-  static void _log(LogLevel level, String message,
-      {Object? error, StackTrace? stackTrace, String? context}) {
+  static void _log(
+    LogLevel level,
+    String message, {
+    Object? error,
+    StackTrace? stackTrace,
+    String? context,
+  }) {
     if (level.index < _minLevel.index) return;
 
     final entry = LogEntry(

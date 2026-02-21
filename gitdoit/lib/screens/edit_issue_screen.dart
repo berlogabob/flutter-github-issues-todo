@@ -5,8 +5,14 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/issue.dart';
 import '../providers/issues_provider.dart';
 import '../utils/logger.dart';
+import '../design_tokens/tokens.dart';
+import '../theme/industrial_theme.dart';
+import '../theme/widgets/widgets.dart';
 
 /// Edit Issue Screen - Edit title, body, and status
+///
+/// REDESIGNED: Industrial Minimalism with hardware-like controls
+/// Real-time preview, fader-style controls
 class EditIssueScreen extends StatefulWidget {
   final Issue issue;
 
@@ -47,6 +53,8 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final industrialTheme = context.industrialTheme;
+
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
@@ -55,129 +63,227 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: industrialTheme.surfacePrimary,
+
+        // Custom Industrial AppBar
         appBar: AppBar(
-          title: const Text('Edit Issue'),
+          backgroundColor: industrialTheme.surfacePrimary,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.close_outlined,
+              color: industrialTheme.textPrimary,
+            ),
+            onPressed: () {
+              if (_hasChanges) {
+                _confirmDiscardChanges();
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          title: Text(
+            'EDIT ISSUE',
+            style: AppTypography.monoAnnotation.copyWith(
+              color: industrialTheme.textTertiary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           actions: [
             // Save button
-            IconButton(
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check),
+            IndustrialButton(
               onPressed: _isLoading ? null : _saveChanges,
-              tooltip: 'Save changes',
+              label: 'SAVE',
+              variant: IndustrialButtonVariant.primary,
+              size: IndustrialButtonSize.small,
+              isLoading: _isLoading,
             ),
+            const SizedBox(width: AppSpacing.xs),
           ],
         ),
+
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Title field
-              TextField(
+              IndustrialInput(
+                label: 'TITLE',
+                hintText: 'Issue title',
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  hintText: 'Issue title',
-                  border: OutlineInputBorder(),
-                ),
                 maxLines: null,
-                textCapitalization: TextCapitalization.sentences,
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
 
               // Body field
-              TextField(
+              IndustrialInput(
+                label: 'DESCRIPTION (MARKDOWN)',
+                hintText: 'Enter issue description',
                 controller: _bodyController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (Markdown supported)',
-                  hintText: 'Enter issue description',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
+                inputType: IndustrialInputType.multiline,
                 maxLines: 10,
                 minLines: 5,
-                textCapitalization: TextCapitalization.sentences,
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
 
-              // Preview section
+              // Preview section (if changes made)
               if (_hasChanges) ...[
-                const Divider(),
-                const SizedBox(height: 16),
-                Text(
-                  'Preview',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildPreview(),
-              ],
-
-              const SizedBox(height: 32),
-
-              // Status toggle
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+                IndustrialCard(
+                  type: IndustrialCardType.data,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Status',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
                       Row(
                         children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: widget.issue.isOpen
-                                  ? null
-                                  : () => _changeStatus('open'),
-                              icon: const Icon(Icons.circle_outlined),
-                              label: const Text('Open'),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: widget.issue.isOpen
-                                    ? Theme.of(
-                                        context,
-                                      ).colorScheme.primaryContainer
-                                    : null,
-                              ),
-                            ),
+                          Icon(
+                            Icons.visibility_outlined,
+                            size: 18,
+                            color: industrialTheme.textTertiary,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: widget.issue.isOpen
-                                  ? () => _changeStatus('closed')
-                                  : null,
-                              icon: const Icon(Icons.check_circle_outline),
-                              label: const Text('Closed'),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: !widget.issue.isOpen
-                                    ? Theme.of(
-                                        context,
-                                      ).colorScheme.tertiaryContainer
-                                    : null,
-                              ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            'PREVIEW',
+                            style: AppTypography.monoAnnotation.copyWith(
+                              color: industrialTheme.textTertiary,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: AppSpacing.lg),
+                      _buildPreview(industrialTheme),
                     ],
                   ),
                 ),
+                const SizedBox(height: AppSpacing.xl),
+              ],
+
+              // Status toggle section
+              IndustrialCard(
+                type: IndustrialCardType.data,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.tune_outlined,
+                          size: 18,
+                          color: industrialTheme.textTertiary,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          'STATUS CONTROL',
+                          style: AppTypography.monoAnnotation.copyWith(
+                            color: industrialTheme.textTertiary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+
+                    // Status indicator
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'CURRENT STATE',
+                                style: AppTypography.monoAnnotation.copyWith(
+                                  color: industrialTheme.textTertiary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xxs),
+                              IndustrialStatusBadge(
+                                isOpen: widget.issue.isOpen,
+                                size: IndustrialBadgeSize.large,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Toggle control
+                        IndustrialToggle(
+                          value: widget.issue.isOpen,
+                          onChanged: (value) =>
+                              _changeStatus(value ? 'open' : 'closed'),
+                          enabled: !_isLoading,
+                          size: IndustrialToggleSize.large,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: AppSpacing.lg),
+
+                    // Status action buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: IndustrialButton(
+                            onPressed: widget.issue.isOpen
+                                ? null
+                                : () => _changeStatus('open'),
+                            label: 'SET OPEN',
+                            variant: IndustrialButtonVariant.secondary,
+                            size: IndustrialButtonSize.small,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: IndustrialButton(
+                            onPressed: widget.issue.isOpen
+                                ? () => _changeStatus('closed')
+                                : null,
+                            label: 'SET CLOSED',
+                            variant: widget.issue.isOpen
+                                ? IndustrialButtonVariant.primary
+                                : IndustrialButtonVariant.secondary,
+                            size: IndustrialButtonSize.small,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+
+              const SizedBox(height: AppSpacing.xxl),
+
+              // Technical annotation
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _hasChanges
+                            ? industrialTheme.accentPrimary
+                            : industrialTheme.textTertiary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      _hasChanges ? 'UNSAVED CHANGES' : 'NO CHANGES',
+                      style: AppTypography.monoAnnotation.copyWith(
+                        color: _hasChanges
+                            ? industrialTheme.accentPrimary
+                            : industrialTheme.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
             ],
           ),
         ),
@@ -185,33 +291,39 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
     );
   }
 
-  Widget _buildPreview() {
+  Widget _buildPreview(IndustrialThemeData industrialTheme) {
     final title = _titleController.text.trim();
     final body = _bodyController.text.trim();
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title.isEmpty ? '(No title)' : title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    return IndustrialCard(
+      type: IndustrialCardType.data,
+      backgroundColor: industrialTheme.surfacePrimary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.isEmpty ? '(No title)' : title,
+            style: AppTypography.headlineSmall.copyWith(
+              color: industrialTheme.textPrimary,
+              fontWeight: FontWeight.w600,
             ),
-            if (body.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              MarkdownBody(
-                data: body,
-                styleSheet: MarkdownStyleSheet(
-                  p: Theme.of(context).textTheme.bodyMedium,
+          ),
+          if (body.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            MarkdownBody(
+              data: body,
+              styleSheet: MarkdownStyleSheet(
+                p: AppTypography.bodyMedium.copyWith(
+                  color: industrialTheme.textPrimary,
+                ),
+                code: AppTypography.monoCode.copyWith(
+                  color: industrialTheme.textPrimary,
+                  backgroundColor: industrialTheme.surfacePrimary,
                 ),
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -245,9 +357,16 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
     if (result != null) {
       Logger.i('Issue updated successfully', context: 'Edit');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Issue updated successfully')),
+        SnackBar(
+          content: const Text('Issue updated successfully'),
+          backgroundColor: context.industrialTheme.statusSuccess,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+          ),
+        ),
       );
-      Navigator.pop(context, true); // Return success
+      Navigator.pop(context, true);
     } else {
       Logger.e('Failed to update issue', context: 'Edit');
       ScaffoldMessenger.of(
@@ -276,9 +395,16 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
 
     if (result != null) {
       Logger.i('Issue $status successfully', context: 'Edit');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Issue $status successfully')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Issue $status successfully'),
+          backgroundColor: context.industrialTheme.accentPrimary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+          ),
+        ),
+      );
       Navigator.pop(context, true);
     } else {
       Logger.e('Failed to change status', context: 'Edit');
@@ -293,22 +419,40 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       return true;
     }
 
+    final industrialTheme = context.industrialTheme;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Discard changes?'),
-        content: const Text(
+        backgroundColor: industrialTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+          side: BorderSide(color: industrialTheme.borderPrimary, width: 1),
+        ),
+        title: Text(
+          'DISCARD CHANGES?',
+          style: AppTypography.headlineSmall.copyWith(
+            color: industrialTheme.textPrimary,
+          ),
+        ),
+        content: Text(
           'You have unsaved changes. Are you sure you want to discard them?',
+          style: AppTypography.bodyMedium.copyWith(
+            color: industrialTheme.textSecondary,
+          ),
         ),
         actions: [
-          TextButton(
+          IndustrialButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            label: 'CANCEL',
+            variant: IndustrialButtonVariant.text,
+            size: IndustrialButtonSize.small,
           ),
-          TextButton(
+          IndustrialButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Discard'),
+            label: 'DISCARD',
+            variant: IndustrialButtonVariant.destructive,
+            size: IndustrialButtonSize.small,
           ),
         ],
       ),

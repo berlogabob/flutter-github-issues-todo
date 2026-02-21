@@ -3,12 +3,18 @@ import 'package:provider/provider.dart';
 
 import '../providers/issues_provider.dart';
 import '../utils/logger.dart';
+import '../design_tokens/tokens.dart';
+import '../theme/industrial_theme.dart';
+import '../theme/widgets/widgets.dart';
 import 'settings_screen.dart';
 import 'issue_detail_screen.dart';
 import '../widgets/issue_card.dart';
 import '../widgets/offline_indicator.dart';
 
 /// Home Screen - Main dashboard after authentication
+///
+/// REDESIGNED: Industrial Minimalism with modular card grid
+/// Z-axis interactions, spring physics animations
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -29,27 +35,48 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final industrialTheme = context.industrialTheme;
+
     return Scaffold(
+      backgroundColor: industrialTheme.surfacePrimary,
+
+      // Custom Industrial Header
       appBar: AppBar(
+        backgroundColor: industrialTheme.surfacePrimary,
+        elevation: 0,
         title: _showSearch
-            ? TextField(
+            ? IndustrialInput(
+                hintText: 'Search issues...',
                 controller: _searchController,
-                autofocus: true,
-                style: Theme.of(context).textTheme.titleLarge,
-                decoration: InputDecoration(
-                  hintText: 'Search issues...',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
                 onChanged: (query) {
                   setState(() => _searchQuery = query);
                 },
+                autofocus: true,
               )
-            : const Text('GitDoIt'),
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'GitDoIt',
+                    style: AppTypography.headlineMedium.copyWith(
+                      color: industrialTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    'Issues Dashboard',
+                    style: AppTypography.monoAnnotation.copyWith(
+                      color: industrialTheme.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
         actions: [
           // Search button
           IconButton(
-            icon: Icon(_showSearch ? Icons.close : Icons.search),
+            icon: Icon(
+              _showSearch ? Icons.close_outlined : Icons.search_outlined,
+              color: industrialTheme.textPrimary,
+            ),
             onPressed: () {
               setState(() {
                 _showSearch = !_showSearch;
@@ -62,7 +89,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Refresh button
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(
+              Icons.refresh_outlined,
+              color: industrialTheme.textPrimary,
+            ),
             onPressed: () {
               Logger.d('Refresh pressed', context: 'Home');
               Provider.of<IssuesProvider>(
@@ -73,7 +103,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Settings button
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: Icon(
+              Icons.settings_outlined,
+              color: industrialTheme.textPrimary,
+            ),
             onPressed: () {
               Logger.d('Settings pressed', context: 'Home');
               Navigator.push(
@@ -82,12 +115,29 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
+
       body: _HomeContent(searchQuery: _searchQuery),
-      floatingActionButton: FloatingActionButton(
+
+      // Custom FAB
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateIssueDialog(context),
-        child: const Icon(Icons.add),
+        backgroundColor: industrialTheme.accentPrimary,
+        foregroundColor: AppColors.textOnAccent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+        ),
+        icon: const Icon(Icons.add_outlined),
+        label: Text(
+          'NEW ISSUE',
+          style: AppTypography.labelMedium.copyWith(
+            color: AppColors.textOnAccent,
+            letterSpacing: 0.5,
+          ),
+        ),
       ),
     );
   }
@@ -95,41 +145,51 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showCreateIssueDialog(BuildContext context) {
     final titleController = TextEditingController();
     final bodyController = TextEditingController();
+    final industrialTheme = context.industrialTheme;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Create Issue'),
+        backgroundColor: industrialTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+          side: BorderSide(color: industrialTheme.borderPrimary, width: 1),
+        ),
+        title: Text(
+          'Create Issue',
+          style: AppTypography.headlineSmall.copyWith(
+            color: industrialTheme.textPrimary,
+          ),
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
+              IndustrialInput(
+                label: 'TITLE',
+                hintText: 'Enter issue title',
                 controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  hintText: 'Enter issue title',
-                ),
                 autofocus: true,
               ),
-              const SizedBox(height: 16),
-              TextField(
+              const SizedBox(height: AppSpacing.lg),
+              IndustrialInput(
+                label: 'DESCRIPTION',
+                hintText: 'Enter issue description (optional)',
                 controller: bodyController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
-                  hintText: 'Enter issue description',
-                ),
-                maxLines: 3,
+                inputType: IndustrialInputType.multiline,
+                maxLines: 5,
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(
+          IndustrialButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            label: 'CANCEL',
+            variant: IndustrialButtonVariant.text,
+            size: IndustrialButtonSize.small,
           ),
-          ElevatedButton(
+          IndustrialButton(
             onPressed: () async {
               final title = titleController.text.trim();
               if (title.isEmpty) {
@@ -155,7 +215,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
               if (issue != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Created issue #${issue.number}')),
+                  SnackBar(
+                    content: Text('Created issue #${issue.number}'),
+                    backgroundColor: industrialTheme.statusSuccess,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.radiusMedium,
+                      ),
+                    ),
+                  ),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -163,7 +232,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             },
-            child: const Text('Create'),
+            label: 'CREATE',
+            variant: IndustrialButtonVariant.primary,
+            size: IndustrialButtonSize.small,
           ),
         ],
       ),
@@ -179,88 +250,143 @@ class _HomeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final issuesProvider = Provider.of<IssuesProvider>(context);
+    final industrialTheme = context.industrialTheme;
 
     return Column(
       children: [
         // Offline indicator
         const OfflineIndicator(),
 
-        // Filter chips
+        // Filter bar - Industrial style
         Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: _buildFilterBar(context, issuesProvider),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: _buildFilterBar(context, issuesProvider, industrialTheme),
         ),
 
         // Issue list or empty state
         Expanded(
           child: issuesProvider.isLoading && issuesProvider.issues.isEmpty
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            industrialTheme.accentPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        'Loading issues...',
+                        style: AppTypography.monoAnnotation.copyWith(
+                          color: industrialTheme.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               : issuesProvider.error != null
-              ? _buildErrorState(context, issuesProvider)
-              : _buildIssueList(context, issuesProvider),
+              ? _buildErrorState(context, issuesProvider, industrialTheme)
+              : _buildIssueList(context, issuesProvider, industrialTheme),
         ),
       ],
     );
   }
 
-  Widget _buildFilterBar(BuildContext context, IssuesProvider issuesProvider) {
-    return Wrap(
-      spacing: 8,
+  Widget _buildFilterBar(
+    BuildContext context,
+    IssuesProvider issuesProvider,
+    IndustrialThemeData industrialTheme,
+  ) {
+    return Row(
       children: [
-        FilterChip(
-          label: const Text('Open'),
-          selected: issuesProvider.filter == 'open',
-          onSelected: (selected) {
-            if (selected) {
-              issuesProvider.setFilter('open');
-              issuesProvider.loadIssues(state: 'open');
-            }
-          },
+        // Filter label
+        Text(
+          'FILTER:',
+          style: AppTypography.monoAnnotation.copyWith(
+            color: industrialTheme.textTertiary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        FilterChip(
-          label: const Text('Closed'),
-          selected: issuesProvider.filter == 'closed',
-          onSelected: (selected) {
-            if (selected) {
-              issuesProvider.setFilter('closed');
-              issuesProvider.loadIssues(state: 'closed');
-            }
-          },
-        ),
-        FilterChip(
-          label: const Text('All'),
-          selected: issuesProvider.filter == 'all',
-          onSelected: (selected) {
-            if (selected) {
-              issuesProvider.setFilter('all');
-              issuesProvider.loadIssues(state: 'all');
-            }
-          },
+        const SizedBox(width: AppSpacing.sm),
+
+        // Filter chips
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: 'OPEN',
+                  selected: issuesProvider.filter == 'open',
+                  onTap: () {
+                    issuesProvider.setFilter('open');
+                    issuesProvider.loadIssues(state: 'open');
+                  },
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                _FilterChip(
+                  label: 'CLOSED',
+                  selected: issuesProvider.filter == 'closed',
+                  onTap: () {
+                    issuesProvider.setFilter('closed');
+                    issuesProvider.loadIssues(state: 'closed');
+                  },
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                _FilterChip(
+                  label: 'ALL',
+                  selected: issuesProvider.filter == 'all',
+                  onTap: () {
+                    issuesProvider.setFilter('all');
+                    issuesProvider.loadIssues(state: 'all');
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildIssueList(BuildContext context, IssuesProvider issuesProvider) {
+  Widget _buildIssueList(
+    BuildContext context,
+    IssuesProvider issuesProvider,
+    IndustrialThemeData industrialTheme,
+  ) {
     final issues = issuesProvider.searchIssues(searchQuery);
 
     return RefreshIndicator(
       onRefresh: () => issuesProvider.refreshIssues(),
+      color: industrialTheme.accentPrimary,
+      backgroundColor: industrialTheme.surfaceElevated,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         itemCount: issues.length,
         itemBuilder: (context, index) {
           final issue = issues[index];
-          return IssueCard(
-            issue: issue,
-            onTap: () => _navigateToDetail(context, issue),
-            onToggleStatus: () {
-              if (issue.isOpen) {
-                issuesProvider.closeIssue(issue.number);
-              } else {
-                issuesProvider.reopenIssue(issue.number);
-              }
-            },
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: IssueCard(
+              issue: issue,
+              onTap: () => _navigateToDetail(context, issue),
+              onToggleStatus: () {
+                if (issue.isOpen) {
+                  issuesProvider.closeIssue(issue.number);
+                } else {
+                  issuesProvider.reopenIssue(issue.number);
+                }
+              },
+            ),
           );
         },
       ),
@@ -275,36 +401,96 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildErrorState(BuildContext context, IssuesProvider issuesProvider) {
+  Widget _buildErrorState(
+    BuildContext context,
+    IssuesProvider issuesProvider,
+    IndustrialThemeData industrialTheme,
+  ) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Theme.of(context).colorScheme.error,
+              color: industrialTheme.statusError,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               'Failed to load issues',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: AppTypography.headlineSmall.copyWith(
+                color: industrialTheme.textPrimary,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               issuesProvider.error ?? 'Unknown error',
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: AppTypography.bodyMedium.copyWith(
+                color: industrialTheme.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
+            const SizedBox(height: AppSpacing.xl),
+            IndustrialButton(
               onPressed: () => issuesProvider.loadIssues(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              label: 'TRY AGAIN',
+              variant: IndustrialButtonVariant.secondary,
+              icon: const Icon(Icons.refresh_outlined, size: 18),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Industrial Filter Chip
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final industrialTheme = context.industrialTheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppAnimations.durationFast,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: selected
+              ? industrialTheme.accentSubtle
+              : industrialTheme.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          border: Border.all(
+            color: selected
+                ? industrialTheme.accentPrimary
+                : industrialTheme.borderPrimary,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.monoData.copyWith(
+            fontSize: 12,
+            color: selected
+                ? industrialTheme.accentPrimary
+                : industrialTheme.textSecondary,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          ),
         ),
       ),
     );

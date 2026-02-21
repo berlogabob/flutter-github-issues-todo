@@ -7,6 +7,7 @@ import 'providers/issues_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'utils/logger.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +23,12 @@ void main() async {
 
 /// GitDoIt - GitHub Issues TODO Tool
 ///
-/// A minimalist Flutter app for managing GitHub Issues as a TODO list.
+/// Industrial Minimalism Redesign (v0.2.0)
+/// - Custom theme system (Material themed beyond recognition)
+/// - Design tokens (colors, typography, spacing, elevation, animations)
+/// - Atomic widget library
+/// - Z-axis spatial depth
+/// - Spring physics animations
 class GitDoItApp extends StatelessWidget {
   const GitDoItApp({super.key});
 
@@ -42,32 +48,12 @@ class GitDoItApp extends StatelessWidget {
       child: MaterialApp(
         title: 'GitDoIt',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF1BAC0C), // GitHub green
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
-          cardTheme: CardThemeData(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          inputDecorationTheme: InputDecorationTheme(
-            filled: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ),
+
+        // Industrial Minimalism Theme
+        theme: IndustrialAppTheme.lightTheme,
+        darkTheme: IndustrialAppTheme.darkTheme,
+        themeMode: ThemeMode.system,
+
         home: const AuthWrapper(),
         routes: {
           '/auth': (context) => const AuthScreen(),

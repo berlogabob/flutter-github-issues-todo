@@ -5,20 +5,26 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../providers/auth_provider.dart';
 import '../utils/logger.dart';
+import '../design_tokens/tokens.dart';
+import '../theme/industrial_theme.dart';
+import '../theme/widgets/widgets.dart';
 
 /// Authentication Screen - Entry point for GitDoIt app
 ///
 /// OFFLINE-FIRST: Users can skip login and use app offline
 /// Token can be added later from settings
+///
+/// REDESIGNED: Industrial Minimalism with spatial depth
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: context.industrialTheme.surfacePrimary,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: const _AuthContent(),
@@ -39,7 +45,6 @@ class _AuthContent extends StatefulWidget {
 class _AuthContentState extends State<_AuthContent> {
   final _formKey = GlobalKey<FormState>();
   final _tokenController = TextEditingController();
-  bool _obscureText = true;
   bool _isLoading = false;
   bool _isOffline = false;
 
@@ -68,7 +73,6 @@ class _AuthContentState extends State<_AuthContent> {
       if (token != null && token.isNotEmpty) {
         _tokenController.text = token;
         Logger.i('Loaded saved token', context: 'Auth');
-        // Don't auto-validate - let user choose to login
       }
     } catch (e) {
       Logger.w('Failed to load saved token', context: 'Auth');
@@ -122,7 +126,6 @@ class _AuthContentState extends State<_AuthContent> {
 
     if (_isOffline) {
       Logger.w('Offline - saving token for later validation', context: 'Auth');
-      // Save token but don't validate yet
       final storage = FlutterSecureStorage();
       await storage.write(key: 'github_token', value: token);
       setState(() => _isLoading = false);
@@ -152,8 +155,11 @@ class _AuthContentState extends State<_AuthContent> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Theme.of(context).colorScheme.error,
+        backgroundColor: context.industrialTheme.statusError,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        ),
       ),
     );
   }
@@ -162,8 +168,11 @@ class _AuthContentState extends State<_AuthContent> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.industrialTheme.accentPrimary,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        ),
       ),
     );
   }
@@ -175,106 +184,95 @@ class _AuthContentState extends State<_AuthContent> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final industrialTheme = context.industrialTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 32),
+        const SizedBox(height: AppSpacing.xxl),
 
-        // Logo
-        _buildLogo(colorScheme),
+        // Logo - Industrial style
+        _buildLogo(industrialTheme),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
 
-        // Title
+        // Title - Display typography
         Text(
-          'Welcome to GitDoIt',
-          style: textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
+          'GitDoIt',
+          style: AppTypography.displayMedium.copyWith(
+            color: industrialTheme.textPrimary,
+            letterSpacing: -0.5,
           ),
           textAlign: TextAlign.center,
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
 
-        // Subtitle
+        // Subtitle - Monospace annotation
         Text(
-          'Your GitHub Issues TODO Tool',
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
+          'GitHub Issues TODO Tool',
+          style: AppTypography.monoAnnotation.copyWith(
+            color: industrialTheme.textSecondary,
           ),
           textAlign: TextAlign.center,
         ),
 
-        const SizedBox(height: 48),
+        const SizedBox(height: AppSpacing.xxxl),
 
-        // Offline error
+        // Offline indicator
         if (_isOffline) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colorScheme.error),
-            ),
+          IndustrialCard(
+            type: IndustrialCardType.data,
+            backgroundColor: industrialTheme.statusWarning.withOpacity(0.1),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Row(
               children: [
                 Icon(
-                  Icons.wifi_off,
-                  color: colorScheme.onErrorContainer,
+                  Icons.wifi_off_outlined,
+                  color: industrialTheme.statusWarning,
                   size: 20,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text(
-                    'Working offline - Add token later',
-                    style: TextStyle(
-                      color: colorScheme.onErrorContainer,
-                      fontSize: 12,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'OFFLINE MODE',
+                        style: AppTypography.labelSmall.copyWith(
+                          color: industrialTheme.statusWarning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Add token later to sync',
+                        style: AppTypography.captionSmall.copyWith(
+                          color: industrialTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
         ],
 
         // Token Input Form
         Form(
           key: _formKey,
-          child: TextFormField(
+          child: IndustrialInput(
+            label: 'PERSONAL ACCESS TOKEN',
+            hintText: 'ghp_...',
             controller: _tokenController,
-            obscureText: _obscureText,
-            style: textTheme.bodyLarge,
-            decoration: InputDecoration(
-              labelText: 'GitHub Personal Access Token (Optional)',
-              hintText: 'ghp_...',
-              prefixIcon: const Icon(Icons.key),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureText ? Icons.visibility_off : Icons.visibility,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscureText = !_obscureText;
-                  });
-                },
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: colorScheme.primary, width: 2),
-              ),
-              helperText: 'Leave empty to use offline mode',
-              helperStyle: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+            inputType: IndustrialInputType.password,
+            helperText: 'Leave empty for offline mode',
+            prefixIcon: Icon(
+              Icons.key_outlined,
+              size: 20,
+              color: industrialTheme.textSecondary,
             ),
             validator: (value) {
               if (value != null && value.isNotEmpty && value.length < 10) {
@@ -285,121 +283,154 @@ class _AuthContentState extends State<_AuthContent> {
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
 
-        // Continue Button
-        SizedBox(
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _validateAndContinue,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+        // Continue Button - Primary action
+        IndustrialButton(
+          onPressed: _isLoading ? null : _validateAndContinue,
+          label: _tokenController.text.isEmpty
+              ? 'CONTINUE OFFLINE'
+              : 'CONTINUE',
+          variant: IndustrialButtonVariant.primary,
+          size: IndustrialButtonSize.large,
+          isFullWidth: true,
+          isLoading: _isLoading,
+        ),
+
+        const SizedBox(height: AppSpacing.xxl),
+
+        // Info card - How it works
+        IndustrialCard(
+          type: IndustrialCardType.data,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'HOW IT WORKS',
+                style: AppTypography.monoAnnotation.copyWith(
+                  color: industrialTheme.textTertiary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              elevation: 2,
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text(
-                    _tokenController.text.isEmpty
-                        ? 'CONTINUE OFFLINE'
-                        : 'CONTINUE',
-                    style: textTheme.labelLarge?.copyWith(letterSpacing: 1.2),
-                  ),
+              const SizedBox(height: AppSpacing.lg),
+              _buildInfoItem(
+                icon: Icons.cloud_off_outlined,
+                title: 'OFFLINE FIRST',
+                description: 'Use app without authentication',
+                industrialTheme: industrialTheme,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildDivider(industrialTheme),
+              const SizedBox(height: AppSpacing.md),
+              _buildInfoItem(
+                icon: Icons.cloud_sync_outlined,
+                title: 'SYNC LATER',
+                description: 'Add token to sync with GitHub',
+                industrialTheme: industrialTheme,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildDivider(industrialTheme),
+              const SizedBox(height: AppSpacing.md),
+              _buildInfoItem(
+                icon: Icons.folder_outlined,
+                title: 'LOCAL CACHE',
+                description: 'Data stored securely on device',
+                industrialTheme: industrialTheme,
+              ),
+            ],
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xxl),
 
-        // Info card
-        Card(
-          color: colorScheme.surfaceContainerHighest,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'How it works',
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildInfoItem(
-                  icon: Icons.cloud_off_outlined,
-                  text: 'Use app offline without token',
-                  colorScheme: colorScheme,
-                  textTheme: textTheme,
-                ),
-                const SizedBox(height: 8),
-                _buildInfoItem(
-                  icon: Icons.cloud_sync_outlined,
-                  text: 'Add token later to sync with GitHub',
-                  colorScheme: colorScheme,
-                  textTheme: textTheme,
-                ),
-                const SizedBox(height: 8),
-                _buildInfoItem(
-                  icon: Icons.key,
-                  text: 'Get token from github.com/settings/tokens',
-                  colorScheme: colorScheme,
-                  textTheme: textTheme,
-                ),
-              ],
+        // Technical annotation
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: industrialTheme.accentPrimary,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              'v0.2.0-industrial',
+              style: AppTypography.monoAnnotation.copyWith(
+                color: industrialTheme.textTertiary,
+              ),
+            ),
+          ],
         ),
-
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
       ],
     );
   }
 
-  Widget _buildLogo(ColorScheme colorScheme) {
+  Widget _buildLogo(IndustrialThemeData industrialTheme) {
     return Container(
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        shape: BoxShape.circle,
+        color: industrialTheme.accentSubtle,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+        border: Border.all(color: industrialTheme.accentPrimary, width: 1),
       ),
       child: Icon(
-        Icons.rocket_launch_rounded,
-        size: 48,
-        color: colorScheme.onPrimaryContainer,
+        Icons.rocket_launch_outlined,
+        size: 40,
+        color: industrialTheme.accentPrimary,
       ),
     );
   }
 
   Widget _buildInfoItem({
     required IconData icon,
-    required String text,
-    required ColorScheme colorScheme,
-    required TextTheme textTheme,
+    required String title,
+    required String description,
+    required IndustrialThemeData industrialTheme,
   }) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: colorScheme.primary),
-        const SizedBox(width: 8),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: industrialTheme.surfacePrimary,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+            border: Border.all(color: industrialTheme.borderPrimary, width: 1),
+          ),
+          child: Icon(icon, size: 20, color: industrialTheme.accentPrimary),
+        ),
+        const SizedBox(width: AppSpacing.md),
         Expanded(
-          child: Text(
-            text,
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTypography.labelMedium.copyWith(
+                  color: industrialTheme.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: AppTypography.captionSmall.copyWith(
+                  color: industrialTheme.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildDivider(IndustrialThemeData industrialTheme) {
+    return Container(height: 1, color: industrialTheme.borderPrimary);
   }
 }

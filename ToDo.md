@@ -1,1 +1,4 @@
-- [ ] add posabiliti to work fully offline without github token
+- [ ] first -work fully offline without github token
+- [ ] read this file[@Grok-Flutter Todo App with GitHub Issues.json](file:///Users/berloga/Documents/GitHub/flutter-github-issues-todo/Grok-Flutter%20Todo%20App%20with%20GitHub%20Issues.json) analyzed it.
+- [ ] project should work offline and sync when internet will be availible
+- [ ]

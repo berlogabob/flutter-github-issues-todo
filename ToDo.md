@@ -1,0 +1,1 @@
+- [ ] add posabiliti to work fully offline without github token

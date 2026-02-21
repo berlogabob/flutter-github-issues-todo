@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../providers/auth_provider.dart';
 import '../utils/logger.dart';
 
 /// Authentication Screen - Entry point for GitDoIt app
 ///
-/// Allows users to enter their GitHub Personal Access Token (PAT)
-/// for authentication with the GitHub API.
+/// OFFLINE-FIRST: Users can skip login and use app offline
+/// Token can be added later from settings
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
 
@@ -39,11 +40,25 @@ class _AuthContentState extends State<_AuthContent> {
   final _formKey = GlobalKey<FormState>();
   final _tokenController = TextEditingController();
   bool _obscureText = true;
+  bool _isLoading = false;
+  bool _isOffline = false;
 
   @override
   void initState() {
     super.initState();
+    _checkConnectivity();
     _loadSavedToken();
+  }
+
+  Future<void> _checkConnectivity() async {
+    final connectivity = await Connectivity().checkConnectivity();
+    setState(() {
+      _isOffline = connectivity == ConnectivityResult.none;
+    });
+    Logger.d(
+      'Connectivity: ${_isOffline ? "OFFLINE" : "ONLINE"}',
+      context: 'Auth',
+    );
   }
 
   Future<void> _loadSavedToken() async {
@@ -53,10 +68,10 @@ class _AuthContentState extends State<_AuthContent> {
       if (token != null && token.isNotEmpty) {
         _tokenController.text = token;
         Logger.i('Loaded saved token', context: 'Auth');
+        // Don't auto-validate - let user choose to login
       }
     } catch (e) {
       Logger.w('Failed to load saved token', context: 'Auth');
-      Logger.e('Failed to load saved token', error: e, context: 'Auth');
     }
   }
 
@@ -71,8 +86,9 @@ class _AuthContentState extends State<_AuthContent> {
 
     final token = _tokenController.text.trim();
 
-    // Basic validation
-    if (!token.startsWith('ghp_') &&
+    // Basic validation only (no network)
+    if (token.isNotEmpty &&
+        !token.startsWith('ghp_') &&
         !token.startsWith('gho_') &&
         !token.startsWith('ghu_') &&
         !token.startsWith('ghs_') &&
@@ -83,14 +99,43 @@ class _AuthContentState extends State<_AuthContent> {
       return;
     }
 
-    if (token.length < 10) {
+    if (token.isNotEmpty && token.length < 10) {
       _showError('Token too short. Please check your token.');
       return;
     }
 
-    // Save token and validate with GitHub
+    setState(() => _isLoading = true);
+
+    // If token is empty, continue without auth
+    if (token.isEmpty) {
+      Logger.i(
+        'Continuing without authentication (offline mode)',
+        context: 'Auth',
+      );
+      setState(() => _isLoading = false);
+      _navigateToHome();
+      return;
+    }
+
+    // Validate with GitHub only if online
+    await _checkConnectivity();
+
+    if (_isOffline) {
+      Logger.w('Offline - saving token for later validation', context: 'Auth');
+      // Save token but don't validate yet
+      final storage = FlutterSecureStorage();
+      await storage.write(key: 'github_token', value: token);
+      setState(() => _isLoading = false);
+      _showInfo('Token saved. Will validate when online.');
+      _navigateToHome();
+      return;
+    }
+
+    // Online - validate token
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.validateAndSaveToken(token);
+
+    setState(() => _isLoading = false);
 
     if (authProvider.isAuthenticated) {
       Logger.i('Authentication successful', context: 'Auth');
@@ -113,18 +158,19 @@ class _AuthContentState extends State<_AuthContent> {
     );
   }
 
-  void _navigateToHome() {
-    Logger.i('Navigating to HomeScreen', context: 'Auth');
-    // Replace the entire navigation stack with HomeScreen
-    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+  void _showInfo(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
-  void _openGitHubTokenPage() async {
-    // TODO: Open GitHub token page in browser
-    Logger.d(
-      'Opening GitHub token page - not implemented yet',
-      context: 'Auth',
-    );
+  void _navigateToHome() {
+    Logger.i('Navigating to HomeScreen', context: 'Auth');
+    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
   }
 
   @override
@@ -165,6 +211,38 @@ class _AuthContentState extends State<_AuthContent> {
 
         const SizedBox(height: 48),
 
+        // Offline error
+        if (_isOffline) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colorScheme.error),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.wifi_off,
+                  color: colorScheme.onErrorContainer,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Working offline - Add token later',
+                    style: TextStyle(
+                      color: colorScheme.onErrorContainer,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // Token Input Form
         Form(
           key: _formKey,
@@ -173,7 +251,7 @@ class _AuthContentState extends State<_AuthContent> {
             obscureText: _obscureText,
             style: textTheme.bodyLarge,
             decoration: InputDecoration(
-              labelText: 'GitHub Personal Access Token',
+              labelText: 'GitHub Personal Access Token (Optional)',
               hintText: 'ghp_...',
               prefixIcon: const Icon(Icons.key),
               suffixIcon: IconButton(
@@ -193,14 +271,14 @@ class _AuthContentState extends State<_AuthContent> {
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: colorScheme.primary, width: 2),
               ),
-              helperText: 'Starts with ghp_, gho_, ghu_, ghs_, or github_pat_',
+              helperText: 'Leave empty to use offline mode',
               helperStyle: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your GitHub token';
+              if (value != null && value.isNotEmpty && value.length < 10) {
+                return 'Token must be at least 10 characters';
               }
               return null;
             },
@@ -209,76 +287,78 @@ class _AuthContentState extends State<_AuthContent> {
 
         const SizedBox(height: 24),
 
-        // Get Started Button
+        // Continue Button
         SizedBox(
           height: 56,
-          child: Consumer<AuthProvider>(
-            builder: (context, authProvider, _) {
-              return ElevatedButton(
-                onPressed: authProvider.isLoading ? null : _validateAndContinue,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _validateAndContinue,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 2,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    _tokenController.text.isEmpty
+                        ? 'CONTINUE OFFLINE'
+                        : 'CONTINUE',
+                    style: textTheme.labelLarge?.copyWith(letterSpacing: 1.2),
                   ),
-                  elevation: 2,
-                ),
-                child: authProvider.isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : Text(
-                        'GET STARTED',
-                        style: textTheme.labelLarge?.copyWith(
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-              );
-            },
           ),
         ),
 
         const SizedBox(height: 24),
 
-        // Divider with "or"
-        Row(
-          children: [
-            Expanded(child: Divider(color: colorScheme.outline.withAlpha(128))),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'or',
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+        // Info card
+        Card(
+          color: colorScheme.surfaceContainerHighest,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'How it works',
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                _buildInfoItem(
+                  icon: Icons.cloud_off_outlined,
+                  text: 'Use app offline without token',
+                  colorScheme: colorScheme,
+                  textTheme: textTheme,
+                ),
+                const SizedBox(height: 8),
+                _buildInfoItem(
+                  icon: Icons.cloud_sync_outlined,
+                  text: 'Add token later to sync with GitHub',
+                  colorScheme: colorScheme,
+                  textTheme: textTheme,
+                ),
+                const SizedBox(height: 8),
+                _buildInfoItem(
+                  icon: Icons.key,
+                  text: 'Get token from github.com/settings/tokens',
+                  colorScheme: colorScheme,
+                  textTheme: textTheme,
+                ),
+              ],
             ),
-            Expanded(child: Divider(color: colorScheme.outline.withAlpha(128))),
-          ],
+          ),
         ),
-
-        const SizedBox(height: 24),
-
-        // Create token link
-        TextButton.icon(
-          onPressed: _openGitHubTokenPage,
-          icon: const Icon(Icons.open_in_new, size: 16),
-          label: const Text('Create one on GitHub'),
-          style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
-        ),
-
-        const SizedBox(height: 32),
-
-        // Token Requirements Card
-        _buildRequirementsCard(colorScheme, textTheme),
 
         const SizedBox(height: 24),
       ],
@@ -301,54 +381,7 @@ class _AuthContentState extends State<_AuthContent> {
     );
   }
 
-  Widget _buildRequirementsCard(ColorScheme colorScheme, TextTheme textTheme) {
-    return Card(
-      color: colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.info_outline, size: 18, color: colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Token Requirements',
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildRequirementItem(
-              icon: Icons.check_circle_outline,
-              text: 'repo:read & repo:write',
-              colorScheme: colorScheme,
-              textTheme: textTheme,
-            ),
-            const SizedBox(height: 8),
-            _buildRequirementItem(
-              icon: Icons.check_circle_outline,
-              text: 'issues:read & issues:write',
-              colorScheme: colorScheme,
-              textTheme: textTheme,
-            ),
-            const SizedBox(height: 8),
-            _buildRequirementItem(
-              icon: Icons.check_circle_outline,
-              text: 'Fine-grained or Classic token',
-              colorScheme: colorScheme,
-              textTheme: textTheme,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRequirementItem({
+  Widget _buildInfoItem({
     required IconData icon,
     required String text,
     required ColorScheme colorScheme,
@@ -358,10 +391,12 @@ class _AuthContentState extends State<_AuthContent> {
       children: [
         Icon(icon, size: 16, color: colorScheme.primary),
         const SizedBox(width: 8),
-        Text(
-          text,
-          style: textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
+        Expanded(
+          child: Text(
+            text,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],

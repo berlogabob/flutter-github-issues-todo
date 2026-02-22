@@ -251,6 +251,15 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _storage.delete(key: 'github_token');
+    } catch (e, stackTrace) {
+      Logger.e(
+        'Logout failed',
+        error: e,
+        stackTrace: stackTrace,
+        context: 'Auth',
+      );
+    } finally {
+      // Always clear state even if storage fails
       _token = null;
       _isAuthenticated = false;
       _username = null;
@@ -267,13 +276,6 @@ class AuthProvider extends ChangeNotifier {
         'logout',
         metadata: {'was_authenticated': _isAuthenticated},
       );
-    } catch (e, stackTrace) {
-      Logger.e(
-        'Logout failed',
-        error: e,
-        stackTrace: stackTrace,
-        context: 'Auth',
-      );
     }
 
     notifyListeners();
@@ -288,6 +290,16 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _storage.delete(key: 'github_token');
+    } catch (e, stackTrace) {
+      Logger.e(
+        'Failed to clear auth data',
+        error: e,
+        stackTrace: stackTrace,
+        context: 'Auth',
+      );
+      metric.complete(success: false, errorMessage: e.toString());
+    } finally {
+      // Always clear state even if storage fails
       _token = null;
       _isAuthenticated = false;
       _username = null;
@@ -305,16 +317,6 @@ class AuthProvider extends ChangeNotifier {
         'auth_data_cleared',
         metadata: {'was_authenticated': _isAuthenticated},
       );
-      metric.complete(success: true);
-    } catch (e, stackTrace) {
-      Logger.e(
-        'Failed to clear auth data',
-        error: e,
-        stackTrace: stackTrace,
-        context: 'Auth',
-      );
-      metric.complete(success: false, errorMessage: e.toString());
-      rethrow;
     }
 
     notifyListeners();

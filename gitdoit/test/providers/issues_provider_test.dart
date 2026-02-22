@@ -1,8 +1,31 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:gitdoit/providers/issues_provider.dart';
 import 'package:gitdoit/models/issue.dart';
+import 'package:gitdoit/models/issue.adapter.dart';
+import 'dart:io';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late Directory tempDir;
+
+  setUpAll(() async {
+    // Set up temporary directory for Hive
+    tempDir = await Directory.systemTemp.createTemp('hive_test_');
+    Hive.init(tempDir.path);
+    Hive.registerAdapter(IssueAdapter());
+    Hive.registerAdapter(LabelAdapter());
+    Hive.registerAdapter(MilestoneAdapter());
+    Hive.registerAdapter(UserAdapter());
+  });
+
+  tearDownAll(() async {
+    await Hive.close();
+    await tempDir.delete(recursive: true);
+  });
+
   group('IssuesProvider', () {
     late IssuesProvider issuesProvider;
 

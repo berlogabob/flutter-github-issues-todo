@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:io';
@@ -13,6 +14,8 @@ import 'package:gitdoit/models/issue.adapter.dart';
 /// 2. Issues load on startup
 /// 3. Cache persists after app restart
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late Directory tempDir;
   late Box<Issue> issuesBox;
 

@@ -1,9 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:gitdoit/providers/auth_provider.dart';
 import 'package:gitdoit/services/github_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+
+// Initialize binding for all tests
+TestWidgetsFlutterBinding.ensureInitialized();
 
 // Mock classes for testing
 class MockSecureStorage implements FlutterSecureStorage {
@@ -241,6 +245,8 @@ class MockClient implements http.Client {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('AuthProvider', () {
     late AuthProvider authProvider;
     late MockSecureStorage mockStorage;
@@ -538,12 +544,12 @@ void main() {
         // In real implementation, errors are logged but don't crash
 
         // Act & Assert - should not throw
-        expect(() async => await authProvider.clearAllData(), returnsNormally);
+        await authProvider.clearAllData();
       });
 
       test('should handle logout errors gracefully', () async {
         // Act & Assert - should not throw
-        expect(() async => await authProvider.logout(), returnsNormally);
+        await authProvider.logout();
       });
     });
 

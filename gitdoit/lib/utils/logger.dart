@@ -593,8 +593,14 @@ class Logger {
     if (kDebugMode) {
       final output = entry.toString();
       if (level == LogLevel.error) {
+        final stackTraceStr = stackTrace?.toString();
+        final safeStackTrace = stackTraceStr != null
+            ? (stackTraceStr.length > 500
+                ? stackTraceStr.substring(0, 497) + '...'
+                : stackTraceStr)
+            : 'null';
         debugPrint(
-          '$output\nError: $error\nStackTrace: ${stackTrace?.toString().substring(0, 500)}...',
+          '$output\nError: $error\nStackTrace: $safeStackTrace',
         );
       } else {
         debugPrint(output);

@@ -35,7 +35,10 @@ class IssuesProvider extends ChangeNotifier {
   final ConnectivityService _connectivityService = ConnectivityService();
 
   // Hive box for local caching
-  late Box<Issue> _issuesBox;
+  Box<Issue>? _issuesBox;
+
+  // Helper to check if Hive box is available
+  bool get _isBoxAvailable => _issuesBox != null && _issuesBox!.isOpen;
 
   // State
   List<Issue> _issues = [];
@@ -85,7 +88,7 @@ class IssuesProvider extends ChangeNotifier {
   bool get syncError => _syncError;
 
   /// Get total issue count in cache
-  int get cachedIssueCount => _issuesBox.length;
+  int get cachedIssueCount => _isBoxAvailable ? _issuesBox!.length : 0;
 
   /// Get last sync time formatted as string
   String? get lastSyncTimeFormatted {
@@ -110,7 +113,7 @@ class IssuesProvider extends ChangeNotifier {
       // Estimate cache size based on number of issues
       // Average issue size is approximately 1-2KB
       final avgIssueSize = 1500; // bytes
-      return _issuesBox.length * avgIssueSize;
+      return _isBoxAvailable ? _issuesBox!.length * avgIssueSize : 0;
     } catch (_) {
       return 0;
     }
@@ -137,7 +140,7 @@ class IssuesProvider extends ChangeNotifier {
     try {
       final cacheSize = await getCacheSizeBytes();
       return {
-        'issueCount': _issuesBox.length,
+        'issueCount': _isBoxAvailable ? _issuesBox!.length : 0,
         'cacheSizeBytes': cacheSize,
         'cacheSizeFormatted': await getCacheSizeFormatted(),
         'lastSyncTime': _lastSyncTime,
@@ -1247,15 +1250,17 @@ class IssuesProvider extends ChangeNotifier {
   ///
   /// Uses issue numbers as keys for reliable persistence and updates
   Future<void> _saveToCache() async {
+    if (!_isBoxAvailable) return;
+    
     final metric = Logger.startMetric('saveToCache', 'Issues');
     try {
       // Clear existing cache
-      await _issuesBox.clear();
+      await _issuesBox!.clear();
 
       // Save each issue using its number as part of the key
       // String keys support both positive (remote) and negative (local) issue numbers
       for (final issue in _issues) {
-        await _issuesBox.put(_getCacheKey(issue), issue);
+        await _issuesBox!.put(_getCacheKey(issue), issue);
       }
 
       Logger.d('Cached ${_issues.length} issues', context: 'Issues');
@@ -1276,9 +1281,11 @@ class IssuesProvider extends ChangeNotifier {
   ///
   /// Returns issues sorted by update time (most recent first)
   Future<void> _loadFromCache() async {
+    if (!_isBoxAvailable) return;
+    
     final metric = Logger.startMetric('loadFromCache', 'Issues');
     try {
-      final cachedIssues = _issuesBox.values.toList();
+      final cachedIssues = _issuesBox!.values.toList();
 
       if (cachedIssues.isNotEmpty) {
         // Sort by updated date (most recent first)
@@ -1310,15 +1317,17 @@ class IssuesProvider extends ChangeNotifier {
       metric.complete(success: false, errorMessage: e.toString());
 
       // Clear corrupted cache to prevent future failures
-      try {
-        await _issuesBox.clear();
-        Logger.i('Cleared corrupted cache', context: 'Issues');
-      } catch (clearError) {
-        Logger.e(
-          'Failed to clear corrupted cache',
-          error: clearError,
-          context: 'Issues',
-        );
+      if (_isBoxAvailable) {
+        try {
+          await _issuesBox!.clear();
+          Logger.i('Cleared corrupted cache', context: 'Issues');
+        } catch (clearError) {
+          Logger.e(
+            'Failed to clear corrupted cache',
+            error: clearError,
+            context: 'Issues',
+          );
+        }
       }
     }
   }
@@ -1336,11 +1345,13 @@ class IssuesProvider extends ChangeNotifier {
   ///
   /// Removes all cached issues but keeps repository configuration
   Future<void> clearCache() async {
+    if (!_isBoxAvailable) return;
+    
     final metric = Logger.startMetric('clearCache', 'Issues');
     Logger.i('Clearing issues cache', context: 'Issues');
 
     try {
-      await _issuesBox.clear();
+      await _issuesBox!.clear();
       _issues = [];
       Logger.i('Issues cache cleared', context: 'Issues');
       Logger.trackJourney(
@@ -1438,7 +1449,9 @@ class IssuesProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _issuesBox.close();
+    if (_isBoxAvailable) {
+      _issuesBox!.close();
+    }
     _githubService.dispose();
     _connectivitySubscription?.cancel();
     _connectivityService.dispose();

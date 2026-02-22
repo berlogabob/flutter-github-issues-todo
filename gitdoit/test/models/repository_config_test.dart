@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:gitdoit/models/repository_config.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('RepositoryConfig Model', () {
     final testLastSynced = DateTime(2024, 1, 15, 10, 30, 0);
 

@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
 import 'package:gitdoit/services/theme_prefs.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 

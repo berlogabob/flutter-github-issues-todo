@@ -6,9 +6,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-// Initialize binding for all tests
-TestWidgetsFlutterBinding.ensureInitialized();
-
 // Mock classes for testing
 class MockSecureStorage implements FlutterSecureStorage {
   final Map<String, String> _storage = {};

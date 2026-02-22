@@ -596,12 +596,10 @@ class Logger {
         final stackTraceStr = stackTrace?.toString();
         final safeStackTrace = stackTraceStr != null
             ? (stackTraceStr.length > 500
-                ? stackTraceStr.substring(0, 497) + '...'
-                : stackTraceStr)
+                  ? '${stackTraceStr.substring(0, 497)}...'
+                  : stackTraceStr)
             : 'null';
-        debugPrint(
-          '$output\nError: $error\nStackTrace: $safeStackTrace',
-        );
+        debugPrint('$output\nError: $error\nStackTrace: $safeStackTrace');
       } else {
         debugPrint(output);
       }

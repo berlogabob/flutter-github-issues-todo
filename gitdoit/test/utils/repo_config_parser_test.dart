@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
 import 'package:gitdoit/utils/repo_config_parser.dart';
 
 void main() {

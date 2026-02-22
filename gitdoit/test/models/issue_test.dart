@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:gitdoit/models/issue.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Issue Model', () {
     // Test data
     final testCreatedAt = DateTime(2024, 1, 15, 10, 30, 0);

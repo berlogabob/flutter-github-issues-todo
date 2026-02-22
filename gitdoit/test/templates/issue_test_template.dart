@@ -5,6 +5,8 @@ import 'package:gitdoit/providers/auth_provider.dart';
 import 'package:gitdoit/providers/issues_provider.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Issue #[ISSUE_NUMBER] - [ISSUE_TITLE]', () {
     // Test variables
     // TODO: Add variables needed for this specific issue

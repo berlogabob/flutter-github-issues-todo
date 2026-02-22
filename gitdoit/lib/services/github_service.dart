@@ -33,12 +33,17 @@ class GitHubService {
 
   // Get authenticated token
   Future<String> get _token async {
-    final token = await _storage.read(key: 'github_token');
-    if (token == null || token.isEmpty) {
-      Logger.e('No token found', context: 'GitHub');
+    try {
+      final token = await _storage.read(key: 'github_token');
+      if (token == null || token.isEmpty) {
+        Logger.e('No token found', context: 'GitHub');
+        throw Exception('No GitHub token found. Please login first.');
+      }
+      return token;
+    } catch (e) {
+      Logger.e('Failed to read token from storage', error: e, context: 'GitHub');
       throw Exception('No GitHub token found. Please login first.');
     }
-    return token;
   }
 
   // Common headers for all requests

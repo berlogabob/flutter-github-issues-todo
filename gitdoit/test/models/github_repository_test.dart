@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:gitdoit/models/github_repository.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('GitHubRepository Model', () {
     // Test data
     final testCreatedAt = DateTime(2024, 1, 1, 10, 0, 0);

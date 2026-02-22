@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:gitdoit/providers/auth_provider.dart';
 import 'package:gitdoit/services/github_service.dart';

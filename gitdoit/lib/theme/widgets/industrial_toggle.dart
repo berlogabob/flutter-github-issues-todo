@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 import '../../design_tokens/tokens.dart';
 import '../../theme/industrial_theme.dart';
 
@@ -128,7 +127,6 @@ class _IndustrialToggleState extends State<IndustrialToggle>
         touchTargetSize = 56;
         break;
       case IndustrialToggleSize.medium:
-      default:
         trackWidth = 52;
         trackHeight = 32;
         thumbSize = 24;
@@ -236,13 +234,13 @@ class _IndustrialToggleState extends State<IndustrialToggle>
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppColors.pureBlack
-                                              .withOpacity(
+                                          color: AppColors.pureBlack.withValues(
+                                            alpha:
                                                 industrialTheme.brightness ==
-                                                        Brightness.dark
-                                                    ? 0.3
-                                                    : 0.2,
-                                              ),
+                                                    Brightness.dark
+                                                ? 0.3
+                                                : 0.2,
+                                          ),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         ),

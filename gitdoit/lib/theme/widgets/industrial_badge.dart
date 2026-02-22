@@ -102,7 +102,6 @@ class IndustrialBadge extends StatelessWidget {
         dotSize = 8;
         break;
       case IndustrialBadgeSize.medium:
-      default:
         horizontalPadding = AppSpacing.badgePaddingHorizontal;
         verticalPadding = AppSpacing.badgePaddingVertical;
         fontSize = 12;
@@ -124,7 +123,7 @@ class IndustrialBadge extends StatelessWidget {
         dotColor = industrialTheme.accentPrimary;
         break;
       case IndustrialBadgeVariant.success:
-        backgroundColor = AppColors.statusGreen.withOpacity(0.1);
+        backgroundColor = AppColors.statusGreen.withValues(alpha: 0.1);
         textColor = industrialTheme.brightness == Brightness.dark
             ? AppColors.statusGreen
             : AppColors.statusGreenDark;
@@ -132,7 +131,7 @@ class IndustrialBadge extends StatelessWidget {
         dotColor = textColor;
         break;
       case IndustrialBadgeVariant.error:
-        backgroundColor = AppColors.errorRed.withOpacity(0.1);
+        backgroundColor = AppColors.errorRed.withValues(alpha: 0.1);
         textColor = industrialTheme.brightness == Brightness.dark
             ? AppColors.errorRed
             : AppColors.errorRedDark;
@@ -140,7 +139,7 @@ class IndustrialBadge extends StatelessWidget {
         dotColor = textColor;
         break;
       case IndustrialBadgeVariant.warning:
-        backgroundColor = AppColors.statusWarning.withOpacity(0.1);
+        backgroundColor = AppColors.statusWarning.withValues(alpha: 0.1);
         textColor = industrialTheme.brightness == Brightness.dark
             ? AppColors.statusWarning
             : AppColors.statusWarningDark;
@@ -148,13 +147,12 @@ class IndustrialBadge extends StatelessWidget {
         dotColor = textColor;
         break;
       case IndustrialBadgeVariant.info:
-        backgroundColor = AppColors.signalOrange.withOpacity(0.05);
+        backgroundColor = AppColors.signalOrange.withValues(alpha: 0.05);
         textColor = industrialTheme.textSecondary;
         borderColor = industrialTheme.borderPrimary;
         dotColor = industrialTheme.textSecondary;
         break;
       case IndustrialBadgeVariant.defaultVariant:
-      default:
         backgroundColor = industrialTheme.surfacePrimary;
         textColor = industrialTheme.textPrimary;
         borderColor = null;
@@ -173,7 +171,7 @@ class IndustrialBadge extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Dot indicator
-        if (showDot && dotColor != null) ...[
+        if (showDot) ...[
           Container(
             width: dotSize,
             height: dotSize,
@@ -296,7 +294,7 @@ class IndustrialLabelBadge extends StatelessWidget {
             : AppSpacing.badgePaddingVertical,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
         border: Border.all(color: color, width: 1),
       ),

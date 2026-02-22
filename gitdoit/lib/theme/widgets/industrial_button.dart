@@ -75,7 +75,6 @@ class IndustrialButton extends StatefulWidget {
 class _IndustrialButtonState extends State<IndustrialButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
   late Animation<double> _elevationAnimation;
   bool _isHovered = false;
   bool _isPressed = false;
@@ -86,10 +85,6 @@ class _IndustrialButtonState extends State<IndustrialButton>
     _controller = AnimationController(
       vsync: this,
       duration: AppAnimations.durationNormal,
-    );
-
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
 
     _elevationAnimation = Tween<double>(
@@ -169,7 +164,6 @@ class _IndustrialButtonState extends State<IndustrialButton>
         minHeight = 56;
         break;
       case IndustrialButtonSize.medium:
-      default:
         horizontalPadding = AppSpacing.buttonPaddingHorizontal;
         verticalPadding = AppSpacing.buttonPaddingVertical;
         textStyle = AppTypography.labelMedium;
@@ -222,7 +216,7 @@ class _IndustrialButtonState extends State<IndustrialButton>
       if (widget.variant == IndustrialButtonVariant.secondary) {
         backgroundColor = industrialTheme.surfaceHover;
       } else if (widget.variant == IndustrialButtonVariant.text) {
-        backgroundColor = industrialTheme.surfacePrimary.withOpacity(0.5);
+        backgroundColor = industrialTheme.surfacePrimary.withValues(alpha: 0.5);
       }
     }
 
@@ -272,8 +266,9 @@ class _IndustrialButtonState extends State<IndustrialButton>
                   boxShadow: elevation > 0
                       ? [
                           BoxShadow(
-                            color: AppColors.pureBlack.withOpacity(
-                              industrialTheme.brightness == Brightness.dark
+                            color: AppColors.pureBlack.withValues(
+                              alpha:
+                                  industrialTheme.brightness == Brightness.dark
                                   ? 0.3
                                   : 0.12,
                             ),

@@ -74,7 +74,7 @@ class IndustrialAppTheme {
       cardTheme: CardThemeData(
         color: AppColors.pureWhite,
         elevation: 0,
-        shadowColor: AppColors.pureBlack.withOpacity(0.08),
+        shadowColor: AppColors.pureBlack.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
           side: const BorderSide(color: AppColors.borderLight, width: 1),
@@ -298,7 +298,7 @@ class IndustrialAppTheme {
       cardTheme: CardThemeData(
         color: AppColors.surfaceDark,
         elevation: 0,
-        shadowColor: AppColors.pureBlack.withOpacity(0.2),
+        shadowColor: AppColors.pureBlack.withValues(alpha: 0.2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
           side: const BorderSide(color: AppColors.borderDark, width: 1),

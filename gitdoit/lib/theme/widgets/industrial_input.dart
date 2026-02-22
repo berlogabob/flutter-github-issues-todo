@@ -168,7 +168,6 @@ class _IndustrialInputState extends State<IndustrialInput>
         return TextInputType.multiline;
       case IndustrialInputType.password:
       case IndustrialInputType.text:
-      default:
         return TextInputType.text;
     }
   }
@@ -185,7 +184,7 @@ class _IndustrialInputState extends State<IndustrialInput>
     } else if (_isFocused) {
       borderColor = industrialTheme.accentPrimary;
     } else if (_isHovered && isEnabled) {
-      borderColor = industrialTheme.borderPrimary.withOpacity(0.7);
+      borderColor = industrialTheme.borderPrimary.withValues(alpha: 0.7);
     } else {
       borderColor = industrialTheme.borderPrimary;
     }

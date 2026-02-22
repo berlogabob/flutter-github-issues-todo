@@ -117,7 +117,7 @@ class _IndustrialSliderState extends State<IndustrialSlider>
     final thumbColor = AppColors.pureWhite;
     final thumbRingColor = _isDragging
         ? industrialTheme.accentPrimary
-        : industrialTheme.accentPrimary.withOpacity(0.5);
+        : industrialTheme.accentPrimary.withValues(alpha: 0.5);
 
     // Dimensions
     const trackHeight = 4.0;
@@ -250,8 +250,9 @@ class _IndustrialSliderState extends State<IndustrialSlider>
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.pureBlack.withOpacity(
-                                      industrialTheme.brightness ==
+                                    color: AppColors.pureBlack.withValues(
+                                      alpha:
+                                          industrialTheme.brightness ==
                                               Brightness.dark
                                           ? 0.3
                                           : 0.2,

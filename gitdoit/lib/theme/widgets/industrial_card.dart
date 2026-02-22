@@ -71,7 +71,6 @@ class _IndustrialCardState extends State<IndustrialCard>
   late Animation<double> _translationAnimation;
   bool _isHovered = false;
   bool _isPressed = false;
-  bool _isSelected = false;
 
   @override
   void initState() {
@@ -144,18 +143,12 @@ class _IndustrialCardState extends State<IndustrialCard>
     final isInteractive =
         widget.onTap != null || widget.type == IndustrialCardType.interactive;
 
-    // Determine effective type
-    IndustrialCardType effectiveType = widget.type;
-    if (widget.type == IndustrialCardType.interactive && _isSelected) {
-      effectiveType = IndustrialCardType.selected;
-    }
-
     // Background color
     Color bgColor = widget.backgroundColor ?? industrialTheme.surfaceElevated;
 
     // Border color
     Color borderColor = industrialTheme.borderPrimary;
-    if (effectiveType == IndustrialCardType.selected && _isHovered) {
+    if (widget.type == IndustrialCardType.selected && _isHovered) {
       borderColor = industrialTheme.accentPrimary;
     }
 
@@ -193,13 +186,14 @@ class _IndustrialCardState extends State<IndustrialCard>
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
                   border: Border.all(
                     color: borderColor,
-                    width: effectiveType == IndustrialCardType.selected ? 2 : 1,
+                    width: widget.type == IndustrialCardType.selected ? 2 : 1,
                   ),
                   boxShadow: elevation > 0
                       ? [
                           BoxShadow(
-                            color: AppColors.pureBlack.withOpacity(
-                              industrialTheme.brightness == Brightness.dark
+                            color: AppColors.pureBlack.withValues(
+                              alpha:
+                                  industrialTheme.brightness == Brightness.dark
                                   ? 0.3
                                   : 0.12,
                             ),
@@ -221,14 +215,14 @@ class _IndustrialCardState extends State<IndustrialCard>
                           CustomPaint(
                             size: Size.infinite,
                             painter: _GridLinesPainter(
-                              color: industrialTheme.accentPrimary.withOpacity(
-                                0.1,
+                              color: industrialTheme.accentPrimary.withValues(
+                                alpha: 0.1,
                               ),
                             ),
                           ),
 
                         // Selected indicator (left border accent)
-                        if (effectiveType == IndustrialCardType.selected)
+                        if (widget.type == IndustrialCardType.selected)
                           Positioned(
                             left: 0,
                             top: 0,

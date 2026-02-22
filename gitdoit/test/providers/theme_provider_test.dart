@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
 import 'package:gitdoit/providers/theme_provider.dart';
 import 'package:gitdoit/services/theme_prefs.dart';
 

@@ -2,7 +2,6 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:io';
 
-import 'package:gitdoit/models/issue.dart';
 import 'package:gitdoit/models/issue.adapter.dart';
 
 /// Hive Test Helper

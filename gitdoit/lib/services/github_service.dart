@@ -16,7 +16,11 @@ import '../utils/logger.dart';
 /// - Error handling and retry logic
 /// - Repository management
 class GitHubService {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage;
+
+  // Constructor with optional storage injection for testing
+  GitHubService({FlutterSecureStorage? storage})
+      : _storage = storage ?? const FlutterSecureStorage();
 
   // GitHub API base URL
   static const String baseUrl = 'https://api.github.com';

@@ -6,10 +6,11 @@ import '../utils/logger.dart';
 import '../design_tokens/tokens.dart';
 import '../theme/industrial_theme.dart';
 import '../theme/widgets/widgets.dart';
+import '../widgets/cloud_sync_icon.dart';
+import '../widgets/repo_header_widget.dart';
+import '../widgets/repository_issues_widget.dart';
 import 'settings_screen.dart';
-import 'issue_detail_screen.dart';
-import '../widgets/issue_card.dart';
-import '../widgets/offline_indicator.dart';
+import 'repo_add_menu.dart';
 
 /// Home Screen - Main dashboard after authentication
 ///
@@ -22,15 +23,54 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String _searchQuery = '';
   bool _showSearch = false;
   final _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Initial connectivity refresh for instant cloud icon state
+    _refreshConnectivity();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh connectivity when app resumes (instant cloud icon update)
+    if (state == AppLifecycleState.resumed) {
+      Logger.d('App resumed - refreshing connectivity', context: 'Home');
+      _refreshConnectivity();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Refresh connectivity state for instant cloud icon update
+  void _refreshConnectivity() async {
+    final issuesProvider = Provider.of<IssuesProvider>(context, listen: false);
+    await issuesProvider.refreshConnectivity();
+  }
+
+  /// Determine sync state for cloud icon
+  SyncState _getSyncState(IssuesProvider issuesProvider) {
+    if (issuesProvider.isSyncing) {
+      return SyncState.syncing;
+    }
+    if (issuesProvider.syncError) {
+      return SyncState.error;
+    }
+    if (issuesProvider.isOffline) {
+      return SyncState.offline;
+    }
+    return SyncState.synced;
   }
 
   @override
@@ -53,20 +93,62 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
                 autofocus: true,
               )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            : Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'GitDoIt',
-                    style: AppTypography.headlineMedium.copyWith(
-                      color: industrialTheme.textPrimary,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'GitDoIt',
+                          style: AppTypography.headlineMedium.copyWith(
+                            color: industrialTheme.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Issues Dashboard',
+                          style: AppTypography.monoAnnotation.copyWith(
+                            color: industrialTheme.textTertiary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    'Issues Dashboard',
-                    style: AppTypography.monoAnnotation.copyWith(
-                      color: industrialTheme.textTertiary,
+                  const SizedBox(width: AppSpacing.md),
+                  // Cloud sync icon
+                  Consumer<IssuesProvider>(
+                    builder: (context, issuesProvider, _) {
+                      final syncState = _getSyncState(issuesProvider);
+                      return CloudSyncIcon(state: syncState);
+                    },
+                  ),
+                  // Add repository button
+                  IconButton(
+                    icon: Icon(
+                      Icons.add_circle_outline,
+                      color: industrialTheme.accentPrimary,
                     ),
+                    onPressed: () async {
+                      Logger.d('Add repository pressed', context: 'Home');
+                      // Get button position for menu
+                      final box = context.findRenderObject() as RenderBox?;
+                      if (box != null) {
+                        await RepoAddMenu.show(
+                          context: context,
+                          position: RelativeRect.fromRect(
+                            Rect.fromPoints(
+                              box.localToGlobal(Offset.zero),
+                              box.localToGlobal(Offset.zero),
+                            ),
+                            Offset.zero & box.size,
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),
@@ -93,12 +175,16 @@ class _HomeScreenState extends State<HomeScreen> {
               Icons.refresh_outlined,
               color: industrialTheme.textPrimary,
             ),
-            onPressed: () {
+            onPressed: () async {
               Logger.d('Refresh pressed', context: 'Home');
-              Provider.of<IssuesProvider>(
+              final issuesProvider = Provider.of<IssuesProvider>(
                 context,
                 listen: false,
-              ).refreshIssues();
+              );
+              // Refresh connectivity first for instant cloud icon update
+              await issuesProvider.refreshConnectivity();
+              // Then refresh issues
+              await issuesProvider.refreshIssues();
             },
           ),
           // Settings button
@@ -252,52 +338,49 @@ class _HomeContent extends StatelessWidget {
     final issuesProvider = Provider.of<IssuesProvider>(context);
     final industrialTheme = context.industrialTheme;
 
+    return RefreshIndicator(
+      onRefresh: () => issuesProvider.refreshIssues(),
+      color: industrialTheme.accentPrimary,
+      backgroundColor: industrialTheme.surfaceElevated,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            // Filter bar - Industrial style
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              child: _buildFilterBar(context, issuesProvider, industrialTheme),
+            ),
+
+            // Repository headers: default repo on top, selected repos below
+            _buildAllRepoHeaders(context, issuesProvider, industrialTheme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build all repository headers (default + selected repos)
+  Widget _buildAllRepoHeaders(
+    BuildContext context,
+    IssuesProvider issuesProvider,
+    IndustrialThemeData industrialTheme,
+  ) {
+    final allRepos = issuesProvider.repositories;
+
+    // If no repositories configured, show placeholder
+    if (allRepos.isEmpty) {
+      return const RepoHeaderPlaceholder();
+    }
+
+    // Show ALL repositories uniformly (all collapsible with arrow)
     return Column(
-      children: [
-        // Offline indicator
-        const OfflineIndicator(),
-
-        // Filter bar - Industrial style
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
-          ),
-          child: _buildFilterBar(context, issuesProvider, industrialTheme),
-        ),
-
-        // Issue list or empty state
-        Expanded(
-          child: issuesProvider.isLoading && issuesProvider.issues.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            industrialTheme.accentPrimary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        'Loading issues...',
-                        style: AppTypography.monoAnnotation.copyWith(
-                          color: industrialTheme.textTertiary,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : issuesProvider.error != null
-              ? _buildErrorState(context, issuesProvider, industrialTheme)
-              : _buildIssueList(context, issuesProvider, industrialTheme),
-        ),
-      ],
+      children: allRepos.map((repo) {
+        return RepositoryIssuesWidget(repoFullName: repo.fullName);
+      }).toList(),
     );
   }
 
@@ -329,7 +412,10 @@ class _HomeContent extends StatelessWidget {
                   selected: issuesProvider.filter == 'open',
                   onTap: () {
                     issuesProvider.setFilter('open');
-                    issuesProvider.loadIssues(state: 'open');
+                    // Reload issues for ALL repos
+                    for (final repo in issuesProvider.repositories) {
+                      issuesProvider.loadIssues(repoFullName: repo.fullName, state: 'open');
+                    }
                   },
                 ),
                 const SizedBox(width: AppSpacing.xs),
@@ -338,7 +424,10 @@ class _HomeContent extends StatelessWidget {
                   selected: issuesProvider.filter == 'closed',
                   onTap: () {
                     issuesProvider.setFilter('closed');
-                    issuesProvider.loadIssues(state: 'closed');
+                    // Reload issues for ALL repos
+                    for (final repo in issuesProvider.repositories) {
+                      issuesProvider.loadIssues(repoFullName: repo.fullName, state: 'closed');
+                    }
                   },
                 ),
                 const SizedBox(width: AppSpacing.xs),
@@ -347,7 +436,10 @@ class _HomeContent extends StatelessWidget {
                   selected: issuesProvider.filter == 'all',
                   onTap: () {
                     issuesProvider.setFilter('all');
-                    issuesProvider.loadIssues(state: 'all');
+                    // Reload issues for ALL repos
+                    for (final repo in issuesProvider.repositories) {
+                      issuesProvider.loadIssues(repoFullName: repo.fullName, state: 'all');
+                    }
                   },
                 ),
               ],
@@ -355,93 +447,6 @@ class _HomeContent extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildIssueList(
-    BuildContext context,
-    IssuesProvider issuesProvider,
-    IndustrialThemeData industrialTheme,
-  ) {
-    final issues = issuesProvider.searchIssues(searchQuery);
-
-    return RefreshIndicator(
-      onRefresh: () => issuesProvider.refreshIssues(),
-      color: industrialTheme.accentPrimary,
-      backgroundColor: industrialTheme.surfaceElevated,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        itemCount: issues.length,
-        itemBuilder: (context, index) {
-          final issue = issues[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: IssueCard(
-              issue: issue,
-              onTap: () => _navigateToDetail(context, issue),
-              onToggleStatus: () {
-                if (issue.isOpen) {
-                  issuesProvider.closeIssue(issue.number);
-                } else {
-                  issuesProvider.reopenIssue(issue.number);
-                }
-              },
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _navigateToDetail(BuildContext context, dynamic issue) {
-    Logger.d('Navigating to issue #${issue.number}', context: 'Home');
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => IssueDetailScreen(issue: issue)),
-    );
-  }
-
-  Widget _buildErrorState(
-    BuildContext context,
-    IssuesProvider issuesProvider,
-    IndustrialThemeData industrialTheme,
-  ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: industrialTheme.statusError,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Failed to load issues',
-              style: AppTypography.headlineSmall.copyWith(
-                color: industrialTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              issuesProvider.error ?? 'Unknown error',
-              style: AppTypography.bodyMedium.copyWith(
-                color: industrialTheme.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            IndustrialButton(
-              onPressed: () => issuesProvider.loadIssues(),
-              label: 'TRY AGAIN',
-              variant: IndustrialButtonVariant.secondary,
-              icon: const Icon(Icons.refresh_outlined, size: 18),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

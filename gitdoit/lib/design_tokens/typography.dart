@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'colors.dart';
 
 /// Industrial Minimalism Typography System
 ///
@@ -227,17 +226,6 @@ class AppTypography {
 
   /// Create a TextTheme with Industrial Minimalism styles
   static TextTheme createTextTheme({Brightness? brightness}) {
-    final isDark = brightness == Brightness.dark;
-    final textPrimary = isDark
-        ? AppColors.textPrimaryDark
-        : AppColors.textPrimaryLight;
-    final textSecondary = isDark
-        ? AppColors.textSecondaryDark
-        : AppColors.textSecondaryLight;
-    final textTertiary = isDark
-        ? AppColors.textTertiaryDark
-        : AppColors.textTertiaryLight;
-
     return TextTheme(
       // Display
       displayLarge: displayLarge,

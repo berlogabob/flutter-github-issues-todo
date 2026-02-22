@@ -54,7 +54,7 @@ class AppElevation {
   /// Use: Cards, buttons at rest
   static List<BoxShadow> get z1ShadowLight => [
     BoxShadow(
-      color: AppColors.pureBlack.withOpacity(0.08),
+      color: AppColors.pureBlack.withValues(alpha: 0.08),
       blurRadius: 8,
       spreadRadius: 0,
       offset: const Offset(0, 2),
@@ -65,14 +65,14 @@ class AppElevation {
   /// Use: Hover states, important actions
   static List<BoxShadow> get z2ShadowLight => [
     BoxShadow(
-      color: AppColors.pureBlack.withOpacity(0.12),
+      color: AppColors.pureBlack.withValues(alpha: 0.12),
       blurRadius: 16,
       spreadRadius: 0,
       offset: const Offset(0, 4),
     ),
     // Subtle colored glow (Signal Orange at low opacity)
     BoxShadow(
-      color: AppColors.signalOrange.withOpacity(0.08),
+      color: AppColors.signalOrange.withValues(alpha: 0.08),
       blurRadius: 12,
       spreadRadius: 0,
       offset: const Offset(0, 0),
@@ -83,14 +83,14 @@ class AppElevation {
   /// Use: Active press, dialogs
   static List<BoxShadow> get z3ShadowLight => [
     BoxShadow(
-      color: AppColors.pureBlack.withOpacity(0.16),
+      color: AppColors.pureBlack.withValues(alpha: 0.16),
       blurRadius: 24,
       spreadRadius: 0,
       offset: const Offset(0, 8),
     ),
     // Colored halo
     BoxShadow(
-      color: AppColors.signalOrange.withOpacity(0.1),
+      color: AppColors.signalOrange.withValues(alpha: 0.1),
       blurRadius: 16,
       spreadRadius: 0,
       offset: const Offset(0, 0),
@@ -101,7 +101,7 @@ class AppElevation {
   /// Use: Full-screen overlays
   static List<BoxShadow> get z4ShadowLight => [
     BoxShadow(
-      color: AppColors.pureBlack.withOpacity(0.2),
+      color: AppColors.pureBlack.withValues(alpha: 0.2),
       blurRadius: 32,
       spreadRadius: 0,
       offset: const Offset(0, 16),
@@ -116,7 +116,7 @@ class AppElevation {
   /// Higher opacity for visibility on dark backgrounds
   static List<BoxShadow> get z1ShadowDark => [
     BoxShadow(
-      color: AppColors.pureBlack.withOpacity(0.2),
+      color: AppColors.pureBlack.withValues(alpha: 0.2),
       blurRadius: 8,
       spreadRadius: 0,
       offset: const Offset(0, 2),
@@ -126,14 +126,14 @@ class AppElevation {
   /// Z=2 Shadow - Dark theme
   static List<BoxShadow> get z2ShadowDark => [
     BoxShadow(
-      color: AppColors.pureBlack.withOpacity(0.3),
+      color: AppColors.pureBlack.withValues(alpha: 0.3),
       blurRadius: 16,
       spreadRadius: 0,
       offset: const Offset(0, 4),
     ),
     // Subtle colored glow
     BoxShadow(
-      color: AppColors.signalOrange.withOpacity(0.12),
+      color: AppColors.signalOrange.withValues(alpha: 0.12),
       blurRadius: 12,
       spreadRadius: 0,
       offset: const Offset(0, 0),
@@ -143,14 +143,14 @@ class AppElevation {
   /// Z=3 Shadow - Dark theme
   static List<BoxShadow> get z3ShadowDark => [
     BoxShadow(
-      color: AppColors.pureBlack.withOpacity(0.4),
+      color: AppColors.pureBlack.withValues(alpha: 0.4),
       blurRadius: 24,
       spreadRadius: 0,
       offset: const Offset(0, 8),
     ),
     // Colored halo
     BoxShadow(
-      color: AppColors.signalOrange.withOpacity(0.15),
+      color: AppColors.signalOrange.withValues(alpha: 0.15),
       blurRadius: 16,
       spreadRadius: 0,
       offset: const Offset(0, 0),
@@ -160,7 +160,7 @@ class AppElevation {
   /// Z=4 Shadow - Dark theme
   static List<BoxShadow> get z4ShadowDark => [
     BoxShadow(
-      color: AppColors.pureBlack.withOpacity(0.5),
+      color: AppColors.pureBlack.withValues(alpha: 0.5),
       blurRadius: 32,
       spreadRadius: 0,
       offset: const Offset(0, 16),
@@ -215,8 +215,8 @@ class AppElevation {
       begin: begin,
       end: end,
       colors: [
-        AppColors.pureWhite.withOpacity(opacity),
-        AppColors.pureWhite.withOpacity(0),
+        AppColors.pureWhite.withValues(alpha: opacity),
+        AppColors.pureWhite.withValues(alpha: 0),
       ],
     );
   }
@@ -231,11 +231,11 @@ class AppElevation {
     return BoxDecoration(
       border: Border(
         top: BorderSide(
-          color: AppColors.pureWhite.withOpacity(0.1),
+          color: AppColors.pureWhite.withValues(alpha: 0.1),
           width: width,
         ),
         left: BorderSide(
-          color: AppColors.pureWhite.withOpacity(0.1),
+          color: AppColors.pureWhite.withValues(alpha: 0.1),
           width: width,
         ),
       ),

@@ -4,7 +4,7 @@ import '../design_tokens/tokens.dart';
 /// Industrial Theme Extension
 ///
 /// Custom theme extension providing Industrial Minimalism specific properties.
-/// Access via: Theme.of(context).extension<IndustrialThemeData>()
+/// Access via: `Theme.of(context).extension<IndustrialThemeData>()`
 ///
 /// Features:
 /// - Z-level management

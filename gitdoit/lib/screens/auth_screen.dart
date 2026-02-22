@@ -11,10 +11,14 @@ import '../theme/widgets/widgets.dart';
 
 /// Authentication Screen - Entry point for GitDoIt app
 ///
+/// REDESIGNED with 2-button approach based on user feedback:
+/// - GITHUB LOGIN: Shows token input section for authenticated sync
+/// - CONTINUE OFFLINE: Proceeds immediately without authentication
+///
 /// OFFLINE-FIRST: Users can skip login and use app offline
 /// Token can be added later from settings
 ///
-/// REDESIGNED: Industrial Minimalism with spatial depth
+/// Design: Industrial Minimalism with spatial depth
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
 
@@ -47,6 +51,8 @@ class _AuthContentState extends State<_AuthContent> {
   final _tokenController = TextEditingController();
   bool _isLoading = false;
   bool _isOffline = false;
+  bool _showTokenInput = false;
+  bool _hasExistingToken = false;
 
   @override
   void initState() {
@@ -56,7 +62,10 @@ class _AuthContentState extends State<_AuthContent> {
   }
 
   Future<void> _checkConnectivity() async {
-    final connectivity = await Connectivity().checkConnectivity();
+    final connectivityList = await Connectivity().checkConnectivity();
+    final connectivity = connectivityList.isNotEmpty
+        ? connectivityList.first
+        : ConnectivityResult.none;
     setState(() {
       _isOffline = connectivity == ConnectivityResult.none;
     });
@@ -72,6 +81,9 @@ class _AuthContentState extends State<_AuthContent> {
       final token = await storage.read(key: 'github_token');
       if (token != null && token.isNotEmpty) {
         _tokenController.text = token;
+        setState(() {
+          _hasExistingToken = true;
+        });
         Logger.i('Loaded saved token', context: 'Auth');
       }
     } catch (e) {
@@ -83,6 +95,19 @@ class _AuthContentState extends State<_AuthContent> {
   void dispose() {
     _tokenController.dispose();
     super.dispose();
+  }
+
+  void _showTokenInputSection() {
+    setState(() {
+      _showTokenInput = true;
+    });
+  }
+
+  void _hideTokenInputSection() {
+    setState(() {
+      _showTokenInput = false;
+      _tokenController.clear();
+    });
   }
 
   Future<void> _validateAndContinue() async {
@@ -110,6 +135,9 @@ class _AuthContentState extends State<_AuthContent> {
 
     setState(() => _isLoading = true);
 
+    // Get auth provider before any async operations
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
     // If token is empty, continue without auth
     if (token.isEmpty) {
       Logger.i(
@@ -128,6 +156,7 @@ class _AuthContentState extends State<_AuthContent> {
       Logger.w('Offline - saving token for later validation', context: 'Auth');
       final storage = FlutterSecureStorage();
       await storage.write(key: 'github_token', value: token);
+      if (!mounted) return;
       setState(() => _isLoading = false);
       _showInfo('Token saved. Will validate when online.');
       _navigateToHome();
@@ -135,9 +164,9 @@ class _AuthContentState extends State<_AuthContent> {
     }
 
     // Online - validate token
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.validateAndSaveToken(token);
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (authProvider.isAuthenticated) {
@@ -149,6 +178,11 @@ class _AuthContentState extends State<_AuthContent> {
             'Failed to authenticate. Please check your token.',
       );
     }
+  }
+
+  void _continueOffline() {
+    Logger.i('User chose offline mode', context: 'Auth');
+    _navigateToHome();
   }
 
   void _showError(String message) {
@@ -223,7 +257,9 @@ class _AuthContentState extends State<_AuthContent> {
         if (_isOffline) ...[
           IndustrialCard(
             type: IndustrialCardType.data,
-            backgroundColor: industrialTheme.statusWarning.withOpacity(0.1),
+            backgroundColor: industrialTheme.statusWarning.withValues(
+              alpha: 0.1,
+            ),
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Row(
               children: [
@@ -260,42 +296,154 @@ class _AuthContentState extends State<_AuthContent> {
           const SizedBox(height: AppSpacing.lg),
         ],
 
-        // Token Input Form
-        Form(
-          key: _formKey,
-          child: IndustrialInput(
-            label: 'PERSONAL ACCESS TOKEN',
-            hintText: 'ghp_...',
-            controller: _tokenController,
-            inputType: IndustrialInputType.password,
-            helperText: 'Leave empty for offline mode',
-            prefixIcon: Icon(
-              Icons.key_outlined,
-              size: 20,
-              color: industrialTheme.textSecondary,
+        // Existing token indicator
+        if (_hasExistingToken && !_showTokenInput) ...[
+          IndustrialCard(
+            type: IndustrialCardType.data,
+            backgroundColor: industrialTheme.accentSubtle,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.key_outlined,
+                  color: industrialTheme.accentPrimary,
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TOKEN SAVED',
+                        style: AppTypography.labelSmall.copyWith(
+                          color: industrialTheme.accentPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'GitHub authentication active',
+                        style: AppTypography.captionSmall.copyWith(
+                          color: industrialTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IndustrialButton(
+                  onPressed: _showTokenInputSection,
+                  label: 'CHANGE',
+                  variant: IndustrialButtonVariant.text,
+                  size: IndustrialButtonSize.small,
+                ),
+              ],
             ),
-            validator: (value) {
-              if (value != null && value.isNotEmpty && value.length < 10) {
-                return 'Token must be at least 10 characters';
-              }
-              return null;
-            },
           ),
-        ),
+          const SizedBox(height: AppSpacing.lg),
+        ],
 
-        const SizedBox(height: AppSpacing.xl),
+        // Token Input Section (expandable)
+        if (_showTokenInput) ...[
+          IndustrialCard(
+            type: IndustrialCardType.data,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'GITHUB TOKEN',
+                      style: AppTypography.labelMedium.copyWith(
+                        color: industrialTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _hideTokenInputSection,
+                      icon: Icon(
+                        Icons.close_outlined,
+                        size: 20,
+                        color: industrialTheme.textSecondary,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Form(
+                  key: _formKey,
+                  child: IndustrialInput(
+                    label: 'PERSONAL ACCESS TOKEN',
+                    hintText: 'ghp_...',
+                    controller: _tokenController,
+                    inputType: IndustrialInputType.password,
+                    helperText: 'Create token in GitHub Developer Settings',
+                    prefixIcon: Icon(
+                      Icons.key_outlined,
+                      size: 20,
+                      color: industrialTheme.textSecondary,
+                    ),
+                    validator: (value) {
+                      if (value != null &&
+                          value.isNotEmpty &&
+                          value.length < 10) {
+                        return 'Token must be at least 10 characters';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                IndustrialButton(
+                  onPressed: _isLoading ? null : _validateAndContinue,
+                  label: 'SAVE & CONTINUE',
+                  variant: IndustrialButtonVariant.primary,
+                  size: IndustrialButtonSize.large,
+                  isFullWidth: true,
+                  isLoading: _isLoading,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+        ],
 
-        // Continue Button - Primary action
-        IndustrialButton(
-          onPressed: _isLoading ? null : _validateAndContinue,
-          label: _tokenController.text.isEmpty
-              ? 'CONTINUE OFFLINE'
-              : 'CONTINUE',
-          variant: IndustrialButtonVariant.primary,
-          size: IndustrialButtonSize.large,
-          isFullWidth: true,
-          isLoading: _isLoading,
-        ),
+        // Main Action Buttons
+        if (!_showTokenInput) ...[
+          // GITHUB LOGIN Button
+          IndustrialButton(
+            onPressed: _isLoading ? null : _showTokenInputSection,
+            label: 'GITHUB LOGIN',
+            variant: IndustrialButtonVariant.primary,
+            size: IndustrialButtonSize.large,
+            isFullWidth: true,
+            icon: Icon(
+              Icons.login_outlined,
+              size: 20,
+              color: AppColors.textOnAccent,
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+
+          // CONTINUE OFFLINE Button
+          IndustrialButton(
+            onPressed: _isLoading ? null : _continueOffline,
+            label: 'CONTINUE OFFLINE',
+            variant: IndustrialButtonVariant.secondary,
+            size: IndustrialButtonSize.large,
+            isFullWidth: true,
+            icon: Icon(
+              Icons.cloud_off_outlined,
+              size: 20,
+              color: industrialTheme.textPrimary,
+            ),
+          ),
+        ],
 
         const SizedBox(height: AppSpacing.xxl),
 
@@ -357,7 +505,7 @@ class _AuthContentState extends State<_AuthContent> {
             ),
             const SizedBox(width: AppSpacing.xs),
             Text(
-              'v0.2.0-industrial',
+              'v1.0.0+2',
               style: AppTypography.monoAnnotation.copyWith(
                 color: industrialTheme.textTertiary,
               ),

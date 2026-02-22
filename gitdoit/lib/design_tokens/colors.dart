@@ -190,7 +190,7 @@ class AppColors {
 
   /// Create a color with opacity
   static Color withOpacity(Color color, double opacity) {
-    return color.withOpacity(opacity);
+    return color.withValues(alpha: opacity);
   }
 
   /// Parse hex color string to Color

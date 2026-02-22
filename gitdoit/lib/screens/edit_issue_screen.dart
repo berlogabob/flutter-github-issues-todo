@@ -57,7 +57,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _hasChanges) {
           _confirmDiscardChanges();
         }
@@ -350,7 +350,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       body: body.isEmpty ? null : body,
     );
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     setState(() => _isLoading = false);
 
@@ -389,7 +389,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       state: status,
     );
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     setState(() => _isLoading = false);
 

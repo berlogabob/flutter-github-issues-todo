@@ -387,7 +387,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       // Exchange code for token
-      final accessToken = await _githubService.handleOAuthCallback(
+      final accessToken = await _githubService.exchangeCodeForToken(
         code: code,
         state: state,
       );

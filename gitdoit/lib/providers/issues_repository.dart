@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/issue.dart';
+import '../services/github_issues_api.dart';
+import '../services/github_repositories_api.dart';
 import '../services/github_service.dart';
 import '../utils/logger.dart';
 
@@ -13,7 +15,14 @@ import '../utils/logger.dart';
 /// - Closing/reopening issues
 /// - Repository validation
 class IssuesRepository extends ChangeNotifier {
-  final GitHubService _githubService = GitHubService();
+  final GitHubService _baseService = GitHubService();
+  late GitHubIssuesApi _issuesApi;
+  late GitHubRepositoriesApi _reposApi;
+
+  IssuesRepository() {
+    _issuesApi = GitHubIssuesApi(_baseService);
+    _reposApi = GitHubRepositoriesApi(_baseService);
+  }
 
   // Current state
   bool _isLoading = false;
@@ -24,11 +33,6 @@ class IssuesRepository extends ChangeNotifier {
   String? get error => _error;
 
   /// Fetch issues from GitHub API
-  ///
-  /// [owner] - Repository owner
-  /// [repo] - Repository name
-  /// [state] - Filter by state: 'open', 'closed', or 'all'
-  /// [perPage] - Number of issues per page (max 100)
   Future<List<Issue>> fetchIssues({
     required String owner,
     required String repo,
@@ -46,7 +50,7 @@ class IssuesRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final issues = await _githubService.fetchIssues(
+      final issues = await _issuesApi.fetchIssues(
         owner: owner,
         repo: repo,
         state: state,
@@ -73,12 +77,6 @@ class IssuesRepository extends ChangeNotifier {
   }
 
   /// Create a new issue on GitHub
-  ///
-  /// [owner] - Repository owner
-  /// [repo] - Repository name
-  /// [title] - Issue title
-  /// [body] - Issue description (optional)
-  /// [labels] - Issue labels (optional)
   Future<Issue> createIssue({
     required String owner,
     required String repo,
@@ -94,7 +92,7 @@ class IssuesRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final issue = await _githubService.createIssue(
+      final issue = await _issuesApi.createIssue(
         owner: owner,
         repo: repo,
         title: title,
@@ -122,14 +120,6 @@ class IssuesRepository extends ChangeNotifier {
   }
 
   /// Update an existing issue on GitHub
-  ///
-  /// [owner] - Repository owner
-  /// [repo] - Repository name
-  /// [issueNumber] - Issue number to update
-  /// [title] - New title (optional)
-  /// [body] - New description (optional)
-  /// [state] - New state: 'open' or 'closed' (optional)
-  /// [labels] - New labels (optional)
   Future<Issue> updateIssue({
     required String owner,
     required String repo,
@@ -147,7 +137,7 @@ class IssuesRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final issue = await _githubService.updateIssue(
+      final issue = await _issuesApi.updateIssue(
         owner: owner,
         repo: repo,
         issueNumber: issueNumber,
@@ -177,47 +167,34 @@ class IssuesRepository extends ChangeNotifier {
   }
 
   /// Close an issue on GitHub
-  ///
-  /// [owner] - Repository owner
-  /// [repo] - Repository name
-  /// [issueNumber] - Issue number to close
   Future<Issue> closeIssue({
     required String owner,
     required String repo,
     required int issueNumber,
   }) {
     Logger.d('Closing issue #$issueNumber', context: 'IssuesRepository');
-    return updateIssue(
+    return _issuesApi.closeIssue(
       owner: owner,
       repo: repo,
       issueNumber: issueNumber,
-      state: 'closed',
     );
   }
 
   /// Reopen a closed issue on GitHub
-  ///
-  /// [owner] - Repository owner
-  /// [repo] - Repository name
-  /// [issueNumber] - Issue number to reopen
   Future<Issue> reopenIssue({
     required String owner,
     required String repo,
     required int issueNumber,
   }) {
     Logger.d('Reopening issue #$issueNumber', context: 'IssuesRepository');
-    return updateIssue(
+    return _issuesApi.reopenIssue(
       owner: owner,
       repo: repo,
       issueNumber: issueNumber,
-      state: 'open',
     );
   }
 
   /// Validate that a repository exists on GitHub
-  ///
-  /// [owner] - Repository owner
-  /// [repo] - Repository name
   Future<bool> validateRepository({
     required String owner,
     required String repo,
@@ -230,7 +207,7 @@ class IssuesRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final isValid = await _githubService.validateRepository(
+      final isValid = await _reposApi.validateRepository(
         owner: owner,
         repo: repo,
       );
@@ -266,7 +243,9 @@ class IssuesRepository extends ChangeNotifier {
   /// Dispose resources
   @override
   void dispose() {
-    _githubService.dispose();
+    _issuesApi.dispose();
+    _reposApi.dispose();
+    _baseService.dispose();
     Logger.d('IssuesRepository disposed', context: 'IssuesRepository');
     super.dispose();
   }

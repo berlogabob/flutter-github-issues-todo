@@ -148,23 +148,11 @@ class IssuesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Get cache size formatted as string
-  String getCacheSizeFormatted() {
-    final bytes = cachedIssueCount * 1500; // Approximate bytes per issue
-    if (bytes < 1024) {
-      return '$bytes B';
-    } else if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    } else {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-  }
-
   /// Get storage statistics
-  Map<String, dynamic> getStorageStats() {
+  Future<Map<String, dynamic>> getStorageStats() async {
     return {
       'issueCount': cachedIssueCount,
-      'cacheSize': getCacheSizeFormatted(),
+      'cacheSize': await getCacheSizeFormatted(),
       'lastSyncTime': lastSyncTimeFormatted,
       'isOffline': isOffline,
       'syncError': syncError,
@@ -636,8 +624,20 @@ class IssuesProvider extends ChangeNotifier {
   }
 
   /// Get cache size in bytes
-  int getCacheSizeBytes() {
+  Future<int> getCacheSizeBytes() async {
     return cachedIssueCount * 1500; // Approximate bytes per issue
+  }
+
+  /// Get cache size formatted as string
+  Future<String> getCacheSizeFormatted() async {
+    final bytes = await getCacheSizeBytes();
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
   }
 
   /// Dispose resources

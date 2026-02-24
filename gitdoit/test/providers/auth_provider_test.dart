@@ -100,14 +100,14 @@ class MockGitHubService implements GitHubService {
   String? mockUsername;
 
   @override
-  Future<String> handleOAuthCallback({
-    required String code,
-    String? state,
-  }) async {
+  Future<Map<String, String>> handleOAuthCallback(Uri uri) async {
     if (shouldFailOAuth) {
       throw Exception('OAuth failed');
     }
-    return 'mock_oauth_token';
+    return {
+      'code': 'mock_code',
+      'state': 'mock_state',
+    };
   }
 
   @override
@@ -116,7 +116,7 @@ class MockGitHubService implements GitHubService {
   }
 
   @override
-  Future<bool> launchOAuthUrl(String oauthUrl) async {
+  Future<bool> launchOAuthFlow() async {
     return true;
   }
 
@@ -223,6 +223,7 @@ class MockClient implements http.Client {
   }
 
   // No @override - this doesn't override a base method
+  @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     return http.StreamedResponse(Stream.empty(), 200);
   }

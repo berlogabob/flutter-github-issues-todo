@@ -271,10 +271,9 @@ class _RepositoryPickerScreenState extends State<RepositoryPickerScreen> {
                     setState(() => _isLoading = true);
 
                     final repo = await _githubService.createRepository(
-                      token: token,
                       name: nameController.text.trim(),
                       description: descriptionController.text.trim(),
-                      private: isPrivate,
+                      isPrivate: isPrivate,
                       hasIssues: true,
                     );
 

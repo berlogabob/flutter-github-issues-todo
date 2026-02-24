@@ -9,7 +9,7 @@ import '../theme/widgets/widgets.dart';
 import '../widgets/cloud_sync_icon.dart';
 import '../widgets/repo_header_widget.dart';
 import '../widgets/repository_issues_widget.dart';
-import 'settings_screen.dart';
+import 'settings/settings_screen.dart';
 import 'repo_add_menu.dart';
 
 /// Home Screen - Main dashboard after authentication

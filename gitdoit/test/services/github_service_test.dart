@@ -102,6 +102,7 @@ class MockClient implements http.Client {
   }
 
   // No @override - this doesn't override a base method
+  @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     return http.StreamedResponse(Stream.empty(), 200);
   }
@@ -191,28 +192,26 @@ void main() {
       test('should return true for valid URL', () async {
         // Note: This requires url_launcher mocking for full test
         // Testing method exists and signature
-        expect(githubService.launchOAuthUrl, isA<Function>());
+        expect(githubService.launchOAuthFlow, isA<Function>());
       });
     });
 
     group('handleOAuthCallback', () {
-      test('should require code parameter', () async {
+      test('should require Uri parameter', () async {
         // Verify method signature
         expect(
-          () => githubService.handleOAuthCallback(code: 'test_code'),
+          () => githubService.handleOAuthCallback(Uri.parse('http://test.com')),
           returnsNormally,
         );
       });
 
-      test('should accept optional state parameter', () async {
-        // Verify method accepts state
-        expect(
-          () => githubService.handleOAuthCallback(
-            code: 'test_code',
-            state: 'test_state',
-          ),
-          returnsNormally,
+      test('should return Map with code and state', () async {
+        // Verify method returns correct type
+        final result = await githubService.handleOAuthCallback(
+          Uri.parse('http://test.com?code=test&state=test'),
         );
+        expect(result, isA<Map<String, String>>());
+        expect(result['code'], isNotEmpty);
       });
     });
 
@@ -562,22 +561,10 @@ void main() {
     });
 
     group('createRepository', () {
-      test('should require token parameter', () {
-        // Verify method signature
-        expect(
-          () => githubService.createRepository(
-            token: 'test_token',
-            name: 'test-repo',
-          ),
-          returnsNormally,
-        );
-      });
-
       test('should require name parameter', () {
         // Verify method signature
         expect(
           () => githubService.createRepository(
-            token: 'test_token',
             name: 'test-repo',
           ),
           returnsNormally,
@@ -588,9 +575,8 @@ void main() {
         // Verify method accepts description
         expect(
           () => githubService.createRepository(
-            token: 'test_token',
             name: 'test-repo',
-            description: 'A test repo',
+            description: 'Test description',
           ),
           returnsNormally,
         );

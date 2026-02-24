@@ -156,7 +156,7 @@ class IssuesCache extends ChangeNotifier {
   /// Check if a specific issue is cached
   Future<bool> isIssueCached(int issueNumber) async {
     if (!isBoxAvailable) return false;
-    return await _issuesBox!.containsKey('issue_$issueNumber');
+    return _issuesBox!.containsKey('issue_$issueNumber');
   }
 
   /// Remove a specific issue from cache

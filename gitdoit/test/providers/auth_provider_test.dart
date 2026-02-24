@@ -1,6 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../helpers/mocks.dart';
-import 'package:flutter/material.dart';
 import 'package:gitdoit/providers/auth_provider.dart';
 import 'package:gitdoit/services/github_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -219,12 +217,12 @@ class MockClient implements http.Client {
     return '{}';
   }
 
-  @override
+  // No @override - this doesn't override a base method
   Future<String> readAsString(Uri url, {Map<String, String>? headers}) async {
     return '{}';
   }
 
-  @override
+  // No @override - this doesn't override a base method
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     return http.StreamedResponse(Stream.empty(), 200);
   }

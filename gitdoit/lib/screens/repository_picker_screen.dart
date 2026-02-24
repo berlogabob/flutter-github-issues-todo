@@ -127,7 +127,7 @@ class _RepositoryPickerScreenState extends State<RepositoryPickerScreen> {
 
     // Validate repository
     try {
-      final isValid = await issuesProvider.validateRepository();
+      final isValid = await issuesProvider.validateRepository(repo.ownerLogin, repo.name);
 
       if (!isValid) {
         if (!mounted) return;

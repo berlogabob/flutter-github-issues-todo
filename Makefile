@@ -85,7 +85,7 @@ deploy-web: build-web
 	@echo "📝 Next steps:"
 	@echo "   git add docs/"
 	@echo "   git commit -m 'Deploy web build $(NEW_VERSION)'"
-	@echo "   git push origin main"
+	@echo "   git push origin dev10"
 
 # Full deploy: build + copy + commit + push
 deploy: build-web
@@ -98,8 +98,8 @@ deploy: build-web
 	@git add docs/
 	@git commit -m "Deploy web build $(NEW_VERSION)" || echo "No changes to commit"
 	@echo ""
-	@echo "🚀 Pushing to GitHub (current branch)..."
-	@git push origin HEAD
+	@echo "🚀 Pushing to GitHub (dev10 branch)..."
+	@git push origin dev10
 	@echo ""
 	@echo "✅ Deploy complete!"
 	@echo "🌐 GitHub Pages: https://berlogabob.github.io/flutter-github-issues-todo/"
@@ -119,8 +119,8 @@ release: increment-version build-web build-android build-appbundle
 	@echo "🏷️  Creating git tag..."
 	@git tag -a "v$(NEW_VERSION)" -m "Release $(NEW_VERSION)" || echo "Tag already exists"
 	@echo ""
-	@echo "🚀 Pushing to GitHub (current branch)..."
-	@git push origin HEAD
+	@echo "🚀 Pushing to GitHub (dev10 branch)..."
+	@git push origin dev10
 	@git push origin "v$(NEW_VERSION)" || echo "Tag already pushed"
 	@echo ""
 	@echo "📱 Creating GitHub Release..."
@@ -134,7 +134,7 @@ release: increment-version build-web build-android build-appbundle
 				gh release create "v$(NEW_VERSION)" \
 					--title "Release $(NEW_VERSION)" \
 					--notes "Release $(NEW_VERSION) - $$(date +%Y-%m-%d)" \
-					--target main \
+					--target dev10 \
 					$(FLUTTER_DIR)/build/app/outputs/flutter-apk/app-release.apk#android-apk \
 					$(FLUTTER_DIR)/build/app/outputs/bundle/release/app-release.aab#android-aab && \
 				echo "✅ GitHub Release created!" || \
@@ -304,7 +304,7 @@ github-release: build-appbundle
 				gh release create "v$$VERSION" \
 					--title "Release $$VERSION" \
 					--notes-file RELEASE_NOTES.md \
-					--target main \
+					--target dev10 \
 					$(FLUTTER_DIR)/build/app/outputs/flutter-apk/app-release.apk#android-apk \
 					$(FLUTTER_DIR)/build/app/outputs/bundle/release/app-release.aab#android-aab && \
 				echo "✅ GitHub Release created!" || \

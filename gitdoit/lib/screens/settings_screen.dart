@@ -407,7 +407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                         issuesProvider.setRepository(parsed.owner, parsed.repo);
                         final isValid = await issuesProvider
-                            .validateRepository();
+                            .validateRepository(parsed.owner, parsed.repo);
 
                         if (!context.mounted) return;
 
@@ -518,7 +518,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // Validate repository
                         try {
                           final isValid = await issuesProvider
-                              .validateRepository();
+                              .validateRepository(parsed.owner, parsed.repo);
 
                           if (!context.mounted) return;
 
@@ -1473,7 +1473,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Remove cached issues only. Repository config and login will be kept.',
                     industrialTheme: industrialTheme,
                     onTap: isClearing
-                        ? null
+                        ? null // ignore: dead_code
                         : () async {
                             setDialogState(() {
                               isClearing = true;

@@ -220,3 +220,14 @@ class User {
   @override
   String toString() => 'User($login)';
 }
+
+/// Simple repository configuration model (legacy - for backward compatibility)
+class Repository {
+  final String owner;
+  final String name;
+
+  Repository({required this.owner, required this.name});
+
+  /// Get full repository name in format 'owner/name'
+  String get fullName => '$owner/$name';
+}

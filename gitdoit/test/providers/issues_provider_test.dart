@@ -591,7 +591,7 @@ void main() {
         'validateRepository should return false when not configured',
         () async {
           // Act
-          final result = await issuesProvider.validateRepository();
+          final result = await issuesProvider.validateRepository('', '');
 
           // Assert
           expect(result, false);

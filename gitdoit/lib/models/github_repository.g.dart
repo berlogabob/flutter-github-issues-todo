@@ -9,7 +9,7 @@ part of 'github_repository.dart';
 GitHubRepository _$GitHubRepositoryFromJson(Map<String, dynamic> json) =>
     GitHubRepository(
       id: (json['id'] as num).toInt(),
-      nodeId: json['node_id'] as String,
+      nodeId: json['nodeId'] as String,
       name: json['name'] as String,
       fullName: json['full_name'] as String,
       owner: json['owner'] == null
@@ -46,10 +46,10 @@ GitHubRepository _$GitHubRepositoryFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$GitHubRepositoryToJson(GitHubRepository instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'node_id': instance.nodeId,
+      'nodeId': instance.nodeId,
       'name': instance.name,
       'full_name': instance.fullName,
-      'owner': instance.owner?.toJson(),
+      'owner': instance.owner,
       'private': instance.private,
       'html_url': instance.htmlUrl,
       'description': instance.description,

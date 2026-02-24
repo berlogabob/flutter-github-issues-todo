@@ -96,12 +96,12 @@ class MockClient implements http.Client {
     return '{}';
   }
 
-  @override
+  // No @override - this doesn't override a base method
   Future<String> readAsString(Uri url, {Map<String, String>? headers}) async {
     return '{}';
   }
 
-  @override
+  // No @override - this doesn't override a base method
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     return http.StreamedResponse(Stream.empty(), 200);
   }

@@ -414,7 +414,7 @@ class _HomeContent extends StatelessWidget {
                     issuesProvider.setFilter('open');
                     // Reload issues for ALL repos
                     for (final repo in issuesProvider.repositories) {
-                      issuesProvider.loadIssues(repoFullName: repo.fullName, state: 'open');
+                      issuesProvider.loadIssues(state: 'open');
                     }
                   },
                 ),
@@ -426,7 +426,7 @@ class _HomeContent extends StatelessWidget {
                     issuesProvider.setFilter('closed');
                     // Reload issues for ALL repos
                     for (final repo in issuesProvider.repositories) {
-                      issuesProvider.loadIssues(repoFullName: repo.fullName, state: 'closed');
+                      issuesProvider.loadIssues(state: 'closed');
                     }
                   },
                 ),
@@ -438,7 +438,7 @@ class _HomeContent extends StatelessWidget {
                     issuesProvider.setFilter('all');
                     // Reload issues for ALL repos
                     for (final repo in issuesProvider.repositories) {
-                      issuesProvider.loadIssues(repoFullName: repo.fullName, state: 'all');
+                      issuesProvider.loadIssues(state: 'all');
                     }
                   },
                 ),

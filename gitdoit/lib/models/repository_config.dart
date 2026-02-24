@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Repository configuration model for multi-repo support
 ///
@@ -187,5 +188,33 @@ class MultiRepositoryConfig extends ChangeNotifier {
   /// Export to list of full names
   List<String> exportToList() {
     return _repositories.map((r) => r.fullName).toList();
+  }
+
+  /// Save to secure storage
+  Future<void> saveToStorage(FlutterSecureStorage storage) async {
+    final names = exportToList();
+    await storage.write(
+      key: 'github_repositories',
+      value: names.join(','),
+    );
+    await storage.write(
+      key: 'github_active_repository',
+      value: _activeRepository,
+    );
+  }
+
+  /// Load from secure storage
+  Future<void> loadFromStorage(FlutterSecureStorage storage) async {
+    final data = await storage.read(key: 'github_repositories');
+    final active = await storage.read(key: 'github_active_repository');
+    
+    if (data != null && data.isNotEmpty) {
+      final names = data.split(',').where((n) => n.isNotEmpty).toList();
+      loadFromList(names);
+    }
+    
+    if (active != null) {
+      _activeRepository = active;
+    }
   }
 }

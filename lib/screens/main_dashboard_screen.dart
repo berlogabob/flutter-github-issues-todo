@@ -674,7 +674,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.of(context).size.width * 0.02,
+      ),
       itemCount: filteredRepos.length,
       itemBuilder: (context, index) {
         final repo = filteredRepos[index];

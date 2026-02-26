@@ -59,7 +59,130 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     super.initState();
     _syncService.init();
     _checkOfflineMode();
+
+    // Set up callback for when internet becomes available with local issues
+    _syncService.onSyncNeeded = _showSyncLocalIssuesDialog;
+
+    // Check immediately if there are local issues to sync
+    _checkLocalIssuesToSync();
+
     _loadData();
+  }
+
+  Future<void> _checkLocalIssuesToSync() async {
+    // Wait for repos to load first
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted && !_isOfflineMode) {
+      final count = await _syncService.getLocalIssuesCount();
+      if (count > 0 && _repositories.isNotEmpty) {
+        _showSyncLocalIssuesDialog();
+      }
+    }
+  }
+
+  void _showSyncLocalIssuesDialog() {
+    if (!mounted || _repositories.isEmpty || _isOfflineMode) {
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        title: const Row(
+          children: [
+            Icon(Icons.sync, color: AppColors.orange),
+            SizedBox(width: 8),
+            Text('Sync Local Issues', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'You have offline issues that can be synced to GitHub.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Select a repository to sync to:',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _repositories.length,
+                itemBuilder: (context, index) {
+                  final repo = _repositories[index];
+                  return ListTile(
+                    leading: const Icon(Icons.folder, color: AppColors.orange),
+                    title: Text(
+                      repo.fullName,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await _syncLocalIssuesToRepo(repo.fullName);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _syncLocalIssuesToRepo(String repoFullName) async {
+    final parts = repoFullName.split('/');
+    if (parts.length != 2) return;
+
+    final owner = parts[0];
+    final repo = parts[1];
+
+    final success = await _syncService.syncLocalIssuesToRepo(owner, repo);
+
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Issues synced to $repoFullName'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Reload data to reflect changes
+        await _loadLocalIssues();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                const Text('Failed to sync issues'),
+              ],
+            ),
+            backgroundColor: AppColors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _checkOfflineMode() async {
@@ -141,19 +264,25 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       final localIssues = await _localStorage.getLocalIssues();
       debugPrint('Loaded ${localIssues.length} local issues');
 
-      if (localIssues.isNotEmpty && mounted) {
-        // Create a demo repo to hold local issues
-        final localRepo = RepoItem(
-          id: 'local',
-          title: 'Local Issues',
-          fullName: 'local/offline',
-          description: 'Issues created offline (will sync when online)',
-          children: localIssues,
-        );
+      // In offline mode, always show Local Issues repo (even if empty)
+      // so users can create new issues
+      if ((localIssues.isNotEmpty || _isOfflineMode) && mounted) {
+        // Check if Local Issues repo already exists
+        final hasLocalRepo = _repositories.any((r) => r.id == 'local');
 
-        setState(() {
-          _repositories.add(localRepo);
-        });
+        if (!hasLocalRepo) {
+          final localRepo = RepoItem(
+            id: 'local',
+            title: 'Local Issues',
+            fullName: 'local/offline',
+            description: 'Issues created offline (will sync when online)',
+            children: localIssues,
+          );
+
+          setState(() {
+            _repositories.insert(0, localRepo);
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading local issues: $e');
@@ -948,6 +1077,119 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     _showCreateIssueDialog();
   }
 
+  void _createLocalIssue() {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        title: const Text(
+          'Create Local Issue',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: titleController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Title *',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0x4DFFFFFF)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.orange),
+                  ),
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Description (Markdown)',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0x4DFFFFFF)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.orange),
+                  ),
+                ),
+                maxLines: 5,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              titleController.dispose();
+              descriptionController.dispose();
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.trim().isNotEmpty) {
+                final newIssue = IssueItem(
+                  id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+                  title: titleController.text.trim(),
+                  bodyMarkdown: descriptionController.text.isNotEmpty
+                      ? descriptionController.text
+                      : null,
+                  status: ItemStatus.open,
+                  updatedAt: DateTime.now(),
+                  isLocalOnly: true,
+                );
+
+                await _localStorage.saveLocalIssue(newIssue);
+
+                // Reload to show the new issue
+                await _loadLocalIssues();
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white),
+                          const SizedBox(width: 8),
+                          const Text('Local issue created'),
+                        ],
+                      ),
+                      backgroundColor: AppColors.orange,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+
+                titleController.dispose();
+                descriptionController.dispose();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.orange,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _openIssueDetail(IssueItem issue) {
     // Extract owner/repo from the repository that contains this issue
     String? owner;
@@ -973,7 +1215,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   void _showCreateIssueDialog() async {
-    if (_repositories.isEmpty) {
+    // In offline mode, check if Local Issues repo exists
+    if (_repositories.isEmpty && !_isOfflineMode) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -994,6 +1237,19 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           ),
         ),
       );
+      return;
+    }
+
+    // In offline mode with no repos, create issue in Local Issues repo
+    if (_repositories.isEmpty && _isOfflineMode) {
+      _createLocalIssue();
+      return;
+    }
+
+    // Check if Local Issues repo exists for offline mode
+    final hasLocalRepo = _repositories.any((r) => r.id == 'local');
+    if (_isOfflineMode && !hasLocalRepo) {
+      _createLocalIssue();
       return;
     }
 

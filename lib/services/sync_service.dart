@@ -31,6 +31,9 @@ class SyncService {
   int _syncedIssuesCount = 0;
   int _syncedProjectsCount = 0;
 
+  // Callback for when sync is needed (has local issues + internet)
+  Function()? onSyncNeeded;
+
   // Connectivity subscription
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
@@ -91,6 +94,59 @@ class SyncService {
     if (_isNetworkAvailable && !wasAvailable) {
       debugPrint('SyncService: Network restored, triggering auto-sync');
       _triggerAutoSync();
+
+      // Check if there are local issues to sync
+      _checkAndNotifyLocalIssues();
+    }
+  }
+
+  /// Check if there are local-only issues and notify via callback
+  Future<void> _checkAndNotifyLocalIssues() async {
+    try {
+      final localIssues = await _localStorage.getLocalIssues();
+      final localOnlyCount = localIssues.where((i) => i.isLocalOnly).length;
+
+      if (localOnlyCount > 0 && onSyncNeeded != null) {
+        debugPrint('SyncService: Found $localOnlyCount local issues to sync');
+        onSyncNeeded!();
+      }
+    } catch (e) {
+      debugPrint('SyncService: Error checking local issues: $e');
+    }
+  }
+
+  /// Public method to check if there are local issues
+  Future<int> getLocalIssuesCount() async {
+    final localIssues = await _localStorage.getLocalIssues();
+    return localIssues.where((i) => i.isLocalOnly).length;
+  }
+
+  /// Public method to sync local issues to a specific repo
+  Future<bool> syncLocalIssuesToRepo(String owner, String repo) async {
+    if (_isSyncing) {
+      debugPrint('SyncService: Sync already in progress');
+      return false;
+    }
+
+    _isSyncing = true;
+    _syncStatus = 'syncing';
+    _notifyListeners();
+
+    try {
+      final localIssues = await _localStorage.getLocalIssues();
+      await _syncLocalIssuesToGitHub(owner, repo, localIssues);
+
+      _syncStatus = 'success';
+      _notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('SyncService: Failed to sync local issues: $e');
+      _syncStatus = 'error';
+      _syncErrorMessage = e.toString();
+      _notifyListeners();
+      return false;
+    } finally {
+      _isSyncing = false;
     }
   }
 

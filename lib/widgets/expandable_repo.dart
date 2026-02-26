@@ -170,7 +170,15 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                       ),
                       child: const Icon(Icons.folder, color: AppColors.orange),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
+                    // Pin icon for pinned repos
+                    if (widget.isPinned)
+                      const Icon(
+                        Icons.push_pin,
+                        color: AppColors.orange,
+                        size: 16,
+                      ),
+                    if (widget.isPinned) const SizedBox(width: 4),
                     // Repo Info
                     Expanded(
                       child: Column(

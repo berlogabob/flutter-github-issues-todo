@@ -10,6 +10,7 @@ import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sync_service.dart';
+import '../services/secure_storage_service.dart';
 import '../widgets/expandable_repo.dart';
 import '../widgets/sync_cloud_icon.dart';
 import '../utils/responsive_utils.dart';
@@ -36,6 +37,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   String _filterStatus = 'open';
   bool _hideUsernameInRepo = false;
   bool _isLoading = false;
+  bool _isOfflineMode = false;
   bool _isFetchingRepos = false;
   bool _isFetchingProjects = false;
   String? _errorMessage;
@@ -56,7 +58,17 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   void initState() {
     super.initState();
     _syncService.init();
+    _checkOfflineMode();
     _loadData();
+  }
+
+  Future<void> _checkOfflineMode() async {
+    final authType = await SecureStorageService.instance.read(key: 'auth_type');
+    if (mounted) {
+      setState(() {
+        _isOfflineMode = authType == 'offline';
+      });
+    }
   }
 
   @override
@@ -98,6 +110,29 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
     } catch (e) {
       debugPrint('Error loading filters: $e');
+    }
+  }
+
+  Future<void> _autoPinDefaultRepo() async {
+    // If no pinned repos, auto-pin the default repo from settings
+    if (_pinnedRepos.isEmpty) {
+      final defaultRepoName = await _localStorage.getDefaultRepo();
+      if (defaultRepoName != null && mounted) {
+        // Find repo by fullName and get its ID
+        for (final repo in _repositories) {
+          if (repo.fullName == defaultRepoName) {
+            setState(() {
+              _pinnedRepos.add(repo.id);
+            });
+            await _localStorage.saveFilters(
+              filterStatus: _filterStatus,
+              pinnedRepos: _pinnedRepos.toList(),
+            );
+            debugPrint('Auto-pinned default repo: $defaultRepoName');
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -177,6 +212,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           debugPrint('✓ UI updated with ${_repositories.length} repos');
         });
 
+        // Auto-pin default repo if no pinned repos exist
+        await _autoPinDefaultRepo();
+
         // Fetch issues for ALL repositories in parallel
         if (_repositories.isNotEmpty) {
           debugPrint(
@@ -192,10 +230,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          // In offline mode, don't show error - just show local issues if any
+          if (!_isOfflineMode) {
+            _errorMessage = e.toString();
+          }
           _isFetchingRepos = false;
-          // Add demo data if fetch fails
-          if (_repositories.isEmpty) {
+          // Add demo data only if NOT in offline mode
+          if (_repositories.isEmpty && !_isOfflineMode) {
             debugPrint('Showing demo data as fallback');
             _addDemoData();
           }
@@ -448,6 +489,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   Widget _buildErrorMessage() {
+    // Don't show error in offline mode
+    if (_isOfflineMode) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.all(8),
@@ -687,19 +733,66 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Sort repos - pinned ones first
     final sortedFilteredRepos = _getSortedRepos(filteredRepos);
 
+    // Find the index where unpinned repos start
+    int? dividerIndex;
+    for (int i = 0; i < sortedFilteredRepos.length; i++) {
+      if (!_pinnedRepos.contains(sortedFilteredRepos[i].id)) {
+        if (i > 0) {
+          dividerIndex = i;
+        }
+        break;
+      }
+    }
+
+    // Add top padding if first repo is pinned to avoid overlap with filters
+    final double topPadding =
+        (dividerIndex != null ||
+            (sortedFilteredRepos.isNotEmpty &&
+                _pinnedRepos.contains(sortedFilteredRepos.first.id)))
+        ? 8.0
+        : 0.0;
+
     return ListView.builder(
-      padding: EdgeInsets.symmetric(
-        horizontal: MediaQuery.of(context).size.width * 0.02,
+      padding: EdgeInsets.only(
+        left: MediaQuery.of(context).size.width * 0.02,
+        right: MediaQuery.of(context).size.width * 0.02,
+        top: topPadding,
       ),
       itemCount: sortedFilteredRepos.length,
       itemBuilder: (context, index) {
         final repo = sortedFilteredRepos[index];
         final isPinned = _pinnedRepos.contains(repo.id);
+
+        // Add divider after pinned repos
+        if (dividerIndex != null && index == dividerIndex) {
+          return Column(
+            children: [
+              ExpandableRepo(
+                repo: repo,
+                githubApi: _githubApi,
+                onIssueTap: _openIssueDetail,
+                initiallyExpanded: false,
+                hideUsernameInRepo: _hideUsernameInRepo,
+                isPinned: isPinned,
+                onPinToggle: () => _togglePinRepo(repo.id),
+              ),
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
+            ],
+          );
+        }
+
+        // First unpinned repo should be expanded
+        final isFirstUnpinned = dividerIndex != null && index == dividerIndex;
+
         return ExpandableRepo(
           repo: repo,
           githubApi: _githubApi,
           onIssueTap: _openIssueDetail,
-          initiallyExpanded: index == 0,
+          initiallyExpanded: index == 0 || isFirstUnpinned,
           hideUsernameInRepo: _hideUsernameInRepo,
           isPinned: isPinned,
           onPinToggle: () => _togglePinRepo(repo.id),
@@ -838,7 +931,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   /// Get sync cloud state based on sync service status
   SyncCloudState _getSyncCloudState() {
-    if (!_syncService.isNetworkAvailable) {
+    // Check offline mode first (user selected offline on startup)
+    if (_isOfflineMode || !_syncService.isNetworkAvailable) {
       return SyncCloudState.offline;
     }
     if (_syncService.isSyncing) {

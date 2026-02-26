@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'github_service.dart';
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// GitHub Users API - User-related operations
 ///

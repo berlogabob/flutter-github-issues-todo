@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,7 +8,7 @@ import '../models/issue.dart' as issue_models;
 import '../models/github_repository.dart' as repo_models;
 import 'github_issues_api.dart';
 import 'github_repositories_api.dart';
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// GitHub Service - Base service with shared functionality
 ///
@@ -44,8 +45,19 @@ class GitHubService {
         throw Exception('No GitHub token found. Please login first.');
       }
       return token;
+    } on MissingPluginException catch (e) {
+      // Handle missing plugin gracefully (e.g., in tests or unsupported platforms)
+      Logger.e(
+        'Secure storage not available',
+        error: e,
+        context: 'GitHub',
+      );
+      throw Exception('Secure storage not available. Please try again.');
     } catch (e) {
       Logger.e('Failed to read token from storage', error: e, context: 'GitHub');
+      if (e is MissingPluginException) {
+        rethrow;
+      }
       throw Exception('No GitHub token found. Please login first.');
     }
   }

@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'github_service.dart';
 import '../models/issue.dart' as issue_models;
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// GitHub Issues API - Issue-related operations
 ///
@@ -12,6 +13,7 @@ import '../utils/logger.dart';
 /// - Creating issues
 /// - Updating issues
 /// - Closing/reopening issues
+/// - Retry logic for network resilience
 class GitHubIssuesApi {
   final GitHubService _baseService;
   final http.Client _client;
@@ -41,7 +43,21 @@ class GitHubIssuesApi {
         '${GitHubService.baseUrl}/repos/$owner/$repo/issues?state=$state&per_page=$perPage',
       );
 
-      final response = await _client.get(uri, headers: await _baseService.headers);
+      // Get headers first with proper error handling
+      Map<String, String> requestHeaders;
+      try {
+        requestHeaders = await _baseService.headers;
+      } catch (e) {
+        Logger.e('Failed to get auth headers', error: e, context: 'GitHub');
+        metric.complete(success: false, errorMessage: 'Authentication required');
+        throw Exception('Authentication required. Please login.');
+      }
+
+      // Execute with retry
+      final response = await _withRetry(
+        () => _client.get(uri, headers: requestHeaders),
+        operationName: 'fetchIssues',
+      );
 
       Logger.d(
         'GitHub API response: ${response.statusCode}',
@@ -108,10 +124,24 @@ class GitHubIssuesApi {
         requestBody['assignees'] = assignees;
       }
 
-      final response = await _client.post(
-        uri,
-        headers: await _baseService.headers,
-        body: json.encode(requestBody),
+      // Get headers first
+      Map<String, String> requestHeaders;
+      try {
+        requestHeaders = await _baseService.headers;
+      } catch (e) {
+        Logger.e('Failed to get auth headers', error: e, context: 'GitHub');
+        metric.complete(success: false, errorMessage: 'Authentication required');
+        throw Exception('Authentication required. Please login.');
+      }
+
+      // Execute with retry
+      final response = await _withRetry(
+        () => _client.post(
+          uri,
+          headers: requestHeaders,
+          body: json.encode(requestBody),
+        ),
+        operationName: 'createIssue',
       );
 
       if (response.statusCode == 201) {
@@ -180,14 +210,28 @@ class GitHubIssuesApi {
         requestBody['milestone'] = milestone;
       }
 
-      if (assignees != null) {
+      if (assignees != null && assignees.isNotEmpty) {
         requestBody['assignees'] = assignees;
       }
 
-      final response = await _client.patch(
-        uri,
-        headers: await _baseService.headers,
-        body: json.encode(requestBody),
+      // Get headers first
+      Map<String, String> requestHeaders;
+      try {
+        requestHeaders = await _baseService.headers;
+      } catch (e) {
+        Logger.e('Failed to get auth headers', error: e, context: 'GitHub');
+        metric.complete(success: false, errorMessage: 'Authentication required');
+        throw Exception('Authentication required. Please login.');
+      }
+
+      // Execute with retry
+      final response = await _withRetry(
+        () => _client.patch(
+          uri,
+          headers: requestHeaders,
+          body: json.encode(requestBody),
+        ),
+        operationName: 'updateIssue',
       );
 
       if (response.statusCode == 200) {
@@ -244,6 +288,62 @@ class GitHubIssuesApi {
       issueNumber: issueNumber,
       state: 'open',
     );
+  }
+
+  /// Execute HTTP operation with retry logic
+  Future<http.Response> _withRetry(
+    Future<http.Response> Function() operation, {
+    required String operationName,
+    int maxRetries = 3,
+    Duration initialDelay = const Duration(seconds: 1),
+  }) async {
+    int attempt = 0;
+    Duration delay = initialDelay;
+
+    while (attempt < maxRetries) {
+      try {
+        return await operation();
+      } on http.ClientException catch (e) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          Logger.e(
+            '$operationName failed after $maxRetries attempts',
+            error: e,
+            context: 'GitHub',
+          );
+          rethrow;
+        }
+
+        Logger.w(
+          '$operationName failed, retrying ($attempt/$maxRetries)',
+          error: e,
+          context: 'GitHub',
+        );
+
+        await Future.delayed(delay);
+        delay *= 2; // Exponential backoff
+      } on TimeoutException catch (e) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          Logger.e(
+            '$operationName timeout after $maxRetries attempts',
+            error: e,
+            context: 'GitHub',
+          );
+          rethrow;
+        }
+
+        Logger.w(
+          '$operationName timeout, retrying ($attempt/$maxRetries)',
+          context: 'GitHub',
+        );
+
+        await Future.delayed(delay);
+        delay *= 2;
+      }
+    }
+
+    throw Exception('Max retries exceeded for $operationName');
   }
 
   /// Dispose HTTP client

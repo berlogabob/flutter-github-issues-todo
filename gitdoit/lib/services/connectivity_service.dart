@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// Connectivity Service - Monitors network connectivity with instant detection
 ///

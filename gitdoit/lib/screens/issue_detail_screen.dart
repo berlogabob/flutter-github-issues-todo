@@ -1,596 +1,609 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 
-import '../models/issue.dart';
-import '../providers/issues_provider.dart';
-import '../utils/logger.dart';
-import '../design_tokens/tokens.dart';
-import '../theme/industrial_theme.dart';
-import '../theme/widgets/widgets.dart';
-import 'edit_issue_screen.dart';
+import '../../providers/issues_provider.dart';
+import '../../models/issue.dart';
+import '../../design_tokens/tokens.dart';
+import '../../theme/industrial_theme.dart';
+import '../../theme/widgets/widgets.dart';
+import '../utils/logging.dart';
+import '../widgets/label_chip.dart';
 
-/// Issue Detail Screen - Full issue view with spatial depth
+/// Issue Detail Screen - Full issue view with Markdown, comments, timeline
 ///
-/// REDESIGNED: Industrial Minimalism with technical annotations
-/// Hardware-like controls, monospace metadata
-class IssueDetailScreen extends StatelessWidget {
+/// Displays:
+/// - Full issue details with Markdown rendering
+/// - Labels and assignees
+/// - Comments section
+/// - Timeline events
+/// - Actions (Edit, Close, Assign, etc.)
+class IssueDetailScreen extends StatefulWidget {
   final Issue issue;
 
-  const IssueDetailScreen({super.key, required this.issue});
+  const IssueDetailScreen({
+    super.key,
+    required this.issue,
+  });
+
+  @override
+  State<IssueDetailScreen> createState() => _IssueDetailScreenState();
+}
+
+class _IssueDetailScreenState extends State<IssueDetailScreen> {
+  bool _isEditing = false;
+  final _titleController = TextEditingController();
+  final _bodyController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController.text = widget.issue.title;
+    _bodyController.text = widget.issue.body ?? '';
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _bodyController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    Logger.d(
-      'Building IssueDetailScreen for #${issue.number}',
-      context: 'Detail',
-    );
-
     final industrialTheme = context.industrialTheme;
+    final issue = widget.issue;
 
     return Scaffold(
       backgroundColor: industrialTheme.surfacePrimary,
-
-      // Custom Industrial AppBar
+      
+      // Custom AppBar
       appBar: AppBar(
         backgroundColor: industrialTheme.surfacePrimary,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
-            Icons.arrow_back_outlined,
+            Icons.arrow_back,
             color: industrialTheme.textPrimary,
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Issue #${issue.number}',
-              style: AppTypography.monoAnnotation.copyWith(
-                color: industrialTheme.textTertiary,
-                fontSize: 11,
-              ),
-            ),
-          ],
+        title: Text(
+          '#${issue.number}',
+          style: AppTypography.monoAnnotation.copyWith(
+            color: industrialTheme.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: [
           // Edit button
-          IconButton(
-            icon: Icon(Icons.edit_outlined, color: industrialTheme.textPrimary),
-            onPressed: () => _editIssue(context),
-            tooltip: 'Edit issue',
-          ),
-          // Open in browser
-          IconButton(
-            icon: Icon(
-              Icons.open_in_new_outlined,
-              color: industrialTheme.textPrimary,
+          if (!_isEditing)
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: industrialTheme.textSecondary,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isEditing = true;
+                });
+              },
             ),
-            onPressed: () => _openInBrowser(context),
-            tooltip: 'Open on GitHub',
+          // Save button
+          if (_isEditing)
+            IconButton(
+              icon: Icon(
+                Icons.check,
+                color: industrialTheme.statusSuccess,
+              ),
+              onPressed: () => _saveChanges(),
+            ),
+          // More actions
+          PopupMenuButton<String>(
+            color: industrialTheme.surfaceElevated,
+            onSelected: (value) => _handleAction(value),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'assign',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.person_add_outlined,
+                      size: 18,
+                      color: industrialTheme.textSecondary,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'Assign',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: industrialTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: issue.isOpen ? 'close' : 'reopen',
+                child: Row(
+                  children: [
+                    Icon(
+                      issue.isOpen
+                          ? Icons.check_circle_outline
+                          : Icons.refresh,
+                      size: 18,
+                      color: issue.isOpen
+                          ? industrialTheme.statusSuccess
+                          : industrialTheme.accentPrimary,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      issue.isOpen ? 'Close' : 'Reopen',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: issue.isOpen
+                            ? industrialTheme.statusSuccess
+                            : industrialTheme.accentPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.xs),
         ],
       ),
 
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: AppSpacing.lg),
-
-            // Header with title and status
-            _buildHeader(context),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Metadata section
-            _buildMetadata(context),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Labels section
-            if (issue.labels.isNotEmpty) ...[
-              _buildLabelsSection(context),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-
-            // Body with markdown
-            _buildBody(context),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // Action buttons
-            _buildActions(context),
-
-            const SizedBox(height: AppSpacing.xxl),
+      body: ListView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        children: [
+          // Header: Status, Title, Author
+          _buildHeader(issue, industrialTheme),
+          
+          const SizedBox(height: AppSpacing.xl),
+          
+          // Labels
+          if (issue.labels.isNotEmpty) ...[
+            _buildSectionLabel(industrialTheme, 'LABELS'),
+            const SizedBox(height: AppSpacing.sm),
+            _buildLabels(issue.labels, industrialTheme),
+            const SizedBox(height: AppSpacing.xl),
           ],
-        ),
+          
+          // Assignees
+          if (issue.assignees.isNotEmpty) ...[
+            _buildSectionLabel(industrialTheme, 'ASSIGNEES'),
+            const SizedBox(height: AppSpacing.sm),
+            _buildAssignees(issue.assignees, industrialTheme),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+          
+          // Description
+          _buildSectionLabel(industrialTheme, 'DESCRIPTION'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildDescription(issue, industrialTheme),
+          
+          const SizedBox(height: AppSpacing.xl),
+          
+          // Timeline/Comments placeholder
+          _buildSectionLabel(industrialTheme, 'ACTIVITY'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildActivityPlaceholder(industrialTheme),
+          
+          const SizedBox(height: AppSpacing.xxl),
+        ],
       ),
 
-      // Bottom action bar
-      bottomNavigationBar: _buildBottomBar(context),
+      // FAB for quick actions
+      floatingActionButton: _isEditing
+          ? FloatingActionButton.small(
+              onPressed: () {
+                setState(() {
+                  _isEditing = false;
+                  _titleController.text = widget.issue.title;
+                  _bodyController.text = widget.issue.body ?? '';
+                });
+              },
+              backgroundColor: industrialTheme.statusError,
+              child: Icon(
+                Icons.close,
+                color: industrialTheme.surfacePrimary,
+              ),
+            )
+          : null,
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    final industrialTheme = context.industrialTheme;
-    final isOpen = issue.isOpen;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: IndustrialCard(
-        type: IndustrialCardType.data,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status badge and title
-            Row(
-              children: [
-                IndustrialStatusBadge(isOpen: isOpen),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    issue.title,
-                    style: AppTypography.headlineMedium.copyWith(
-                      color: industrialTheme.textPrimary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.md),
-
-            // Author and date - monospace
-            Row(
-              children: [
-                Icon(
-                  Icons.person_outline,
-                  size: 16,
-                  color: industrialTheme.textTertiary,
-                ),
-                const SizedBox(width: AppSpacing.xxs),
-                Text(
-                  issue.user?.login ?? 'Unknown',
-                  style: AppTypography.monoData.copyWith(
-                    color: industrialTheme.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Icon(
-                  Icons.access_time_outlined,
-                  size: 16,
-                  color: industrialTheme.textTertiary,
-                ),
-                const SizedBox(width: AppSpacing.xxs),
-                Text(
-                  _formatDate(issue.createdAt),
-                  style: AppTypography.monoTimestamp.copyWith(
-                    color: industrialTheme.textTertiary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMetadata(BuildContext context) {
-    final industrialTheme = context.industrialTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: IndustrialCard(
-        type: IndustrialCardType.data,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Section header
-            Text(
-              'METADATA',
-              style: AppTypography.monoAnnotation.copyWith(
-                color: industrialTheme.textTertiary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            _metadataRow(
-              context,
-              icon: Icons.folder_outlined,
-              label: 'Repository',
-              value: issue.repositoryUrl?.split('/').last ?? 'Unknown',
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _buildDivider(industrialTheme),
-            const SizedBox(height: AppSpacing.md),
-            _metadataRow(
-              context,
-              icon: Icons.calendar_today_outlined,
-              label: 'Created',
-              value: DateFormat('MMM d, y • h:mm a').format(issue.createdAt),
-            ),
-            if (issue.updatedAt != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              _buildDivider(industrialTheme),
-              const SizedBox(height: AppSpacing.md),
-              _metadataRow(
-                context,
-                icon: Icons.update_outlined,
-                label: 'Updated',
-                value: _formatDate(issue.updatedAt!),
-              ),
-            ],
-            if (issue.closedAt != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              _buildDivider(industrialTheme),
-              const SizedBox(height: AppSpacing.md),
-              _metadataRow(
-                context,
-                icon: Icons.check_circle_outlined,
-                label: 'Closed',
-                value: _formatDate(issue.closedAt!),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _metadataRow(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    final industrialTheme = context.industrialTheme;
-
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: industrialTheme.textTertiary),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: AppTypography.monoAnnotation.copyWith(
-                  color: industrialTheme.textTertiary,
-                  fontSize: 10,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: AppTypography.monoData.copyWith(
-                  color: industrialTheme.textPrimary,
-                  fontSize: 13,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLabelsSection(BuildContext context) {
-    final industrialTheme = context.industrialTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: IndustrialCard(
-        type: IndustrialCardType.data,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'LABELS',
-              style: AppTypography.monoAnnotation.copyWith(
-                color: industrialTheme.textTertiary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: issue.labels.map((label) {
-                return IndustrialLabelBadge(
-                  label: label.name,
-                  colorHex: label.color,
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody(BuildContext context) {
-    final industrialTheme = context.industrialTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: IndustrialCard(
-        type: IndustrialCardType.data,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'DESCRIPTION',
-              style: AppTypography.monoAnnotation.copyWith(
-                color: industrialTheme.textTertiary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            if (issue.body != null && issue.body!.isNotEmpty)
-              MarkdownBody(
-                data: issue.body!,
-                styleSheet: MarkdownStyleSheet(
-                  p: AppTypography.bodyMedium.copyWith(
-                    color: industrialTheme.textPrimary,
-                  ),
-                  h1: AppTypography.headlineSmall.copyWith(
-                    color: industrialTheme.textPrimary,
-                  ),
-                  h2: AppTypography.headlineSmall.copyWith(
-                    color: industrialTheme.textPrimary,
-                  ),
-                  h3: AppTypography.headlineSmall.copyWith(
-                    color: industrialTheme.textPrimary,
-                  ),
-                  code: AppTypography.monoCode.copyWith(
-                    color: industrialTheme.textPrimary,
-                    backgroundColor: industrialTheme.surfacePrimary,
-                  ),
-                  codeblockDecoration: BoxDecoration(
-                    color: industrialTheme.surfacePrimary,
-                    borderRadius: BorderRadius.circular(
-                      AppSpacing.radiusMedium,
-                    ),
-                    border: Border.all(
-                      color: industrialTheme.borderPrimary,
-                      width: 1,
-                    ),
-                  ),
-                  blockquote: AppTypography.bodyMedium.copyWith(
-                    color: industrialTheme.textSecondary,
-                    fontStyle: FontStyle.italic,
-                  ),
-                  blockquoteDecoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(
-                        color: industrialTheme.accentPrimary,
-                        width: 3,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else
-              Text(
-                'No description provided.',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: industrialTheme.textTertiary,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActions(BuildContext context) {
-    final industrialTheme = context.industrialTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: IndustrialCard(
-        type: IndustrialCardType.data,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'DETAILS',
-              style: AppTypography.monoAnnotation.copyWith(
-                color: industrialTheme.textTertiary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            if (issue.assignees.isNotEmpty) ...[
-              _actionRow(
-                context,
-                icon: Icons.people_outline,
-                label: 'Assignees',
-                value: issue.assignees.map((a) => a.login).join(', '),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _buildDivider(industrialTheme),
-              const SizedBox(height: AppSpacing.md),
-            ],
-
-            if (issue.milestone != null) ...[
-              _actionRow(
-                context,
-                icon: Icons.flag_outlined,
-                label: 'Milestone',
-                value: issue.milestone!.title,
-              ),
-            ],
-
-            if (issue.assignees.isEmpty && issue.milestone == null)
-              Text(
-                'No additional details',
-                style: AppTypography.bodySmall.copyWith(
-                  color: industrialTheme.textTertiary,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _actionRow(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    final industrialTheme = context.industrialTheme;
-
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: industrialTheme.textTertiary),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: AppTypography.monoAnnotation.copyWith(
-                  color: industrialTheme.textTertiary,
-                  fontSize: 10,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: AppTypography.bodyMedium.copyWith(
-                  color: industrialTheme.textPrimary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDivider(IndustrialThemeData industrialTheme) {
-    return Container(height: 1, color: industrialTheme.borderPrimary);
-  }
-
-  Widget _buildBottomBar(BuildContext context) {
-    final industrialTheme = context.industrialTheme;
-    final issuesProvider = Provider.of<IssuesProvider>(context, listen: false);
-    final isOpen = issue.isOpen;
-
+  Widget _buildHeader(Issue issue, IndustrialThemeData industrialTheme) {
     return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: industrialTheme.surfaceElevated,
-        border: Border(
-          top: BorderSide(color: industrialTheme.borderPrimary, width: 1),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+        border: Border.all(
+          color: issue.isOpen
+              ? industrialTheme.statusSuccess.withOpacity(0.3)
+              : industrialTheme.textTertiary.withOpacity(0.3),
+          width: 2,
         ),
       ),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: SafeArea(
-        child: IndustrialButton(
-          onPressed: () => _toggleStatus(context, issuesProvider),
-          label: isOpen ? 'CLOSE ISSUE' : 'REOPEN ISSUE',
-          variant: isOpen
-              ? IndustrialButtonVariant.secondary
-              : IndustrialButtonVariant.primary,
-          icon: Icon(
-            isOpen ? Icons.check_circle_outlined : Icons.circle_outlined,
-            size: 18,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status badge
+          Row(
+            children: [
+              Icon(
+                issue.isOpen
+                    ? Icons.check_circle_outline
+                    : Icons.check_circle,
+                size: 18,
+                color: issue.isOpen
+                    ? industrialTheme.statusSuccess
+                    : industrialTheme.textTertiary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                issue.isOpen ? 'OPEN' : 'CLOSED',
+                style: AppTypography.labelMedium.copyWith(
+                  color: issue.isOpen
+                      ? industrialTheme.statusSuccess
+                      : industrialTheme.textTertiary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              // Issue number
+              Text(
+                '#${issue.number}',
+                style: AppTypography.monoAnnotation.copyWith(
+                  color: industrialTheme.textSecondary,
+                ),
+              ),
+            ],
           ),
-          isFullWidth: true,
-          size: IndustrialButtonSize.large,
-        ),
+          
+          const SizedBox(height: AppSpacing.md),
+          
+          // Title or Edit
+          if (_isEditing)
+            IndustrialInput(
+              label: 'TITLE',
+              controller: _titleController,
+              inputType: IndustrialInputType.text,
+            )
+          else
+            Text(
+              issue.title,
+              style: AppTypography.headlineSmall.copyWith(
+                color: industrialTheme.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          
+          const SizedBox(height: AppSpacing.sm),
+          
+          // Author and time
+          Row(
+            children: [
+              if (issue.user != null) ...[
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: industrialTheme.surfacePrimary,
+                  child: Text(
+                    issue.user!.login.substring(0, 1).toUpperCase(),
+                    style: AppTypography.captionSmall.copyWith(
+                      color: industrialTheme.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  issue.user!.login,
+                  style: AppTypography.captionSmall.copyWith(
+                    color: industrialTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+              ],
+              Text(
+                'opened ${_formatRelativeTime(issue.createdAt)}',
+                style: AppTypography.captionSmall.copyWith(
+                  color: industrialTheme.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  void _editIssue(BuildContext context) async {
-    Logger.d('Edit issue #${issue.number}', context: 'Detail');
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => EditIssueScreen(issue: issue)),
+  Widget _buildSectionLabel(IndustrialThemeData industrialTheme, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 12,
+          color: industrialTheme.accentPrimary,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          label,
+          style: AppTypography.monoAnnotation.copyWith(
+            color: industrialTheme.textTertiary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
-
-    if (result == true && context.mounted) {
-      Provider.of<IssuesProvider>(context, listen: false).loadIssues();
-      Navigator.pop(context, true);
-    }
   }
 
-  Future<void> _openInBrowser(BuildContext context) async {
-    if (issue.htmlUrl != null) {
-      final uri = Uri.parse(issue.htmlUrl!);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        Logger.e('Cannot open URL: ${issue.htmlUrl}', context: 'Detail');
-      }
-    }
+  Widget _buildLabels(List<Label> labels, IndustrialThemeData industrialTheme) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: labels.map((label) {
+        return LabelChip(label: label);
+      }).toList(),
+    );
   }
 
-  Future<void> _toggleStatus(
-    BuildContext context,
-    IssuesProvider issuesProvider,
-  ) async {
-    final isOpen = issue.isOpen;
-    final result = await issuesProvider.updateIssue(
-      issueNumber: issue.number,
-      state: isOpen ? 'closed' : 'open',
+  Widget _buildAssignees(
+    List<User> assignees,
+    IndustrialThemeData industrialTheme,
+  ) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: assignees.map((assignee) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: industrialTheme.surfacePrimary,
+              child: Text(
+                assignee.login.substring(0, 1).toUpperCase(),
+                style: AppTypography.captionSmall.copyWith(
+                  color: industrialTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              assignee.login,
+              style: AppTypography.bodySmall.copyWith(
+                color: industrialTheme.textPrimary,
+              ),
+            ),
+          ],
+        );
+      }).toList(),
     );
+  }
 
-    if (!context.mounted) return;
+  Widget _buildDescription(Issue issue, IndustrialThemeData industrialTheme) {
+    if (_isEditing) {
+      return IndustrialInput(
+        label: 'DESCRIPTION',
+        controller: _bodyController,
+        inputType: IndustrialInputType.text,
+        maxLines: 10,
+      );
+    }
 
-    if (result != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isOpen ? 'Issue closed' : 'Issue reopened'),
-          backgroundColor: context.industrialTheme.accentPrimary,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+    if (issue.body == null || issue.body!.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: industrialTheme.surfacePrimary,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+          border: Border.all(
+            color: industrialTheme.borderPrimary,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          'No description provided.',
+          style: AppTypography.bodyMedium.copyWith(
+            color: industrialTheme.textTertiary,
           ),
         ),
       );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: industrialTheme.surfacePrimary,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        border: Border.all(
+          color: industrialTheme.borderPrimary,
+          width: 1,
+        ),
+      ),
+      child: MarkdownBody(
+        data: issue.body!,
+        styleSheet: MarkdownStyleSheet(
+          p: AppTypography.bodyMedium.copyWith(
+            color: industrialTheme.textPrimary,
+          ),
+          h1: AppTypography.headlineMedium.copyWith(
+            color: industrialTheme.textPrimary,
+          ),
+          h2: AppTypography.headlineSmall.copyWith(
+            color: industrialTheme.textPrimary,
+          ),
+          h3: AppTypography.bodyMedium.copyWith(
+            color: industrialTheme.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          code: AppTypography.monoData.copyWith(
+            color: industrialTheme.accentPrimary,
+            backgroundColor: industrialTheme.surfacePrimary,
+          ),
+          codeblockDecoration: BoxDecoration(
+            color: industrialTheme.surfacePrimary,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+            border: Border.all(
+              color: industrialTheme.borderPrimary,
+              width: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityPlaceholder(IndustrialThemeData industrialTheme) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: industrialTheme.surfacePrimary,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+        border: Border.all(
+          color: industrialTheme.borderPrimary,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.history_outlined,
+            size: 48,
+            color: industrialTheme.textTertiary,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Activity Timeline',
+            style: AppTypography.bodyMedium.copyWith(
+              color: industrialTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Comments and events will appear here',
+            style: AppTypography.captionSmall.copyWith(
+              color: industrialTheme.textTertiary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          IndustrialButton(
+            onPressed: () {
+              Logger.d('Add comment clicked', context: 'IssueDetail');
+            },
+            label: 'ADD COMMENT',
+            variant: IndustrialButtonVariant.secondary,
+            size: IndustrialButtonSize.small,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatRelativeTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+
+    if (diff.inMinutes < 1) {
+      return 'just now';
+    } else if (diff.inHours < 1) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inDays < 1) {
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 30) {
+      return '${diff.inDays}d ago';
+    } else if (diff.inDays < 365) {
+      return '${(diff.inDays / 30).floor()}mo ago';
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to update issue')));
+      return '${(diff.inDays / 365).floor()}y ago';
     }
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
+  Future<void> _saveChanges() async {
+    final issuesProvider = Provider.of<IssuesProvider>(context, listen: false);
+    
+    try {
+      await issuesProvider.updateIssue(
+        issueNumber: widget.issue.number,
+        title: _titleController.text.trim(),
+        body: _bodyController.text.trim().isEmpty
+            ? null
+            : _bodyController.text.trim(),
+      );
 
-    if (diff.inDays > 365) {
-      return DateFormat('MMM d, y').format(date);
-    } else if (diff.inDays > 30) {
-      return DateFormat('MMM d').format(date);
-    } else if (diff.inDays > 0) {
-      return '${diff.inDays}d ago';
-    } else if (diff.inHours > 0) {
-      return '${diff.inHours}h ago';
-    } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes}m ago';
-    } else {
-      return 'Just now';
+      if (!mounted) return;
+      
+      setState(() {
+        _isEditing = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                color: context.industrialTheme.surfacePrimary,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Issue updated successfully',
+                style: AppTypography.labelSmall.copyWith(
+                  color: context.industrialTheme.surfacePrimary,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: context.industrialTheme.statusSuccess,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update issue: $e'),
+          backgroundColor: context.industrialTheme.statusError,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleAction(String action) async {
+    final issuesProvider = Provider.of<IssuesProvider>(context, listen: false);
+    
+    try {
+      switch (action) {
+        case 'assign':
+          Logger.d('Assign action', context: 'IssueDetail');
+          // TODO: Show assignee picker
+          break;
+        case 'close':
+          await issuesProvider.closeIssue(widget.issue.number);
+          if (!mounted) return;
+          Navigator.pop(context, true); // Return to refresh list
+          break;
+        case 'reopen':
+          await issuesProvider.reopenIssue(widget.issue.number);
+          if (!mounted) return;
+          Navigator.pop(context, true); // Return to refresh list
+          break;
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Action failed: $e'),
+          backgroundColor: context.industrialTheme.statusError,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 }

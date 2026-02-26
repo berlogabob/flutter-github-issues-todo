@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/issue.dart';
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// Issues Cache - Handles Hive local caching operations
 ///

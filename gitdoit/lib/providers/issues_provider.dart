@@ -7,7 +7,7 @@ import 'issues_repository.dart';
 import '../models/issue.dart';
 import '../models/repository_config.dart';
 import '../services/connectivity_service.dart';
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// Issues Provider - Manages GitHub issues state
 ///

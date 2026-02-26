@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 import '../design_tokens/tokens.dart';
 import '../theme/industrial_theme.dart';
 import '../theme/widgets/widgets.dart';

@@ -4,7 +4,7 @@ import '../models/issue.dart';
 import '../services/github_issues_api.dart';
 import '../services/github_repositories_api.dart';
 import '../services/github_service.dart';
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// Issues Repository - Handles GitHub API operations for issues
 ///

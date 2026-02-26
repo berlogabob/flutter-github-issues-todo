@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/issues_provider.dart';
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 import '../design_tokens/tokens.dart';
 import '../theme/industrial_theme.dart';
 import '../theme/widgets/widgets.dart';
 import '../widgets/cloud_sync_icon.dart';
 import '../widgets/repo_header_widget.dart';
 import '../widgets/repository_issues_widget.dart';
-import 'settings/settings_screen.dart';
+import 'settings_screen.dart';
 import 'repo_add_menu.dart';
 
 /// Home Screen - Main dashboard after authentication

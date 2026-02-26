@@ -1,4 +1,4 @@
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// Result type for error handling
 class Result<T> {

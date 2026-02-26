@@ -11,6 +11,7 @@ class ExpandableRepo extends StatefulWidget {
   final GitHubApiService githubApi;
   final ValueChanged<IssueItem>? onIssueTap;
   final bool initiallyExpanded;
+  final bool hideUsernameInRepo;
 
   const ExpandableRepo({
     super.key,
@@ -18,6 +19,7 @@ class ExpandableRepo extends StatefulWidget {
     required this.githubApi,
     this.onIssueTap,
     this.initiallyExpanded = true,
+    this.hideUsernameInRepo = false,
   });
 
   @override
@@ -57,14 +59,16 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
 
       debugPrint('Loading issues for ${widget.repo.fullName}...');
       final issues = await widget.githubApi.fetchIssues(parts[0], parts[1]);
-      
+
       if (mounted) {
         setState(() {
           _issues = issues;
           _isLoadingIssues = false;
           _hasLoadedIssues = true;
         });
-        debugPrint('Loaded ${issues.length} issues for ${widget.repo.fullName}');
+        debugPrint(
+          'Loaded ${issues.length} issues for ${widget.repo.fullName}',
+        );
       }
     } catch (e) {
       debugPrint('Error loading issues for ${widget.repo.fullName}: $e');
@@ -77,11 +81,21 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
     }
   }
 
+  String _getDisplayName() {
+    if (widget.hideUsernameInRepo) {
+      final parts = widget.repo.fullName.split('/');
+      if (parts.length == 2) {
+        return parts[1];
+      }
+    }
+    return widget.repo.fullName;
+  }
+
   void _toggleExpand() {
     setState(() {
       _isExpanded = !_isExpanded;
     });
-    
+
     // Load issues when expanding for the first time
     if (_isExpanded && !_hasLoadedIssues && !_isLoadingIssues) {
       _loadIssues();
@@ -123,10 +137,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                       color: AppColors.orange.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.folder,
-                      color: AppColors.orange,
-                    ),
+                    child: const Icon(Icons.folder, color: AppColors.orange),
                   ),
                   const SizedBox(width: 12),
                   // Repo Info
@@ -135,7 +146,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.repo.fullName,
+                          _getDisplayName(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -144,7 +155,8 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (widget.repo.description != null && widget.repo.description!.isNotEmpty)
+                        if (widget.repo.description != null &&
+                            widget.repo.description!.isNotEmpty)
                           Text(
                             widget.repo.description!,
                             style: TextStyle(
@@ -160,11 +172,16 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                   // Issue Count Badge
                   if (_hasLoadedIssues || widget.repo.children.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.orange.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.orange.withValues(alpha: 0.5)),
+                        border: Border.all(
+                          color: AppColors.orange.withValues(alpha: 0.5),
+                        ),
                       ),
                       child: Text(
                         '${_issues.length + widget.repo.children.length} issues',
@@ -191,7 +208,10 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
             AnimatedCrossFade(
               firstChild: const SizedBox.shrink(),
               secondChild: _buildIssuesList(),
-              crossFadeState: _hasLoadedIssues || widget.repo.children.isNotEmpty || _errorMessage != null
+              crossFadeState:
+                  _hasLoadedIssues ||
+                      widget.repo.children.isNotEmpty ||
+                      _errorMessage != null
                   ? CrossFadeState.showSecond
                   : CrossFadeState.showFirst,
               duration: const Duration(milliseconds: 300),
@@ -236,7 +256,10 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
             ),
             TextButton(
               onPressed: _loadIssues,
-              child: const Text('Retry', style: TextStyle(color: AppColors.orange)),
+              child: const Text(
+                'Retry',
+                style: TextStyle(color: AppColors.orange),
+              ),
             ),
           ],
         ),
@@ -246,20 +269,19 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
     // Show issues from API
     if (_issues.isNotEmpty) {
       return Column(
-        children: _issues.map((issue) => IssueCard(
-          issue: issue,
-          onTap: widget.onIssueTap,
-        )).toList(),
+        children: _issues
+            .map((issue) => IssueCard(issue: issue, onTap: widget.onIssueTap))
+            .toList(),
       );
     }
 
     // Show local issues
     if (widget.repo.children.isNotEmpty) {
       return Column(
-        children: widget.repo.children.whereType<IssueItem>().map((issue) => IssueCard(
-          issue: issue,
-          onTap: widget.onIssueTap,
-        )).toList(),
+        children: widget.repo.children
+            .whereType<IssueItem>()
+            .map((issue) => IssueCard(issue: issue, onTap: widget.onIssueTap))
+            .toList(),
       );
     }
 

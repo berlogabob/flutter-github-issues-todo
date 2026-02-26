@@ -1,6 +1,6 @@
 # GitDoIt — Master Project Document
 
-**Version:** 1.0.0 MVP  
+**Version:** 0.5.0+1 MVP  
 **Last Updated:** 26 February 2026  
 **Status:** ✅ READY FOR RELEASE
 

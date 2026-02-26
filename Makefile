@@ -23,6 +23,9 @@ NEXT_BUILD := $(shell echo $$(($(VERSION_BUILD) + 1)))
 # New version string
 NEW_VERSION := $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)+$(NEXT_BUILD)
 
+# Release tag (includes build number for uniqueness)
+RELEASE_TAG := v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)-build-$(NEXT_BUILD)
+
 # Default target
 all: help
 
@@ -76,7 +79,7 @@ build-android: init version-increment
 # Build Web release for GitHub Pages
 build-web: init version-increment
 	@echo "🌐 Building Web release for GitHub Pages..."
-	@flutter build web --release
+	@flutter build web --release --base-href="/flutter-github-issues-todo/"
 	@echo "✅ Web build completed"
 	@echo "📁 Moving to /docs folder for GitHub Pages..."
 	@rm -rf docs
@@ -91,17 +94,18 @@ build-web: init version-increment
 	@echo "4. Folder: /docs"
 	@echo "5. Save settings"
 	@echo ""
-	@echo "💡 Base href configured in docs/index.html for proper routing"
+	@echo "💡 Base href configured: /flutter-github-issues-todo/"
 
-# Full release - both Android and Web, with git commit and tag
-release: init version-increment build-android build-web gh-release git-commit-tag
-	@echo "🎉 Complete release built, committed, and published!"
-	@echo "Android APK: build/app-release.apk"
+# Full release - both Android and Web, with git commit, tag, and push
+release: init version-increment build-android build-web git-commit-tag git-push-tag gh-release
+	@echo "🎉 Complete release built, committed, pushed, and published!"
+	@echo "Android APK: build/app/outputs/flutter-apk/app-release.apk"
 	@echo "Web files: docs/"
 	@echo "New version: $(NEW_VERSION)"
+	@echo "Release tag: $(RELEASE_TAG)"
 	@echo ""
-	@echo "✅ GitHub release created: v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)"
-	@echo "✅ Git tag created: v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)"
+	@echo "✅ GitHub release created: $(RELEASE_TAG)"
+	@echo "✅ Git tag created and pushed: $(RELEASE_TAG)"
 	@echo "✅ GitHub Pages ready: /docs folder"
 	@echo ""
 	@echo "🚀 Deployment complete! Progress tracked in git history."
@@ -119,23 +123,23 @@ gh-release:
 	@echo "🤖 GitHub Release Automation..."
 	@if command -v gh >/dev/null 2>&1; then \
 		echo "✅ GitHub CLI detected"; \
-		echo "Creating release v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)..."; \
-		gh release create v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH) \
-			--title "GitDoIt v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)" \
-			--notes "Build $(NEXT_BUILD) - Android APK and Web release for GitHub Pages" \
-			--draft \
-			build/app-release.apk 2>/dev/null || \
-		(echo "❌ GitHub release creation failed. Check authentication:" && \
-		echo "   1. Run 'gh auth login' to authenticate" && \
-		echo "   2. Ensure you have 'admin' permissions on the repository" && \
-		echo "   3. Repository must exist on GitHub"); \
+		if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then \
+			echo "📦 APK file found"; \
+			echo "Creating release $(RELEASE_TAG)..."; \
+			gh release create $(RELEASE_TAG) \
+				--title "GitDoIt $(RELEASE_TAG)" \
+				--notes "Build $(NEXT_BUILD) - Android APK and Web release for GitHub Pages" \
+				build/app/outputs/flutter-apk/app-release.apk && \
+			echo "✅ GitHub release created successfully!"; \
+		else \
+			echo "⚠️ APK file not found, creating release without attachment"; \
+			gh release create $(RELEASE_TAG) \
+				--title "GitDoIt $(RELEASE_TAG)" \
+				--notes "Build $(NEXT_BUILD) - Android APK and Web release for GitHub Pages" || true; \
+		fi; \
 	else \
-		echo "⚠️  GitHub CLI not found"; \
+		echo "⚠️ GitHub CLI not found"; \
 		echo "   Install with: brew install gh"; \
-		echo "   Or create release manually at:"; \
-		echo "   https://github.com/berlogabob/flutter-github-issues-todo/releases/new"; \
-		echo "   Tag: v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)"; \
-		echo "   Upload: build/app-release.apk"; \
 	fi
 
 # Git commit and tag after successful build
@@ -144,15 +148,27 @@ git-commit-tag:
 	@if git status --porcelain | grep -q .; then \
 		echo "✅ Changes detected - committing build artifacts"; \
 		git add pubspec.yaml docs/; \
-		if [ -f "build/app-release.apk" ]; then \
-			git add build/app-release.apk; \
+		if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then \
+			git add build/app/outputs/flutter-apk/app-release.apk; \
 		fi; \
-		git commit -m "release: v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH) build $(NEXT_BUILD)" --no-verify; \
-		git tag -a "v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)" -m "GitDoIt v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH) build $(NEXT_BUILD)"; \
-		echo "✅ Commit created: release: v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH) build $(NEXT_BUILD)"; \
-		echo "✅ Tag created: v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)"; \
+		git commit -m "release: $(RELEASE_TAG)" --no-verify; \
+		git tag -a "$(RELEASE_TAG)" -m "GitDoIt $(RELEASE_TAG)"; \
+		echo "✅ Commit created: release: $(RELEASE_TAG)"; \
+		echo "✅ Tag created: $(RELEASE_TAG)"; \
 	else \
 		echo "⚠️ No changes to commit (all files already committed)"; \
+	fi
+
+# Push tag and branch to remote for GitHub release creation
+git-push-tag:
+	@echo "📤 Pushing tag and branch to remote for GitHub release..."
+	@if git tag -l "$(RELEASE_TAG)" | grep -q "$(RELEASE_TAG)"; then \
+		echo "✅ Tag $(RELEASE_TAG) exists locally"; \
+		git push origin HEAD; \
+		git push origin "$(RELEASE_TAG)"; \
+		echo "✅ Branch and tag pushed to remote"; \
+	else \
+		echo "⚠️ Tag $(RELEASE_TAG) not found locally"; \
 	fi
 
 # Show current version

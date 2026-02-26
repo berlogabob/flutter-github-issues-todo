@@ -9,7 +9,7 @@ import 'services/theme_prefs.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/debug_screen.dart';
-import 'utils/logger.dart';
+import 'utils/logging.dart';
 import 'theme/app_theme.dart';
 import 'models/issue.adapter.dart';
 

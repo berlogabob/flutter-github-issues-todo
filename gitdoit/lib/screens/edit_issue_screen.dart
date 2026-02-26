@@ -4,7 +4,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../models/issue.dart';
 import '../providers/issues_provider.dart';
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 import '../design_tokens/tokens.dart';
 import '../theme/industrial_theme.dart';
 import '../theme/widgets/widgets.dart';

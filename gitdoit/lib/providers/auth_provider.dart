@@ -4,9 +4,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import '../services/github_service.dart';
-import '../utils/logger.dart';
+import '../services/oauth_service.dart';
+import '../utils/logging.dart';
 
-/// Authentication Provider - Manages GitHub PAT authentication state
+/// Authentication Provider - Manages GitHub PAT and OAuth authentication state
 ///
 /// OFFLINE-FIRST: App works without authentication
 /// Token validation happens when online
@@ -15,6 +16,7 @@ import '../utils/logger.dart';
 class AuthProvider extends ChangeNotifier {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final GitHubService _githubService = GitHubService();
+  final OAuthService _oauthService = OAuthService();
 
   // State
   String? _token;
@@ -24,6 +26,7 @@ class AuthProvider extends ChangeNotifier {
   String? _username;
   bool _isOfflineMode = false;
   bool _isOAuthLoginInProgress = false;
+  String? _authType; // 'pat' or 'oauth'
 
   // Getters
   String? get token => _token;
@@ -33,6 +36,12 @@ class AuthProvider extends ChangeNotifier {
   String? get username => _username;
   bool get isOfflineMode => _isOfflineMode;
   bool get isOAuthLoginInProgress => _isOAuthLoginInProgress;
+  String? get authType => _authType;
+  bool get isOAuth => _authType == 'oauth';
+  
+  // OAuth specific getters
+  String? get oauthUserCode => _oauthService.userCode;
+  String? get oauthVerificationUri => _oauthService.verificationUri;
 
   /// Initialize - update logger with user state
   AuthProvider() {
@@ -179,7 +188,7 @@ class AuthProvider extends ChangeNotifier {
       final response = await http.get(
         Uri.parse('https://api.github.com/user'),
         headers: {
-          'Authorization': 'Bearer $token',
+          'Authorization': 'token $token',
           'Accept': 'application/vnd.github.v3+json',
           'User-Agent': 'GitDoIt-App',
         },
@@ -448,6 +457,112 @@ class AuthProvider extends ChangeNotifier {
     Logger.w('OAuth login cancelled by user', context: 'Auth');
     _isOAuthLoginInProgress = false;
     _errorMessage = null;
+    _oauthService.stopPolling();
     notifyListeners();
+  }
+
+  /// Start OAuth Device Flow login
+  ///
+  /// Returns user code and verification URI for display
+  Future<Map<String, String>> startOAuthLogin() async {
+    final metric = Logger.startMetric('startOAuthLogin', 'Auth');
+    Logger.i('Starting OAuth Device Flow login', context: 'Auth');
+
+    _isLoading = true;
+    _errorMessage = null;
+    _isOAuthLoginInProgress = true;
+    notifyListeners();
+
+    try {
+      // Step 1: Request device code
+      final deviceCodeData = await _oauthService.requestDeviceCode();
+      
+      // Step 2: Open browser for user authorization
+      await _oauthService.openVerificationUri();
+
+      Logger.i(
+        'OAuth Device Flow started',
+        context: 'Auth',
+        metadata: {
+          'user_code': deviceCodeData['user_code'],
+          'verification_uri': deviceCodeData['verification_uri'],
+        },
+      );
+
+      metric.complete(success: true);
+
+      return {
+        'user_code': deviceCodeData['user_code'] ?? '',
+        'verification_uri': deviceCodeData['verification_uri'] ?? '',
+      };
+    } catch (e, stackTrace) {
+      Logger.e(
+        'Failed to start OAuth login',
+        error: e,
+        stackTrace: stackTrace,
+        context: 'Auth',
+      );
+      metric.complete(success: false, errorMessage: e.toString());
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isOAuthLoginInProgress = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Complete OAuth login (polling for token)
+  Future<void> completeOAuthFlow() async {
+    final metric = Logger.startMetric('completeOAuthFlow', 'Auth');
+    Logger.i('Completing OAuth Device Flow', context: 'Auth');
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // Poll for access token
+      final accessToken = await _oauthService.pollForAccessToken(
+        onStatusChange: (status) {
+          Logger.d('OAuth status: $status', context: 'Auth');
+        },
+      );
+
+      // Save token
+      await _oauthService.saveAccessToken(accessToken);
+      _authType = 'oauth';
+
+      // Validate and get username
+      await _validateTokenWithGitHub(accessToken);
+
+      if (_isAuthenticated) {
+        _token = accessToken;
+        _isOfflineMode = false;
+
+        // Update logger with user info
+        Logger.setCurrentUser(_username);
+
+        Logger.i(
+          'OAuth login successful',
+          context: 'Auth',
+          metadata: {'username': _username, 'auth_type': 'oauth'},
+        );
+      }
+
+      metric.complete(success: _isAuthenticated);
+    } catch (e, stackTrace) {
+      Logger.e(
+        'OAuth flow failed',
+        error: e,
+        stackTrace: stackTrace,
+        context: 'Auth',
+      );
+      metric.complete(success: false, errorMessage: e.toString());
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isAuthenticated = false;
+      _isOfflineMode = true;
+    } finally {
+      _isLoading = false;
+      _isOAuthLoginInProgress = false;
+      notifyListeners();
+    }
   }
 }

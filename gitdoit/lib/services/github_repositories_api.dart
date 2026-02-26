@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 import 'github_service.dart';
 import '../models/github_repository.dart' as repo_models;
-import '../utils/logger.dart';
+import '../utils/logging.dart';
 
 /// GitHub Repositories API - Repository-related operations
 ///

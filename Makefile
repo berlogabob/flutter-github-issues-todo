@@ -26,6 +26,9 @@ NEW_VERSION := $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)+$(NEXT_BUILD)
 # Release tag (includes build number for uniqueness)
 RELEASE_TAG := v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)-build-$(NEXT_BUILD)
 
+# GitHub Pages base href
+BASE_HREF := /flutter-github-issues-todo/
+
 # Default target
 all: help
 
@@ -79,7 +82,7 @@ build-android: init version-increment
 # Build Web release for GitHub Pages
 build-web: init version-increment
 	@echo "🌐 Building Web release for GitHub Pages..."
-	@flutter build web --release --base-href="/flutter-github-issues-todo/"
+	@flutter build web --release --base-href="$(BASE_HREF)"
 	@echo "✅ Web build completed"
 	@echo "📁 Moving to /docs folder for GitHub Pages..."
 	@rm -rf docs
@@ -94,7 +97,7 @@ build-web: init version-increment
 	@echo "4. Folder: /docs"
 	@echo "5. Save settings"
 	@echo ""
-	@echo "💡 Base href configured: /flutter-github-issues-todo/"
+	@echo "💡 Base href configured: $(BASE_HREF)"
 
 # Full release - both Android and Web, with git commit, tag, and push
 release: init version-increment build-android build-web git-commit-tag git-push-tag gh-release

@@ -7,9 +7,7 @@ import '../models/issue_item.dart';
 /// Local Storage Service - Persists data between app sessions
 class LocalStorageService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
   static const String _issuesKey = 'local_issues';
@@ -23,11 +21,11 @@ class LocalStorageService {
     try {
       final issuesJson = await _storage.read(key: _issuesKey);
       List<dynamic> issues = [];
-      
+
       if (issuesJson != null && issuesJson.isNotEmpty) {
         issues = json.decode(issuesJson);
       }
-      
+
       issues.add(issue.toJson());
       await _storage.write(key: _issuesKey, value: json.encode(issues));
       debugPrint('Saved local issue: ${issue.title}');
@@ -43,7 +41,7 @@ class LocalStorageService {
       if (issuesJson == null || issuesJson.isEmpty) {
         return [];
       }
-      
+
       final List<dynamic> issues = json.decode(issuesJson);
       return issues.map((i) => IssueItem.fromJson(i)).toList();
     } catch (e) {
@@ -104,11 +102,16 @@ class LocalStorageService {
   }
 
   /// Save dashboard filters
-  Future<void> saveFilters({String? filterStatus, String? selectedProject}) async {
+  Future<void> saveFilters({
+    String? filterStatus,
+    String? selectedProject,
+    List<String>? pinnedRepos,
+  }) async {
     try {
       final filters = {
         'filterStatus': filterStatus ?? 'open',
         'selectedProject': selectedProject,
+        'pinnedRepos': pinnedRepos ?? [],
         'savedAt': DateTime.now().toIso8601String(),
       };
       await _storage.write(key: _filtersKey, value: json.encode(filters));
@@ -123,7 +126,11 @@ class LocalStorageService {
     try {
       final filtersJson = await _storage.read(key: _filtersKey);
       if (filtersJson == null || filtersJson.isEmpty) {
-        return {'filterStatus': 'open', 'selectedProject': null};
+        return {
+          'filterStatus': 'open',
+          'selectedProject': null,
+          'pinnedRepos': <String>[],
+        };
       }
 
       final filters = json.decode(filtersJson);
@@ -165,17 +172,23 @@ class LocalStorageService {
   }
 
   /// Save synced issues for a repository
-  Future<void> saveSyncedIssues(String repoFullName, List<IssueItem> issues) async {
+  Future<void> saveSyncedIssues(
+    String repoFullName,
+    List<IssueItem> issues,
+  ) async {
     try {
       final key = 'synced_issues_$repoFullName';
-      await _storage.write(key: key, value: json.encode(issues.map((i) => i.toJson()).toList()));
-      
+      await _storage.write(
+        key: key,
+        value: json.encode(issues.map((i) => i.toJson()).toList()),
+      );
+
       // Save sync timestamp
       await _storage.write(
         key: '${key}_timestamp',
         value: DateTime.now().toIso8601String(),
       );
-      
+
       debugPrint('Saved ${issues.length} synced issues for $repoFullName');
     } catch (e) {
       debugPrint('Error saving synced issues: $e');
@@ -187,7 +200,7 @@ class LocalStorageService {
     try {
       final key = 'synced_issues_$repoFullName';
       final issuesJson = await _storage.read(key: key);
-      
+
       if (issuesJson == null || issuesJson.isEmpty) {
         return [];
       }
@@ -205,7 +218,7 @@ class LocalStorageService {
     try {
       final key = 'synced_issues_$repoFullName';
       final timestamp = await _storage.read(key: '${key}_timestamp');
-      
+
       if (timestamp == null) return null;
       return DateTime.parse(timestamp);
     } catch (e) {
@@ -219,10 +232,13 @@ class LocalStorageService {
     try {
       final allIssues = await getLocalIssues();
       final remainingIssues = allIssues.where((i) => i.id != issueId).toList();
-      
+
       // Rewrite local issues without the synced one
-      await _storage.write(key: _issuesKey, value: json.encode(remainingIssues.map((i) => i.toJson()).toList()));
-      
+      await _storage.write(
+        key: _issuesKey,
+        value: json.encode(remainingIssues.map((i) => i.toJson()).toList()),
+      );
+
       debugPrint('Removed synced issue: $issueId');
     } catch (e) {
       debugPrint('Error removing synced issue: $e');

@@ -12,6 +12,8 @@ class ExpandableRepo extends StatefulWidget {
   final ValueChanged<IssueItem>? onIssueTap;
   final bool initiallyExpanded;
   final bool hideUsernameInRepo;
+  final bool isPinned;
+  final VoidCallback? onPinToggle;
 
   const ExpandableRepo({
     super.key,
@@ -20,6 +22,8 @@ class ExpandableRepo extends StatefulWidget {
     this.onIssueTap,
     this.initiallyExpanded = true,
     this.hideUsernameInRepo = false,
+    this.isPinned = false,
+    this.onPinToggle,
   });
 
   @override
@@ -104,119 +108,147 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: AppColors.cardBackground,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Repo Header (clickable)
-          InkWell(
-            onTap: _toggleExpand,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  // Expand/Collapse Icon
-                  AnimatedRotation(
-                    turns: _isExpanded ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(
-                      Icons.arrow_right,
-                      color: AppColors.red,
-                      size: 24,
+    return Dismissible(
+      key: Key(widget.repo.id),
+      direction: DismissDirection.horizontal,
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        color: AppColors.orange,
+        child: Icon(
+          widget.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+          color: Colors.white,
+        ),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: AppColors.orange,
+        child: Icon(
+          widget.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+          color: Colors.white,
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        widget.onPinToggle?.call();
+        return false;
+      },
+      child: Card(
+        color: AppColors.cardBackground,
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Repo Header (clickable)
+            InkWell(
+              onTap: _toggleExpand,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    // Expand/Collapse Icon
+                    AnimatedRotation(
+                      turns: _isExpanded ? 0.25 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(
+                        Icons.arrow_right,
+                        color: AppColors.red,
+                        size: 24,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Repo Icon
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 8),
+                    // Repo Icon
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.folder, color: AppColors.orange),
                     ),
-                    child: const Icon(Icons.folder, color: AppColors.orange),
-                  ),
-                  const SizedBox(width: 12),
-                  // Repo Info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _getDisplayName(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (widget.repo.description != null &&
-                            widget.repo.description!.isNotEmpty)
+                    const SizedBox(width: 12),
+                    // Repo Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            widget.repo.description!,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 12,
+                            _getDisplayName(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                      ],
-                    ),
-                  ),
-                  // Issue Count Badge
-                  if (_hasLoadedIssues || widget.repo.children.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                          if (widget.repo.description != null &&
+                              widget.repo.description!.isNotEmpty)
+                            Text(
+                              widget.repo.description!,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColors.orange.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.orange.withValues(alpha: 0.5),
+                    ),
+                    // Issue Count Badge
+                    if (_hasLoadedIssues || widget.repo.children.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.orange.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.orange.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          '${_issues.length + widget.repo.children.length} issues',
+                          style: const TextStyle(
+                            color: AppColors.orange,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        '${_issues.length + widget.repo.children.length} issues',
-                        style: const TextStyle(
-                          color: AppColors.orange,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    // Loading Indicator
+                    if (_isLoadingIssues)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                    ),
-                  // Loading Indicator
-                  if (_isLoadingIssues)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          // Issues List (collapsible)
-          if (_isExpanded)
-            AnimatedCrossFade(
-              firstChild: const SizedBox.shrink(),
-              secondChild: _buildIssuesList(),
-              crossFadeState:
-                  _hasLoadedIssues ||
-                      widget.repo.children.isNotEmpty ||
-                      _errorMessage != null
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 300),
-            ),
-        ],
+            // Issues List (collapsible)
+            if (_isExpanded)
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: _buildIssuesList(),
+                crossFadeState:
+                    _hasLoadedIssues ||
+                        widget.repo.children.isNotEmpty ||
+                        _errorMessage != null
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 300),
+              ),
+          ],
+        ),
       ),
     );
   }

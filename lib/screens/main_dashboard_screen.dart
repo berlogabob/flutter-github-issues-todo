@@ -43,6 +43,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   // Repositories with issues
   List<RepoItem> _repositories = [];
 
+  // Pinned repos (stored as set of repo IDs)
+  Set<String> _pinnedRepos = {};
+
   // Projects for issue creation
   List<Map<String, dynamic>> _projects = [];
   Map<String, String> _projectFieldIds = {}; // projectName -> fieldId
@@ -82,8 +85,16 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       if (mounted) {
         setState(() {
           _filterStatus = filters['filterStatus'] ?? 'open';
+          final pinnedList = filters['pinnedRepos'];
+          if (pinnedList != null) {
+            _pinnedRepos = (pinnedList as List)
+                .map((e) => e.toString())
+                .toSet();
+          }
         });
-        debugPrint('Loaded saved filters: $_filterStatus');
+        debugPrint(
+          'Loaded saved filters: $_filterStatus, pinned: $_pinnedRepos',
+        );
       }
     } catch (e) {
       debugPrint('Error loading filters: $e');
@@ -673,19 +684,25 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
     }
 
+    // Sort repos - pinned ones first
+    final sortedFilteredRepos = _getSortedRepos(filteredRepos);
+
     return ListView.builder(
       padding: EdgeInsets.symmetric(
         horizontal: MediaQuery.of(context).size.width * 0.02,
       ),
-      itemCount: filteredRepos.length,
+      itemCount: sortedFilteredRepos.length,
       itemBuilder: (context, index) {
-        final repo = filteredRepos[index];
+        final repo = sortedFilteredRepos[index];
+        final isPinned = _pinnedRepos.contains(repo.id);
         return ExpandableRepo(
           repo: repo,
           githubApi: _githubApi,
           onIssueTap: _openIssueDetail,
           initiallyExpanded: index == 0,
           hideUsernameInRepo: _hideUsernameInRepo,
+          isPinned: isPinned,
+          onPinToggle: () => _togglePinRepo(repo.id),
         );
       },
     );
@@ -791,6 +808,32 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
+  }
+
+  void _togglePinRepo(String repoId) {
+    setState(() {
+      if (_pinnedRepos.contains(repoId)) {
+        _pinnedRepos.remove(repoId);
+      } else {
+        _pinnedRepos.add(repoId);
+      }
+    });
+    _localStorage.saveFilters(
+      filterStatus: _filterStatus,
+      pinnedRepos: _pinnedRepos.toList(),
+    );
+  }
+
+  List<RepoItem> _getSortedRepos(List<RepoItem> repos) {
+    final sorted = List<RepoItem>.from(repos);
+    sorted.sort((a, b) {
+      final aPinned = _pinnedRepos.contains(a.id);
+      final bPinned = _pinnedRepos.contains(b.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return 0;
+    });
+    return sorted;
   }
 
   /// Get sync cloud state based on sync service status

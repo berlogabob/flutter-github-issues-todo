@@ -1,13 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
+import '../models/item.dart';
 
 /// Local Storage Service - Persists data between app sessions
 class LocalStorageService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(),
   );
 
   static const String _issuesKey = 'local_issues';
@@ -16,46 +18,228 @@ class LocalStorageService {
   static const String _filtersKey = 'local_filters';
   static const String _projectsKey = 'local_projects';
 
-  /// Save a locally created issue
+  /// Get vault folder path from secure storage
+  Future<String?> getVaultFolder() async {
+    return await _storage.read(key: 'vault_folder');
+  }
+
+  /// Save a locally created issue (only to vault folder - for Syncthing/Nextcloud sync)
   Future<void> saveLocalIssue(IssueItem issue) async {
     try {
-      final issuesJson = await _storage.read(key: _issuesKey);
-      List<dynamic> issues = [];
-
-      if (issuesJson != null && issuesJson.isNotEmpty) {
-        issues = json.decode(issuesJson);
-      }
-
-      issues.add(issue.toJson());
-      await _storage.write(key: _issuesKey, value: json.encode(issues));
-      debugPrint('Saved local issue: ${issue.title}');
+      await _saveIssueToVaultFile(issue);
+      debugPrint('Saved local issue to vault: ${issue.title}');
     } catch (e) {
       debugPrint('Error saving local issue: $e');
     }
   }
 
-  /// Get all locally created issues
-  Future<List<IssueItem>> getLocalIssues() async {
+  /// Save issue as markdown file in vault folder
+  Future<void> _saveIssueToVaultFile(IssueItem issue) async {
     try {
-      final issuesJson = await _storage.read(key: _issuesKey);
-      if (issuesJson == null || issuesJson.isEmpty) {
-        return [];
+      final vaultPath = await getVaultFolder();
+      if (vaultPath == null) {
+        debugPrint('No vault folder configured');
+        return;
       }
 
-      final List<dynamic> issues = json.decode(issuesJson);
-      return issues.map((i) => IssueItem.fromJson(i)).toList();
+      final vaultDir = Directory(vaultPath);
+      if (!await vaultDir.exists()) {
+        await vaultDir.create(recursive: true);
+        debugPrint('Created vault folder: $vaultPath');
+      }
+
+      // Create safe filename from issue title
+      final safeTitle = issue.title
+          .replaceAll(RegExp(r'[^\w\s-]'), '')
+          .replaceAll(RegExp(r'\s+'), '_')
+          .toLowerCase();
+      final filename = '${issue.id}_$safeTitle.md';
+      final filePath = '$vaultPath/$filename';
+
+      // Build markdown content
+      final content = _buildMarkdownContent(issue);
+
+      final file = File(filePath);
+      await file.writeAsString(content);
+      debugPrint('Saved markdown file: $filePath');
     } catch (e) {
-      debugPrint('Error getting local issues: $e');
-      return [];
+      debugPrint('Error saving issue to vault: $e');
     }
   }
 
-  /// Remove a local issue (after syncing)
+  /// Build markdown content for issue (GitHub-compatible format)
+  String _buildMarkdownContent(IssueItem issue) {
+    final buffer = StringBuffer();
+
+    // YAML frontmatter for metadata
+    buffer.writeln('---');
+    buffer.writeln('title: ${issue.title}');
+    if (issue.labels.isNotEmpty) {
+      buffer.writeln('labels: ${issue.labels.join(", ")}');
+    }
+    buffer.writeln(
+      'status: ${issue.status == ItemStatus.open ? "open" : "closed"}',
+    );
+    buffer.writeln(
+      'created: ${issue.updatedAt?.toIso8601String().split('T').first ?? ""}',
+    );
+    if (issue.isLocalOnly) {
+      buffer.writeln('local_only: true');
+    }
+    buffer.writeln('---');
+    buffer.writeln();
+
+    // Body content
+    if (issue.bodyMarkdown != null && issue.bodyMarkdown!.isNotEmpty) {
+      buffer.write(issue.bodyMarkdown);
+    } else {
+      buffer.write('_No description_');
+    }
+
+    return buffer.toString();
+  }
+
+  /// Get all locally created issues (from vault folder only)
+  Future<List<IssueItem>> getLocalIssues() async {
+    return await _loadIssuesFromVault();
+  }
+
+  /// Load issues from vault folder markdown files
+  Future<List<IssueItem>> _loadIssuesFromVault() async {
+    final List<IssueItem> issues = [];
+
+    try {
+      final vaultPath = await getVaultFolder();
+      if (vaultPath == null) return issues;
+
+      final vaultDir = Directory(vaultPath);
+      if (!await vaultDir.exists()) return issues;
+
+      await for (final entity in vaultDir.list()) {
+        if (entity is File && entity.path.endsWith('.md')) {
+          try {
+            final content = await entity.readAsString();
+            final issue = _parseMarkdownToIssue(entity.path, content);
+            if (issue != null) {
+              issues.add(issue);
+            }
+          } catch (e) {
+            debugPrint('Error reading vault file ${entity.path}: $e');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading issues from vault: $e');
+    }
+
+    return issues;
+  }
+
+  /// Parse markdown file content to IssueItem
+  IssueItem? _parseMarkdownToIssue(String filePath, String content) {
+    try {
+      // Extract ID from filename (e.g., "local_123456789_my_task.md")
+      final fileName = filePath.split('/').last;
+      final idMatch = RegExp(r'^(.+?)_').firstMatch(fileName);
+      final id = idMatch?.group(1) ?? fileName.replaceAll('.md', '');
+
+      // Parse YAML frontmatter
+      String title = 'Untitled';
+      String? body;
+      List<String> labels = [];
+      ItemStatus status = ItemStatus.open;
+      DateTime? updatedAt;
+
+      final frontmatterMatch = RegExp(
+        r'^---\s*\n(.*?)\n---',
+        dotAll: true,
+      ).firstMatch(content);
+      if (frontmatterMatch != null) {
+        final frontmatter = frontmatterMatch.group(1) ?? '';
+
+        // Parse title
+        final titleMatch = RegExp(
+          r'^title:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (titleMatch != null) {
+          title = titleMatch.group(1) ?? title;
+        }
+
+        // Parse labels
+        final labelsMatch = RegExp(
+          r'^labels:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (labelsMatch != null) {
+          labels =
+              labelsMatch.group(1)?.split(',').map((l) => l.trim()).toList() ??
+              [];
+        }
+
+        // Parse status
+        final statusMatch = RegExp(
+          r'^status:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (statusMatch != null) {
+          status = statusMatch.group(1) == 'closed'
+              ? ItemStatus.closed
+              : ItemStatus.open;
+        }
+
+        // Parse created date
+        final createdMatch = RegExp(
+          r'^created:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (createdMatch != null) {
+          try {
+            updatedAt = DateTime.parse(createdMatch.group(1) ?? '');
+          } catch (_) {}
+        }
+      }
+
+      // Get body (content after frontmatter)
+      final bodyMatch = content.replaceFirst(
+        RegExp(r'^---.*?---\s*', dotAll: true),
+        '',
+      );
+      if (bodyMatch.trim().isNotEmpty &&
+          bodyMatch.trim() != '_No description_') {
+        body = bodyMatch.trim();
+      }
+
+      return IssueItem(
+        id: id,
+        title: title,
+        bodyMarkdown: body,
+        labels: labels,
+        status: status,
+        updatedAt: updatedAt ?? DateTime.now(),
+        isLocalOnly: true,
+      );
+    } catch (e) {
+      debugPrint('Error parsing markdown file: $e');
+      return null;
+    }
+  }
+
+  /// Remove a local issue (after syncing) - delete from vault folder
   Future<void> removeLocalIssue(String issueId) async {
     try {
-      final issues = await getLocalIssues();
-      issues.removeWhere((i) => i.id == issueId);
-      await _storage.write(key: _issuesKey, value: json.encode(issues));
+      final vaultPath = await getVaultFolder();
+      if (vaultPath == null) return;
+
+      final vaultDir = Directory(vaultPath);
+      if (!await vaultDir.exists()) return;
+
+      await for (final entity in vaultDir.list()) {
+        if (entity is File && entity.path.contains(issueId)) {
+          await entity.delete();
+          debugPrint('Deleted vault file: ${entity.path}');
+        }
+      }
     } catch (e) {
       debugPrint('Error removing local issue: $e');
     }

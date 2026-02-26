@@ -41,6 +41,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   bool _isFetchingRepos = false;
   bool _isFetchingProjects = false;
   String? _errorMessage;
+  String? _vaultFolderName;
 
   // Repositories with issues
   List<RepoItem> _repositories = [];
@@ -187,9 +188,20 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   Future<void> _checkOfflineMode() async {
     final authType = await SecureStorageService.instance.read(key: 'auth_type');
+    final vaultFolder = await SecureStorageService.instance.read(
+      key: 'vault_folder',
+    );
+
     if (mounted) {
       setState(() {
         _isOfflineMode = authType == 'offline';
+        // Extract folder name from path for display (e.g., "/storage/emulated/0/Notes" -> "Notes")
+        if (vaultFolder != null) {
+          final parts = vaultFolder.split('/');
+          _vaultFolderName = parts.isNotEmpty ? parts.last : 'Vault';
+        } else {
+          _vaultFolderName = 'Vault';
+        }
       });
     }
   }
@@ -264,24 +276,40 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       final localIssues = await _localStorage.getLocalIssues();
       debugPrint('Loaded ${localIssues.length} local issues');
 
-      // In offline mode, always show Local Issues repo (even if empty)
+      // In offline mode, always show Vault repo (even if empty)
       // so users can create new issues
       if ((localIssues.isNotEmpty || _isOfflineMode) && mounted) {
-        // Check if Local Issues repo already exists
-        final hasLocalRepo = _repositories.any((r) => r.id == 'local');
+        final vaultName = _vaultFolderName ?? 'Vault';
 
-        if (!hasLocalRepo) {
-          final localRepo = RepoItem(
-            id: 'local',
-            title: 'Local Issues',
-            fullName: 'local/offline',
-            description: 'Issues created offline (will sync when online)',
+        // Check if Vault repo already exists
+        final hasVaultRepo = _repositories.any((r) => r.id == 'vault');
+
+        if (!hasVaultRepo) {
+          final vaultRepo = RepoItem(
+            id: 'vault',
+            title: vaultName,
+            fullName: 'local/$vaultName',
+            description: 'Local vault folder (will sync when online)',
             children: localIssues,
           );
 
           setState(() {
-            _repositories.insert(0, localRepo);
+            _repositories.insert(0, vaultRepo);
           });
+        } else {
+          // Update existing vault repo with local issues
+          final index = _repositories.indexWhere((r) => r.id == 'vault');
+          if (index != -1) {
+            setState(() {
+              _repositories[index] = RepoItem(
+                id: 'vault',
+                title: vaultName,
+                fullName: 'local/$vaultName',
+                description: 'Local vault folder (will sync when online)',
+                children: localIssues,
+              );
+            });
+          }
         }
       }
     } catch (e) {
@@ -333,10 +361,21 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       debugPrint('✓ Fetched ${repos.length} repositories from GitHub');
 
       if (mounted) {
+        // Preserve vault repo if exists
+        final vaultRepo = _repositories
+            .where((r) => r.id == 'vault')
+            .firstOrNull;
+
         setState(() {
           _repositories = List.from(
             repos,
           ); // Create new list to avoid race conditions
+
+          // Add vault repo back if it existed
+          if (vaultRepo != null) {
+            _repositories.insert(0, vaultRepo);
+          }
+
           _isFetchingRepos = false;
           debugPrint('✓ UI updated with ${_repositories.length} repos');
         });
@@ -1240,15 +1279,15 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       return;
     }
 
-    // In offline mode with no repos, create issue in Local Issues repo
+    // In offline mode with no repos, create issue in Vault repo
     if (_repositories.isEmpty && _isOfflineMode) {
       _createLocalIssue();
       return;
     }
 
-    // Check if Local Issues repo exists for offline mode
-    final hasLocalRepo = _repositories.any((r) => r.id == 'local');
-    if (_isOfflineMode && !hasLocalRepo) {
+    // Check if Vault repo exists for offline mode
+    final hasVaultRepo = _repositories.any((r) => r.id == 'vault');
+    if (_isOfflineMode && !hasVaultRepo) {
       _createLocalIssue();
       return;
     }

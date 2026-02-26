@@ -11,3 +11,7 @@ you are 10+ experienced flutter developer, solve uncheked tasks useing agents in
   - [x] user must be asked for permission to write into local memory? if yes - we must ask daefult folder name to store. ideally we shoud ask about any other folder in android phone for user spesifide folder. maybe he use syncthing on nextcloud for file sync. and want to open his vault as md notes.
   - [x] in offline mode clout icon must show status working offline. now it shows gree online status
   - [x] in offline mode, after user promt to create new folder for storing dotos ( offline issues) on pressing button +new issue  got error "no repository availible". app shoul write itno new created folder.
+  - [x] offline new issue create with #null in name why? 
+  - [x] i cant see created issues in local folder with file explorer, why?
+
+- [ ] now in local mode issues are saved as markdown files in the vault folder, but the didnt show up in the app

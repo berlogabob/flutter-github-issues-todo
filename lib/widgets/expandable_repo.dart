@@ -41,14 +41,32 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
   void initState() {
     super.initState();
     _isExpanded = widget.initiallyExpanded;
-    // Auto-load issues if initially expanded
-    if (_isExpanded && widget.repo.children.isEmpty) {
+
+    // Check if this is a vault repo (local)
+    final isVaultRepo =
+        widget.repo.id == 'vault' || widget.repo.fullName.startsWith('local/');
+
+    // For vault repos, use local children directly without API call
+    if (isVaultRepo) {
+      _issues = widget.repo.children.cast();
+      _hasLoadedIssues = true;
+    } else if (_isExpanded && widget.repo.children.isEmpty) {
+      // Only fetch from GitHub for non-vault repos
       _loadIssues();
     }
   }
 
   Future<void> _loadIssues() async {
     if (_hasLoadedIssues || _isLoadingIssues) return;
+
+    // Skip loading for vault repos
+    final isVaultRepo =
+        widget.repo.id == 'vault' || widget.repo.fullName.startsWith('local/');
+    if (isVaultRepo) {
+      _issues = widget.repo.children.cast();
+      _hasLoadedIssues = true;
+      return;
+    }
 
     setState(() {
       _isLoadingIssues = true;

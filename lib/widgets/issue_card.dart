@@ -19,7 +19,7 @@ class IssueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isOpen = issue.status == ItemStatus.open;
-    
+
     return InkWell(
       onTap: onTap != null ? () => onTap!(issue) : null,
       child: Container(
@@ -57,7 +57,9 @@ class IssueCard extends StatelessWidget {
                 children: [
                   // Title
                   Text(
-                    '#${issue.number} ${issue.title}',
+                    issue.isLocalOnly
+                        ? '(local) ${issue.title}'
+                        : '#${issue.number} ${issue.title}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -74,26 +76,39 @@ class IssueCard extends StatelessWidget {
                     children: [
                       // Labels
                       if (issue.labels.isNotEmpty)
-                        ...issue.labels.take(3).map((label) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.orange.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            label,
-                            style: const TextStyle(
-                              color: AppColors.orange,
-                              fontSize: 10,
+                        ...issue.labels
+                            .take(3)
+                            .map(
+                              (label) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.orange.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: const TextStyle(
+                                    color: AppColors.orange,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        )),
                       // Assignee
                       if (issue.assigneeLogin != null)
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.person, size: 12, color: AppColors.blue),
+                            const Icon(
+                              Icons.person,
+                              size: 12,
+                              color: AppColors.blue,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               issue.assigneeLogin!,
@@ -109,7 +124,11 @@ class IssueCard extends StatelessWidget {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.cloud_off, size: 12, color: AppColors.orange),
+                            const Icon(
+                              Icons.cloud_off,
+                              size: 12,
+                              color: AppColors.orange,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               'Local',
@@ -127,11 +146,7 @@ class IssueCard extends StatelessWidget {
             ),
             // Chevron
             if (onTap != null)
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.red,
-                size: 20,
-              ),
+              const Icon(Icons.chevron_right, color: AppColors.red, size: 20),
           ],
         ),
       ),

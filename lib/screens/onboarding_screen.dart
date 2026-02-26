@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../constants/app_colors.dart';
 import '../models/repo_item.dart';
 import '../services/secure_storage_service.dart';
@@ -579,6 +580,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       debugPrint('Starting offline mode...');
 
+      // Request storage permission first
+      final hasPermission = await _requestStoragePermission();
+      if (!hasPermission) {
+        // Show explanation dialog
+        await _showPermissionExplanationDialog();
+      }
+
       // Show dialog to select vault folder
       final folderPath = await _showFolderSelectionDialog();
 
@@ -619,6 +627,75 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<bool> _requestStoragePermission() async {
+    // Check if storage permission is already granted
+    if (await Permission.manageExternalStorage.isGranted) {
+      return true;
+    }
+
+    // Request the permission
+    final status = await Permission.manageExternalStorage.request();
+    return status.isGranted;
+  }
+
+  Future<void> _showPermissionExplanationDialog() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        title: const Row(
+          children: [
+            Icon(Icons.folder_off, color: AppColors.orange),
+            SizedBox(width: 8),
+            Text(
+              'Storage Permission Required',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'To save your offline issues as markdown files that can be synced with apps like Syncthing or Nextcloud,',
+              style: TextStyle(color: Colors.white70),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Please enable "Files and media" permission in Settings:',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '1. Open Settings → Apps → GitDoIt\n'
+                      '2. Tap "Permissions"\n' +
+                  '3. Enable "Files and media" or "All files access"',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.orange,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<String?> _showFolderSelectionDialog() async {

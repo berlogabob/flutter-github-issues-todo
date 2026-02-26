@@ -261,6 +261,45 @@ dart format .
 - `hive_generator` - Hive adapter generation
 - `flutter_lints` - Linting rules
 
+## 🛠️ Build Automation
+
+### Makefile Usage
+The project includes a comprehensive Makefile for automated builds:
+
+```bash
+# Show help and current version
+make
+
+# Build Android APK with automatic version increment
+make build-android
+
+# Build Web release for GitHub Pages (moves to /docs folder)
+make build-web
+
+# Full release (both Android and Web)
+make release
+
+# Clean build directories
+make clean
+
+# Only increment build number
+make version-increment
+```
+
+### GitHub Pages Setup
+1. Build web: `make build-web`
+2. Go to Repository Settings → Pages
+3. Source: Deploy from a branch
+4. Branch: main
+5. Folder: /docs
+6. Save settings
+
+### GitHub Release Setup (Android)
+1. Build Android: `make build-android`
+2. Create release at: https://github.com/berlogabob/flutter-github-issues-todo/releases/new
+3. Tag: v0.5.0 (current version without build number)
+4. Upload: build/app-release.apk
+
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.

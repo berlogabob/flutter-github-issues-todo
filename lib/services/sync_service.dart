@@ -1,14 +1,12 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'local_storage_service.dart';
 import 'github_api_service.dart';
 import '../models/issue_item.dart';
-import '../models/item.dart';
 
 /// Sync Service - Handles synchronization between local storage and GitHub
-/// 
+///
 /// Features:
 /// - Manual sync via syncAll()
 /// - Auto-sync on network availability
@@ -72,9 +70,9 @@ class SyncService {
 
   /// Setup network connectivity listener
   void _setupConnectivityListener() {
-    _connectivitySubscription = Connectivity()
-        .onConnectivityChanged
-        .listen((List<ConnectivityResult> results) {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
       _updateNetworkStatus(results);
     });
   }
@@ -83,8 +81,8 @@ class SyncService {
   void _updateNetworkStatus(List<ConnectivityResult> results) {
     final wasAvailable = _isNetworkAvailable;
 
-    _isNetworkAvailable = results.any((result) =>
-      result != ConnectivityResult.none
+    _isNetworkAvailable = results.any(
+      (result) => result != ConnectivityResult.none,
     );
 
     debugPrint('SyncService: Network status changed: $_isNetworkAvailable');
@@ -154,7 +152,7 @@ class SyncService {
 
       _lastSyncTime = DateTime.now();
       _syncStatus = 'success';
-      
+
       debugPrint('SyncService: Full sync completed successfully');
       debugPrint('  - Synced $_syncedIssuesCount issues');
       debugPrint('  - Synced $_syncedProjectsCount projects');
@@ -204,15 +202,23 @@ class SyncService {
               final diff = DateTime.now().difference(lastSync);
               // Skip if synced within last 5 minutes
               if (diff.inMinutes < 5) {
-                debugPrint('SyncService: Skipping ${repo.fullName} (recently synced)');
+                debugPrint(
+                  'SyncService: Skipping ${repo.fullName} (recently synced)',
+                );
                 continue;
               }
             }
           }
 
           // Fetch all issues (open + closed)
-          final remoteIssues = await _githubApi.fetchIssues(owner, repoName, state: 'all');
-          debugPrint('SyncService: Fetched ${remoteIssues.length} issues for ${repo.fullName}');
+          final remoteIssues = await _githubApi.fetchIssues(
+            owner,
+            repoName,
+            state: 'all',
+          );
+          debugPrint(
+            'SyncService: Fetched ${remoteIssues.length} issues for ${repo.fullName}',
+          );
 
           // Resolve conflicts and merge data
           final mergedIssues = await _resolveIssuesConflict(
@@ -223,12 +229,11 @@ class SyncService {
 
           // Save synced issues to local storage
           await _localStorage.saveSyncedIssues(repo.fullName, mergedIssues);
-          
+
           totalSynced += mergedIssues.length;
 
           // Remove synced local-only issues
           await _syncLocalIssuesToGitHub(owner, repoName, localIssues);
-          
         } catch (e) {
           debugPrint('SyncService: Failed to sync ${repo.fullName}: $e');
           // Continue with next repo
@@ -299,20 +304,19 @@ class SyncService {
     final localOnlyIssues = localIssues.where((issue) {
       // Keep if it's marked as local-only
       if (issue.isLocalOnly) return true;
-      
+
       // Keep if it doesn't have a GitHub number yet
       if (issue.number == null) return true;
-      
+
       return false;
     }).toList();
 
-    debugPrint('SyncService: Found ${localOnlyIssues.length} local-only issues');
+    debugPrint(
+      'SyncService: Found ${localOnlyIssues.length} local-only issues',
+    );
 
     // Merge: remote issues + local-only issues
-    final merged = <IssueItem>[
-      ...remoteIssues,
-      ...localOnlyIssues,
-    ];
+    final merged = <IssueItem>[...remoteIssues, ...localOnlyIssues];
 
     // Remove duplicates (by id)
     final seen = <String>{};
@@ -341,7 +345,9 @@ class SyncService {
       return;
     }
 
-    debugPrint('SyncService: Syncing ${localOnlyIssues.length} local issues to GitHub');
+    debugPrint(
+      'SyncService: Syncing ${localOnlyIssues.length} local issues to GitHub',
+    );
 
     for (final issue in localOnlyIssues) {
       try {
@@ -354,14 +360,18 @@ class SyncService {
           labels: issue.labels.isNotEmpty ? issue.labels : null,
         );
 
-        debugPrint('SyncService: ✓ Created issue #${createdIssue.number} on GitHub');
+        debugPrint(
+          'SyncService: ✓ Created issue #${createdIssue.number} on GitHub',
+        );
 
         // Remove from local storage after successful sync
         await _localStorage.removeLocalIssue(issue.id);
-        
+
         debugPrint('SyncService: Removed local issue ${issue.id}');
       } catch (e) {
-        debugPrint('SyncService: Failed to sync local issue "${issue.title}": $e');
+        debugPrint(
+          'SyncService: Failed to sync local issue "${issue.title}": $e',
+        );
         // Keep the local issue for next sync attempt
       }
     }

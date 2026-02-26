@@ -4,9 +4,7 @@ import 'package:flutter/foundation.dart';
 /// Singleton SecureStorageService - Use this everywhere instead of creating new instances
 class SecureStorageService {
   static final FlutterSecureStorage _instance = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
+    aOptions: AndroidOptions(),
   );
 
   static FlutterSecureStorage get instance => _instance;
@@ -32,7 +30,9 @@ class SecureStorageService {
       debugPrint('SecureStorage: Force refresh token');
     }
     final token = await _instance.read(key: 'github_token');
-    debugPrint('SecureStorage: Token ${token != null ? "exists (${token.length} chars)" : "not found"}');
+    debugPrint(
+      'SecureStorage: Token ${token != null ? "exists (${token.length} chars)" : "not found"}',
+    );
     return token;
   }
 

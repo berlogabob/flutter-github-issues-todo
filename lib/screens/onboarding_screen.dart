@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 import '../constants/app_colors.dart';
 import '../models/repo_item.dart';
 import '../services/secure_storage_service.dart';
@@ -81,7 +82,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 _buildButton(
                   'Use Personal Access Token',
                   icon: Icons.key,
-                  onPressed: _isLoading ? null : () => setState(() => _usePat = true),
+                  onPressed: _isLoading
+                      ? null
+                      : () => setState(() => _usePat = true),
                 ),
                 const SizedBox(height: 16),
                 _buildButton(
@@ -100,7 +103,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     labelText: 'Personal Access Token',
                     hintText: 'ghp_xxxxxxxxxxxxxxxxxxxx',
                     hintStyle: TextStyle(color: Colors.white54, fontSize: 14),
-                    labelStyle: TextStyle(color: Color(0x4DFFFFFF), fontSize: 14),
+                    labelStyle: TextStyle(
+                      color: Color(0x4DFFFFFF),
+                      fontSize: 14,
+                    ),
                     border: OutlineInputBorder(),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Color(0x4DFFFFFF)),
@@ -116,7 +122,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     // Rebuild to enable/disable Continue button
                     setState(() {});
                   },
-                  onSubmitted: (_) => _patController.text.isNotEmpty ? _loginWithPAT(_patController.text) : null,
+                  onSubmitted: (_) => _patController.text.isNotEmpty
+                      ? _loginWithPAT(_patController.text)
+                      : null,
                 ),
                 const SizedBox(height: 16),
                 _buildButton(
@@ -149,12 +157,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: Color(0xFFFF3B30), size: 20),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Color(0xFFFF3B30),
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(color: Color(0xFFFF3B30), fontSize: 12),
+                          style: const TextStyle(
+                            color: Color(0xFFFF3B30),
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ],
@@ -185,11 +200,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSecondary ? Colors.transparent : const Color(0xFFFF6200),
+          backgroundColor: isSecondary
+              ? Colors.transparent
+              : const Color(0xFFFF6200),
           foregroundColor: isSecondary ? Colors.white : Colors.black,
-          side: isSecondary
-              ? const BorderSide(color: Color(0xFFFF6200))
-              : null,
+          side: isSecondary ? const BorderSide(color: Color(0xFFFF6200)) : null,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.r),
           ),
@@ -220,7 +235,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
       // Step 2: Show dialog with user code
       await _showOAuthDeviceCodeDialog();
-
     } catch (e, stackTrace) {
       debugPrint('OAuth error: $e');
       debugPrint('Stack trace: $stackTrace');
@@ -241,14 +255,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.cardBackground,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(Icons.qr_code_2, color: AppColors.orange, size: 28),
               const SizedBox(width: 8),
               const Text(
                 'Authorize GitDoIt',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -262,20 +281,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Step 1
                 _buildStep('1', 'Visit:', value: _deviceCode!.verificationUri),
                 const SizedBox(height: 4),
-                
+
                 // Step 2
-                _buildStep('2', 'Enter code:', value: _deviceCode!.userCode, isCode: true),
+                _buildStep(
+                  '2',
+                  'Enter code:',
+                  value: _deviceCode!.userCode,
+                  isCode: true,
+                ),
                 const SizedBox(height: 4),
-                
+
                 // Step 3
                 _buildStep('3', 'Authorize GitDoIt when prompted'),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Copy code button
                 Center(
                   child: ElevatedButton.icon(
@@ -286,7 +310,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       foregroundColor: Colors.black,
                     ),
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _deviceCode!.userCode));
+                      Clipboard.setData(
+                        ClipboardData(text: _deviceCode!.userCode),
+                      );
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Code copied to clipboard'),
@@ -297,9 +323,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     },
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Opening browser button
                 SizedBox(
                   width: double.infinity,
@@ -336,7 +362,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  Widget _buildStep(String number, String text, {String? value, bool isCode = false}) {
+  Widget _buildStep(
+    String number,
+    String text, {
+    String? value,
+    bool isCode = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -376,13 +407,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.background,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.orange.withValues(alpha: 0.5)),
+                      border: Border.all(
+                        color: AppColors.orange.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: Text(
                       value,
                       style: TextStyle(
                         color: isCode ? AppColors.orange : Colors.white,
-                        fontWeight: isCode ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isCode
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                         fontSize: isCode ? 18 : 13,
                         fontFamily: isCode ? 'monospace' : null,
                       ),
@@ -445,7 +480,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _loginWithPAT(String token) async {
     // Validate token format
     final trimmedToken = token.trim();
-    
+
     if (trimmedToken.isEmpty) {
       setState(() {
         _errorMessage = 'Please enter a valid token';
@@ -466,17 +501,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // Basic token format validation
       if (!trimmedToken.startsWith('ghp_') &&
           !trimmedToken.startsWith('github_pat_')) {
-        throw Exception('Invalid token format. GitHub tokens start with "ghp_" or "github_pat_"');
+        throw Exception(
+          'Invalid token format. GitHub tokens start with "ghp_" or "github_pat_"',
+        );
       }
-      
+
       // Validate token length (GitHub tokens are typically 40 chars)
       if (trimmedToken.length < 20 || trimmedToken.length > 100) {
-        throw Exception('Invalid token length. Token should be 20-100 characters (yours is ${trimmedToken.length})');
+        throw Exception(
+          'Invalid token length. Token should be 20-100 characters (yours is ${trimmedToken.length})',
+        );
       }
-      
+
       // Validate token contains only valid characters
       if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(trimmedToken)) {
-        throw Exception('Token contains invalid characters. Tokens should only contain letters, numbers, and underscores');
+        throw Exception(
+          'Token contains invalid characters. Tokens should only contain letters, numbers, and underscores',
+        );
       }
 
       // Save token securely
@@ -486,8 +527,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
       // Verify token was saved immediately
       final verifyToken = await SecureStorageService.getToken();
-      final verifyAuthType = await SecureStorageService.instance.read(key: 'auth_type');
-      debugPrint('Token verification - saved: ${verifyToken != null}, length: ${verifyToken?.length ?? 0}, authType: $verifyAuthType');
+      final verifyAuthType = await SecureStorageService.instance.read(
+        key: 'auth_type',
+      );
+      debugPrint(
+        'Token verification - saved: ${verifyToken != null}, length: ${verifyToken?.length ?? 0}, authType: $verifyAuthType',
+      );
 
       if (verifyToken == null || verifyToken != trimmedToken) {
         throw Exception('Failed to save token securely. Please try again.');
@@ -534,10 +579,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       debugPrint('Starting offline mode...');
 
-      // Save offline mode flag
-      await SecureStorageService.instance.write(key: 'auth_type', value: 'offline');
+      // Show dialog to select vault folder
+      final folderPath = await _showFolderSelectionDialog();
 
-      debugPrint('Offline mode saved');
+      if (folderPath == null) {
+        // User cancelled
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      // Save offline mode flag and vault folder path
+      await SecureStorageService.instance.write(
+        key: 'auth_type',
+        value: 'offline',
+      );
+      await SecureStorageService.instance.write(
+        key: 'vault_folder',
+        value: folderPath,
+      );
+
+      debugPrint('Offline mode saved with vault folder: $folderPath');
 
       // Simulate short delay
       await Future.delayed(const Duration(milliseconds: 500));
@@ -546,9 +607,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         debugPrint('Navigating to dashboard in offline mode...');
         // Navigate to main dashboard in offline mode
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const MainDashboardScreen(),
-          ),
+          MaterialPageRoute(builder: (context) => const MainDashboardScreen()),
         );
       }
     } catch (e, stackTrace) {
@@ -562,10 +621,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  Future<String?> _showFolderSelectionDialog() async {
+    final result = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Select folder for your offline vault',
+      initialDirectory: '/storage/emulated/0',
+    );
+    return result;
+  }
+
   /// Show dialog to select default repository
   Future<void> _showDefaultRepoPicker() async {
     final githubApi = GitHubApiService();
-    
+
     // Show dialog immediately with loading state
     final selectedRepo = await showDialog<RepoItem>(
       context: context,
@@ -576,7 +643,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // Save selected repository
     if (selectedRepo != null && mounted) {
       await LocalStorageService().saveDefaultRepo(selectedRepo.fullName);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -597,9 +664,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // Navigate to dashboard
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MainDashboardScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const MainDashboardScreen()),
       );
     }
   }
@@ -608,9 +673,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 /// Dialog widget for selecting default repository
 class _RepoPickerDialog extends StatefulWidget {
   final GitHubApiService githubApi;
-  
+
   const _RepoPickerDialog({required this.githubApi});
-  
+
   @override
   State<_RepoPickerDialog> createState() => _RepoPickerDialogState();
 }
@@ -619,13 +684,13 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
   List<RepoItem> repos = [];
   bool isLoading = true;
   String? error;
-  
+
   @override
   void initState() {
     super.initState();
     _loadRepos();
   }
-  
+
   Future<void> _loadRepos() async {
     try {
       debugPrint('Fetching repositories for repo picker...');
@@ -642,7 +707,7 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -663,7 +728,7 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
         ),
       );
     }
-    
+
     if (error != null) {
       return AlertDialog(
         backgroundColor: AppColors.cardBackground,
@@ -671,10 +736,7 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
           'Error Loading Repositories',
           style: TextStyle(color: AppColors.red),
         ),
-        content: Text(
-          error!,
-          style: const TextStyle(color: Colors.white70),
-        ),
+        content: Text(error!, style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () {
@@ -691,7 +753,7 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
         ],
       );
     }
-    
+
     return AlertDialog(
       backgroundColor: AppColors.cardBackground,
       title: Row(
@@ -730,7 +792,10 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
                     itemBuilder: (context, index) {
                       final repo = repos[index];
                       return ListTile(
-                        leading: const Icon(Icons.folder, color: AppColors.orange),
+                        leading: const Icon(
+                          Icons.folder,
+                          color: AppColors.orange,
+                        ),
                         title: Text(
                           repo.fullName,
                           style: const TextStyle(color: Colors.white),

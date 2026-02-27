@@ -139,8 +139,11 @@ class LocalStorageService {
     try {
       // Extract ID from filename (e.g., "local_123456789_my_task.md")
       final fileName = filePath.split('/').last;
-      final idMatch = RegExp(r'^(.+?)_').firstMatch(fileName);
-      final id = idMatch?.group(1) ?? fileName.replaceAll('.md', '');
+      // Match everything before the last underscore (ID portion)
+      final lastUnderscore = fileName.lastIndexOf('_');
+      final id = lastUnderscore > 0
+          ? fileName.substring(0, lastUnderscore)
+          : fileName.replaceAll('.md', '');
 
       // Parse YAML frontmatter
       String title = 'Untitled';
@@ -512,6 +515,27 @@ class LocalStorageService {
     } catch (e) {
       debugPrint('Error getting default project: $e');
       return null;
+    }
+  }
+
+  /// Save hide username in repo setting
+  Future<void> saveHideUsernameSetting(bool hide) async {
+    try {
+      await _storage.write(key: 'hide_username', value: hide.toString());
+      debugPrint('Saved hide username setting: $hide');
+    } catch (e) {
+      debugPrint('Error saving hide username setting: $e');
+    }
+  }
+
+  /// Get hide username in repo setting
+  Future<bool> getHideUsernameSetting() async {
+    try {
+      final value = await _storage.read(key: 'hide_username');
+      return value == 'true';
+    } catch (e) {
+      debugPrint('Error getting hide username setting: $e');
+      return false;
     }
   }
 }

@@ -13,6 +13,7 @@ import '../services/sync_service.dart';
 import '../services/secure_storage_service.dart';
 import '../widgets/expandable_repo.dart';
 import '../widgets/sync_cloud_icon.dart';
+import 'create_issue_screen.dart';
 import '../utils/responsive_utils.dart';
 import 'issue_detail_screen.dart';
 import 'search_screen.dart';
@@ -60,6 +61,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     super.initState();
     _syncService.init();
     _checkOfflineMode();
+    _loadHideUsernameSetting();
 
     // Set up callback for when internet becomes available with local issues
     _syncService.onSyncNeeded = _showSyncLocalIssuesDialog;
@@ -68,6 +70,15 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     _checkLocalIssuesToSync();
 
     _loadData();
+  }
+
+  Future<void> _loadHideUsernameSetting() async {
+    final hide = await _localStorage.getHideUsernameSetting();
+    if (mounted) {
+      setState(() {
+        _hideUsernameInRepo = hide;
+      });
+    }
   }
 
   Future<void> _checkLocalIssuesToSync() async {
@@ -826,6 +837,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         setState(() {
           _hideUsernameInRepo = !_hideUsernameInRepo;
         });
+        _localStorage.saveHideUsernameSetting(_hideUsernameInRepo);
       },
       tooltip: _hideUsernameInRepo
           ? 'Show username in repo name'
@@ -1156,8 +1168,97 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     }
   }
 
-  void _createNewIssue() {
-    _showCreateIssueDialog();
+  void _createNewIssue() async {
+    // In offline mode, check if Local Issues repo exists
+    if (_repositories.isEmpty && !_isOfflineMode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'No repositories available. Please fetch repositories first.',
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.red,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'FETCH',
+            textColor: Colors.white,
+            onPressed: _fetchRepositories,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // In offline mode with no repos, create issue in Vault repo
+    if (_repositories.isEmpty && _isOfflineMode) {
+      _createLocalIssue();
+      return;
+    }
+
+    // Check if Vault repo exists for offline mode
+    final hasVaultRepo = _repositories.any((r) => r.id == 'vault');
+    if (_isOfflineMode && !hasVaultRepo) {
+      _createLocalIssue();
+      return;
+    }
+
+    // Load default repo from settings
+    final defaultRepoName = await _localStorage.getDefaultRepo();
+
+    // Use default repo if available and exists in loaded repos, otherwise use first repo (skip vault)
+    String? selectedRepo =
+        defaultRepoName != null &&
+            _repositories.any(
+              (r) => r.fullName == defaultRepoName && r.id != 'vault',
+            )
+        ? defaultRepoName
+        : _repositories
+              .firstWhere(
+                (r) => r.id != 'vault',
+                orElse: () => _repositories.first,
+              )
+              .fullName;
+
+    // Get owner and repo parts
+    final parts = selectedRepo.split('/');
+    final owner = parts.isNotEmpty ? parts[0] : null;
+    final repo = parts.length > 1 ? parts[1] : null;
+
+    if (owner == null || repo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No valid repository found'),
+          backgroundColor: AppColors.red,
+        ),
+      );
+      return;
+    }
+
+    // Navigate to full-screen create issue screen
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CreateIssueScreen(
+            owner: owner,
+            repo: repo,
+            defaultProject: _projects.isNotEmpty
+                ? _projects.first['title'] as String?
+                : null,
+            projects: _projects,
+          ),
+        ),
+      ).then((createdIssue) {
+        if (createdIssue != null && mounted) {
+          _loadData();
+        }
+      });
+    }
   }
 
   void _createLocalIssue() {

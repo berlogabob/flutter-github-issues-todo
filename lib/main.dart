@@ -45,8 +45,15 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Check if user is already logged in using singleton
-  final token = await SecureStorageService.getToken();
-  final authType = await SecureStorageService.instance.read(key: 'auth_type');
+  String? token;
+  String? authType;
+
+  try {
+    token = await SecureStorageService.getToken();
+    authType = await SecureStorageService.instance.read(key: 'auth_type');
+  } catch (e) {
+    debugPrint('Error reading from secure storage: $e');
+  }
 
   debugPrint(
     'App start - Token: ${token != null ? "exists" : "none"}, AuthType: $authType',
@@ -69,8 +76,7 @@ class GitDoItApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // If user is already logged in (or in offline mode), go to dashboard
     final isLoggedIn =
-        (initialToken != null && initialToken!.isNotEmpty) ||
-        initialAuthType == 'offline';
+        (initialToken?.isNotEmpty ?? false) || initialAuthType == 'offline';
 
     debugPrint(
       'GitDoItApp build - isLoggedIn: $isLoggedIn, AuthType: $initialAuthType',

@@ -48,7 +48,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
 
     // For vault repos, use local children directly without API call
     if (isVaultRepo) {
-      _issues = widget.repo.children.cast();
+      _issues = widget.repo.children.whereType<IssueItem>().toList();
       _hasLoadedIssues = true;
     } else if (_isExpanded && widget.repo.children.isEmpty) {
       // Only fetch from GitHub for non-vault repos
@@ -63,7 +63,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
     final isVaultRepo =
         widget.repo.id == 'vault' || widget.repo.fullName.startsWith('local/');
     if (isVaultRepo) {
-      _issues = widget.repo.children.cast();
+      _issues = widget.repo.children.whereType<IssueItem>().toList();
       _hasLoadedIssues = true;
       return;
     }
@@ -242,8 +242,8 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                         ),
                         child: Text(
                           _issues.isNotEmpty
-                              ? '${_issues.length} issues'
-                              : '${widget.repo.children.length} issues',
+                              ? '${_issues.whereType<IssueItem>().length} issues'
+                              : '${widget.repo.children.whereType<IssueItem>().length} issues',
                           style: const TextStyle(
                             color: AppColors.orange,
                             fontSize: 12,

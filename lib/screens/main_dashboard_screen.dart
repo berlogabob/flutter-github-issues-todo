@@ -585,11 +585,22 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           ),
         ),
         actions: [
-          // Sync cloud icon with states
-          SyncCloudIcon(
-            state: _getSyncCloudState(),
-            size: 24.w,
-            isRotating: _syncService.isSyncing,
+          // Sync cloud icon with states + Last sync time
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SyncCloudIcon(
+                state: _getSyncCloudState(),
+                size: 24.w,
+                isRotating: _syncService.isSyncing,
+              ),
+              if (_syncService.lastSyncTime != null)
+                Text(
+                  _getLastSyncText(),
+                  style: TextStyle(color: Colors.white54, fontSize: 8.sp),
+                ),
+            ],
           ),
           // Repository icon (SVG)
           IconButton(
@@ -1110,6 +1121,25 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       return SyncCloudState.error;
     }
     return SyncCloudState.synced;
+  }
+
+  /// Get last sync time as human-readable text
+  String _getLastSyncText() {
+    final lastSync = _syncService.lastSyncTime;
+    if (lastSync == null) return '';
+
+    final now = DateTime.now();
+    final diff = now.difference(lastSync);
+
+    if (diff.inMinutes < 1) {
+      return 'now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h';
+    } else {
+      return '${diff.inDays}d';
+    }
   }
 
   void _createNewIssue() {

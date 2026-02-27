@@ -52,7 +52,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
     try {
       // Fetch user's projects
       final projects = await _githubApi.fetchProjects();
-      
+
       if (projects.isEmpty) {
         setState(() {
           _isLoading = false;
@@ -69,12 +69,12 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
 
       _projectId = project['id'] as String;
       final projectTitle = project['title'] as String;
-      
+
       debugPrint('Using project: $projectTitle (${_projectId})');
 
       // Fetch project fields to find Status field
       final fields = await _githubApi.getProjectFields(_projectId!);
-      
+
       if (fields == null || fields.isEmpty) {
         setState(() {
           _isLoading = false;
@@ -89,7 +89,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
         if (field['__typename'] == 'ProjectV2SingleSelectField') {
           _statusFieldId = field['id'] as String;
           statusFieldName = field['name'] as String;
-          
+
           // Get column option IDs
           final options = field['options'] as List? ?? [];
           for (final option in options) {
@@ -97,7 +97,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
             final optionId = option['id'] as String;
             _columnOptionIds[optionName] = optionId;
           }
-          
+
           debugPrint('Found status field: $statusFieldName ($_statusFieldId)');
           debugPrint('Column options: ${_columnOptionIds.keys.toList()}');
           break;
@@ -120,25 +120,29 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
 
       // Convert to IssueItem objects
       final columnItems = <String, List<IssueItem>>{};
-      
+
       for (final entry in itemsByColumn.entries) {
         final columnName = entry.key;
         final issues = entry.value;
-        
+
         columnItems[columnName] = issues.map((issue) {
           return IssueItem(
             id: issue['id'] as String,
             title: issue['title'] as String,
             number: issue['number'] as int,
             bodyMarkdown: issue['body'] as String?,
-            status: (issue['state'] as String) == 'open' ? ItemStatus.open : ItemStatus.closed,
-            updatedAt: issue['updatedAt'] != null 
-                ? DateTime.parse(issue['updatedAt'] as String) 
+            status: (issue['state'] as String) == 'open'
+                ? ItemStatus.open
+                : ItemStatus.closed,
+            updatedAt: issue['updatedAt'] != null
+                ? DateTime.parse(issue['updatedAt'] as String)
                 : null,
             assigneeLogin: issue['assignee']?['login'] as String?,
-            labels: (issue['labels']?['nodes'] as List?)
-                ?.map((l) => l['name'] as String)
-                .toList() ?? [],
+            labels:
+                (issue['labels']?['nodes'] as List?)
+                    ?.map((l) => l['name'] as String)
+                    .toList() ??
+                [],
             isLocalOnly: false,
             projectColumnName: columnName,
           );
@@ -157,7 +161,9 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
         _isLoading = false;
       });
 
-      debugPrint('Loaded ${itemsByColumn.values.fold<int>(0, (sum, list) => sum + list.length)} issues across ${columnItems.length} columns');
+      debugPrint(
+        'Loaded ${itemsByColumn.values.fold<int>(0, (sum, list) => sum + list.length)} issues across ${columnItems.length} columns',
+      );
     } catch (e, stackTrace) {
       debugPrint('Error loading project data: $e');
       debugPrint('Stack: $stackTrace');
@@ -230,21 +236,32 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
       );
     }
 
-    if (_columnItems.isEmpty || _columnItems.values.every((list) => list.isEmpty)) {
+    if (_columnItems.isEmpty ||
+        _columnItems.values.every((list) => list.isEmpty)) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.view_kanban, color: Colors.white.withValues(alpha: 0.3), size: 80),
+            Icon(
+              Icons.view_kanban,
+              color: Colors.white.withValues(alpha: 0.3),
+              size: 80,
+            ),
             const SizedBox(height: 16),
             Text(
               'No issues in this project',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 18),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 18,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Tap + to create an issue',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.3),
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -257,7 +274,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
   Widget _buildBoard() {
     final columnWidth = AppResponsive.isDesktop(context) ? 360.w : 300.w;
     final padding = AppResponsive.isDesktop(context) ? 24.w : 16.w;
-    
+
     return ListView.builder(
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.all(padding),
@@ -302,26 +319,24 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.cardBackground,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${items.length}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ),
               ],
             ),
           ),
           // Cards
-          Expanded(
-            child: _buildCardList(columnName, items),
-          ),
+          Expanded(child: _buildCardList(columnName, items)),
         ],
       ),
     );
@@ -344,55 +359,187 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
 
   Widget _buildCardList(String columnName, List<IssueItem> items) {
     if (items.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppColors.cardBackground.withValues(alpha: 0.5),
-            width: 2,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            'No issues',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 12,
+      return DragTarget<IssueItem>(
+        onWillAcceptWithDetails: (details) => true,
+        onAcceptWithDetails: (details) async {
+          await _moveItemToColumn(details.data, columnName);
+        },
+        builder: (context, candidateData, rejectedData) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: candidateData.isNotEmpty
+                  ? AppColors.orange.withValues(alpha: 0.1)
+                  : AppColors.cardBackground.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: candidateData.isNotEmpty
+                    ? AppColors.orange
+                    : AppColors.cardBackground.withValues(alpha: 0.5),
+                width: 2,
+              ),
             ),
-          ),
-        ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'No issues',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (candidateData.isNotEmpty) ...[
+                    SizedBox(height: 8),
+                    Text(
+                      'Drop here',
+                      style: TextStyle(
+                        color: AppColors.orange,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       );
     }
 
-    return ReorderableColumn(
-      onReorder: (oldIndex, newIndex) async {
-        if (oldIndex == newIndex) return;
-
-        final item = items.removeAt(oldIndex);
-        items.insert(newIndex, item);
-
-        setState(() {
-          _columnItems[columnName] = items;
-          _isMoving = true;
-        });
-
-        // Update project item status via GraphQL
-        await _moveItemToColumn(item, columnName);
-
-        setState(() {
-          _isMoving = false;
-        });
+    return DragTarget<IssueItem>(
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) async {
+        await _moveItemToColumn(details.data, columnName);
       },
-      children: items.map((item) => _buildCard(item, columnName)).toList(),
+      builder: (context, candidateData, rejectedData) {
+        return ReorderableColumn(
+          onReorder: (oldIndex, newIndex) async {
+            if (oldIndex == newIndex) return;
+
+            final item = items.removeAt(oldIndex);
+            items.insert(newIndex, item);
+
+            setState(() {
+              _columnItems[columnName] = items;
+              _isMoving = true;
+            });
+
+            // Update project item status via GraphQL
+            await _moveItemToColumn(item, columnName);
+
+            setState(() {
+              _isMoving = false;
+            });
+          },
+          children: items
+              .map((item) => _buildDraggableCard(item, columnName))
+              .toList(),
+        );
+      },
+    );
+  }
+
+  /// Build a draggable card that can be moved between columns
+  Widget _buildDraggableCard(IssueItem item, String columnName) {
+    return LongPressDraggable<IssueItem>(
+      data: item,
+      feedback: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 280,
+          child: Opacity(opacity: 0.9, child: _buildCardContent(item)),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _buildCard(item, columnName),
+      ),
+      child: _buildCard(item, columnName),
+    );
+  }
+
+  /// Card content (without the Card wrapper - for reuse in drag feedback)
+  Widget _buildCardContent(IssueItem item) {
+    return Card(
+      color: AppColors.cardBackground,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '#${item.number} ${item.title}',
+              style: TextStyle(color: Colors.white, fontSize: 14.sp),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (item.labels.isNotEmpty) ...[
+              SizedBox(height: 4.h),
+              Wrap(
+                spacing: 4.w,
+                children: item.labels.take(2).map((label) {
+                  return Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 6.w,
+                      vertical: 2.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.orange.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: AppColors.orange,
+                        fontSize: 10.sp,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
   /// Move item to different column using GraphQL mutation
   Future<void> _moveItemToColumn(IssueItem item, String newColumnName) async {
+    // Find current column of this item
+    String? oldColumn;
+    for (final entry in _columnItems.entries) {
+      if (entry.value.any((i) => i.id == item.id)) {
+        oldColumn = entry.key;
+        break;
+      }
+    }
+
+    // If moving within same column, just return
+    if (oldColumn == newColumnName) {
+      return;
+    }
+
+    // Remove from old column, add to new column in local state
+    if (oldColumn != null) {
+      final oldList = List<IssueItem>.from(_columnItems[oldColumn] ?? []);
+      oldList.removeWhere((i) => i.id == item.id);
+      _columnItems[oldColumn] = oldList;
+    }
+
+    final newList = List<IssueItem>.from(_columnItems[newColumnName] ?? []);
+    newList.add(item);
+    _columnItems[newColumnName] = newList;
+
+    setState(() {});
+
     if (_projectId == null || _statusFieldId == null) {
-      debugPrint('Project not initialized, skipping GraphQL update');
+      debugPrint('Project not initialized, local update only');
       return;
     }
 
@@ -413,7 +560,9 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
       );
 
       if (success) {
-        debugPrint('✓ Successfully moved issue #${item.number} to $newColumnName');
+        debugPrint(
+          '✓ Successfully moved issue #${item.number} to $newColumnName',
+        );
 
         // Show success feedback
         if (mounted) {
@@ -450,9 +599,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
           children: [
             const Icon(Icons.error_outline, color: Colors.red, size: 20),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text('Failed to move issue #${item.number}'),
-            ),
+            Expanded(child: Text('Failed to move issue #${item.number}')),
           ],
         ),
         backgroundColor: AppColors.red,
@@ -488,14 +635,20 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
                   spacing: 4.w,
                   children: item.labels.take(2).map((label) {
                     return Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 6.w,
+                        vertical: 2.h,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.orange.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4.r),
                       ),
                       child: Text(
                         label,
-                        style: TextStyle(color: AppColors.orange, fontSize: 10.sp),
+                        style: TextStyle(
+                          color: AppColors.orange,
+                          fontSize: 10.sp,
+                        ),
                       ),
                     );
                   }).toList(),
@@ -536,11 +689,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
                   height: 20.w,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Icon(
-                  Icons.drag_handle,
-                  color: AppColors.red,
-                  size: 20.w,
-                ),
+              : Icon(Icons.drag_handle, color: AppColors.red, size: 20.w),
           onTap: () => _openIssueDetail(item),
         ),
       ),

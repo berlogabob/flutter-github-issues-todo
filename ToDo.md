@@ -15,3 +15,6 @@ you are 10+ experienced flutter developer, solve uncheked tasks useing agents in
   - [x] i cant see created issues in local folder with file explorer, why?
 
 - [ ] now in local mode issues are saved as markdown files in the vault folder, but the didnt show up in the app
+- [ ] after switching apps or close it -> aplication asks again with welcome screen and permisiioon to access local folder. if user chooce to work offline there s no need to ask again.
+- [ ] now in offline mode local folder shows in indicator that there is 6 issuues ( in chip) in list of issues it shows only 3. in folder with file explorer i could see 3. 
+- [ ] hide show repo name ( in this case local folder name) does not work. issues list as "(local) test name".

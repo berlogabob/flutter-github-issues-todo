@@ -241,7 +241,9 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                           ),
                         ),
                         child: Text(
-                          '${_issues.length + widget.repo.children.length} issues',
+                          _issues.isNotEmpty
+                              ? '${_issues.length} issues'
+                              : '${widget.repo.children.length} issues',
                           style: const TextStyle(
                             color: AppColors.orange,
                             fontSize: 12,

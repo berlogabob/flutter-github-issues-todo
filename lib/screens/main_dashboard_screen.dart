@@ -361,18 +361,32 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       debugPrint('✓ Fetched ${repos.length} repositories from GitHub');
 
       if (mounted) {
-        // Preserve vault repo if exists
-        final vaultRepo = _repositories
-            .where((r) => r.id == 'vault')
-            .firstOrNull;
+        // Preserve vault repo if exists, but refresh its issues from local storage
+        final vaultRepoIndex = _repositories.indexWhere((r) => r.id == 'vault');
+        final existingVaultRepo = vaultRepoIndex != -1
+            ? _repositories[vaultRepoIndex]
+            : null;
+
+        // Always reload local issues
+        final localIssues = await _localStorage.getLocalIssues();
 
         setState(() {
           _repositories = List.from(
             repos,
           ); // Create new list to avoid race conditions
 
-          // Add vault repo back if it existed
-          if (vaultRepo != null) {
+          // Add vault repo back with updated local issues
+          if (existingVaultRepo != null ||
+              localIssues.isNotEmpty ||
+              _isOfflineMode) {
+            final vaultName = _vaultFolderName ?? 'Vault';
+            final vaultRepo = RepoItem(
+              id: 'vault',
+              title: vaultName,
+              fullName: 'local/$vaultName',
+              description: 'Local vault folder (will sync when online)',
+              children: localIssues,
+            );
             _repositories.insert(0, vaultRepo);
           }
 

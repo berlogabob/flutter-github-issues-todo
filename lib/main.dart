@@ -22,18 +22,10 @@ final authStateProvider = FutureProvider<AuthState>((ref) async {
       );
     }
 
-    return AuthState(
-      isAuthenticated: false,
-      authType: 'none',
-      token: null,
-    );
+    return AuthState(isAuthenticated: false, authType: 'none', token: null);
   } catch (e) {
     debugPrint('Auth check error: $e');
-    return AuthState(
-      isAuthenticated: false,
-      authType: 'error',
-      token: null,
-    );
+    return AuthState(isAuthenticated: false, authType: 'error', token: null);
   }
 });
 
@@ -41,7 +33,7 @@ class AuthState {
   final bool isAuthenticated;
   final String authType;
   final String? token;
-  
+
   AuthState({
     required this.isAuthenticated,
     required this.authType,
@@ -56,14 +48,13 @@ void main() async {
   final token = await SecureStorageService.getToken();
   final authType = await SecureStorageService.instance.read(key: 'auth_type');
 
-  debugPrint('App start - Token: ${token != null ? "exists" : "none"}, AuthType: $authType');
+  debugPrint(
+    'App start - Token: ${token != null ? "exists" : "none"}, AuthType: $authType',
+  );
 
   runApp(
     ProviderScope(
-      child: GitDoItApp(
-        initialToken: token,
-        initialAuthType: authType,
-      ),
+      child: GitDoItApp(initialToken: token, initialAuthType: authType),
     ),
   );
 }
@@ -71,19 +62,19 @@ void main() async {
 class GitDoItApp extends StatelessWidget {
   final String? initialToken;
   final String? initialAuthType;
-  
-  const GitDoItApp({
-    super.key,
-    this.initialToken,
-    this.initialAuthType,
-  });
+
+  const GitDoItApp({super.key, this.initialToken, this.initialAuthType});
 
   @override
   Widget build(BuildContext context) {
-    // If user is already logged in, go to dashboard
-    final isLoggedIn = initialToken != null && initialToken!.isNotEmpty;
+    // If user is already logged in (or in offline mode), go to dashboard
+    final isLoggedIn =
+        (initialToken != null && initialToken!.isNotEmpty) ||
+        initialAuthType == 'offline';
 
-    debugPrint('GitDoItApp build - isLoggedIn: $isLoggedIn');
+    debugPrint(
+      'GitDoItApp build - isLoggedIn: $isLoggedIn, AuthType: $initialAuthType',
+    );
 
     return ScreenUtilInit(
       designSize: const Size(360, 690), // iPhone 6/7/8 base size

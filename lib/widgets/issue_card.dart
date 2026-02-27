@@ -55,10 +55,10 @@ class IssueCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title
+                  // Title - show issue number for GitHub issues, nothing for local
                   Text(
                     issue.isLocalOnly
-                        ? '(local) ${issue.title}'
+                        ? '${issue.title}'
                         : '#${issue.number} ${issue.title}',
                     style: const TextStyle(
                       color: Colors.white,

@@ -232,6 +232,38 @@ class GitHubApiService {
     }
   }
 
+  /// Fetch a single issue by number
+  Future<IssueItem> fetchIssue(
+    String owner,
+    String repo,
+    int issueNumber,
+  ) async {
+    try {
+      final headers = await _headers;
+
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return _parseIssue(json.decode(response.body));
+      } else {
+        throw Exception('Failed to fetch issue: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Network')) {
+        throw Exception('No internet connection. Working offline.');
+      }
+      rethrow;
+    }
+  }
+
   /// Create a new issue
   Future<IssueItem> createIssue(
     String owner,

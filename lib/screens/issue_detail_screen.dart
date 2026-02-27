@@ -6,7 +6,6 @@ import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
-import '../utils/responsive_utils.dart';
 import '../utils/relative_time.dart';
 import 'edit_issue_screen.dart';
 
@@ -705,6 +704,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           _buildSquareAction(Icons.person_outline, _showAssigneeDialog),
           SizedBox(width: 8.w),
           _buildSquareAction(Icons.label_outline, _showLabelsDialog),
+          SizedBox(width: 8.w),
+          _buildSquareAction(Icons.comment_outlined, _addComment),
         ],
       ),
     );

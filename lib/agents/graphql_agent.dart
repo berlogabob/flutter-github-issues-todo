@@ -14,7 +14,6 @@ class GraphQLAgent extends BaseAgent {
   final _projectUpdatesController = StreamController<ProjectUpdate>.broadcast();
 
   bool _isInitialized = false;
-  String? _graphqlEndpoint;
 
   Stream<ProjectUpdate> get projectUpdatesStream =>
       _projectUpdatesController.stream;
@@ -83,7 +82,6 @@ class GraphQLAgent extends BaseAgent {
   void _initializeGraphQL() {
     sendMessage('Initializing GraphQL client', type: MessageType.info);
 
-    _graphqlEndpoint = 'https://api.github.com/graphql';
     _isInitialized = true;
 
     sendMessage('GraphQL client initialized', type: MessageType.statusUpdate);

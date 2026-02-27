@@ -19,10 +19,12 @@ class GitHubApiService {
   /// Get stored token using singleton
   Future<String?> getToken({bool forceRefresh = false}) async {
     if (forceRefresh) {
-      _token = null;  // Clear cache
+      _token = null; // Clear cache
     }
     _token ??= await SecureStorageService.getToken();
-    debugPrint('GitHubApiService: Token ${_token != null ? "exists (${_token!.length} chars)" : "not found"}');
+    debugPrint(
+      'GitHubApiService: Token ${_token != null ? "exists (${_token!.length} chars)" : "not found"}',
+    );
     return _token;
   }
 
@@ -49,7 +51,9 @@ class GitHubApiService {
         if (response.statusCode >= 500 && response.statusCode < 600) {
           if (retryCount < _maxRetries) {
             retryCount++;
-            debugPrint('GitHubApiService: $operation failed with ${response.statusCode}, retrying ($retryCount/$_maxRetries)...');
+            debugPrint(
+              'GitHubApiService: $operation failed with ${response.statusCode}, retrying ($retryCount/$_maxRetries)...',
+            );
             await Future.delayed(delay);
             delay *= 2; // Exponential backoff
             continue;
@@ -60,21 +64,29 @@ class GitHubApiService {
       } on TimeoutException catch (e) {
         if (retryCount < _maxRetries) {
           retryCount++;
-          debugPrint('GitHubApiService: $operation timeout, retrying ($retryCount/$_maxRetries): $e');
+          debugPrint(
+            'GitHubApiService: $operation timeout, retrying ($retryCount/$_maxRetries): $e',
+          );
           await Future.delayed(delay);
           delay *= 2;
         } else {
-          debugPrint('GitHubApiService: $operation failed after $retryCount retries');
+          debugPrint(
+            'GitHubApiService: $operation failed after $retryCount retries',
+          );
           rethrow;
         }
       } on SocketException catch (e) {
         if (retryCount < _maxRetries) {
           retryCount++;
-          debugPrint('GitHubApiService: Network error, retrying ($retryCount/$_maxRetries): $e');
+          debugPrint(
+            'GitHubApiService: Network error, retrying ($retryCount/$_maxRetries): $e',
+          );
           await Future.delayed(delay);
           delay *= 2;
         } else {
-          debugPrint('GitHubApiService: Network error after $retryCount retries');
+          debugPrint(
+            'GitHubApiService: Network error after $retryCount retries',
+          );
           rethrow;
         }
       }
@@ -84,43 +96,56 @@ class GitHubApiService {
   /// Get authentication headers
   Future<Map<String, String>> get _headers async {
     final token = await getToken();
-    
+
     if (token == null || token.isEmpty) {
       debugPrint('ERROR: No token available');
       throw Exception('No authentication token. Please login again.');
     }
-    
+
     final headers = {
       'Authorization': 'token $token',
       'Accept': 'application/vnd.github.v3+json',
       'User-Agent': 'GitDoIt-App',
     };
-    
-    debugPrint('Headers created - Authorization: token ${token.substring(0, 6)}...${token.substring(token.length - 4)}');
+
+    debugPrint(
+      'Headers created - Authorization: token ${token.substring(0, 6)}...${token.substring(token.length - 4)}',
+    );
     return headers;
   }
 
   /// Test if token is valid (no network required for this test)
   Future<bool> testTokenSaved() async {
     final token = await getToken();
-    debugPrint('testTokenSaved - token: ${token != null ? "exists (${token.length} chars)" : "NOT FOUND"}');
+    debugPrint(
+      'testTokenSaved - token: ${token != null ? "exists (${token.length} chars)" : "NOT FOUND"}',
+    );
     return token != null && token.isNotEmpty;
   }
 
   /// Fetch current user's repositories
-  Future<List<RepoItem>> fetchMyRepositories({int page = 1, int perPage = 30}) async {
+  Future<List<RepoItem>> fetchMyRepositories({
+    int page = 1,
+    int perPage = 30,
+  }) async {
     try {
-      debugPrint('fetchMyRepositories() called - page: $page, perPage: $perPage');
+      debugPrint(
+        'fetchMyRepositories() called - page: $page, perPage: $perPage',
+      );
 
       final headers = await _headers;
       debugPrint('Making API call to GitHub...');
 
-      final uri = Uri.parse('https://api.github.com/user/repos?sort=updated&per_page=$perPage&page=$page');
+      final uri = Uri.parse(
+        'https://api.github.com/user/repos?sort=updated&per_page=$perPage&page=$page',
+      );
       debugPrint('Request URL: $uri');
 
       // Execute with retry logic
       final response = await _executeWithRetry(
-        () => http.get(uri, headers: headers).timeout(const Duration(seconds: 15)),
+        () => http
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 15)),
         operation: 'fetchMyRepositories',
       );
 
@@ -132,45 +157,63 @@ class GitHubApiService {
         return data.map((json) => _parseRepo(json)).toList();
       } else if (response.statusCode == 401) {
         debugPrint('401 Unauthorized - Token invalid or expired');
-        throw Exception('Invalid GitHub token. Please check your token and try again.');
+        throw Exception(
+          'Invalid GitHub token. Please check your token and try again.',
+        );
       } else if (response.statusCode == 403) {
         debugPrint('403 Forbidden - API rate limit or permissions issue');
-        throw Exception('Access forbidden. Check token permissions (needs repo scope).');
+        throw Exception(
+          'Access forbidden. Check token permissions (needs repo scope).',
+        );
       } else {
         debugPrint('Unexpected status code: ${response.statusCode}');
         throw Exception('Failed to fetch repositories: ${response.statusCode}');
       }
     } on http.ClientException catch (e) {
       debugPrint('HTTP ClientException: $e');
-      throw Exception('Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}');
+      throw Exception(
+        'Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}',
+      );
     } on TimeoutException catch (e) {
       debugPrint('Request timeout: $e');
       throw Exception('Request timeout. Check your internet connection.');
     } on SocketException catch (e) {
       debugPrint('SocketException: $e');
-      throw Exception('No internet connection. Please check your network settings.\n\nDetails: ${e.message}');
+      throw Exception(
+        'No internet connection. Please check your network settings.\n\nDetails: ${e.message}',
+      );
     } catch (e, stackTrace) {
       debugPrint('fetchMyRepositories error: $e');
       debugPrint('Stack trace: $stackTrace');
-      if (e.toString().contains('SocketException') || 
+      if (e.toString().contains('SocketException') ||
           e.toString().contains('Network') ||
           e.toString().contains('failed host lookup')) {
-        throw Exception('Cannot connect to GitHub. Check your internet connection.\n\nError: ${e.toString()}');
+        throw Exception(
+          'Cannot connect to GitHub. Check your internet connection.\n\nError: ${e.toString()}',
+        );
       }
       throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 
   /// Fetch issues from a repository
-  Future<List<IssueItem>> fetchIssues(String owner, String repo, {String state = 'open'}) async {
+  Future<List<IssueItem>> fetchIssues(
+    String owner,
+    String repo, {
+    String state = 'open',
+  }) async {
     try {
       final headers = await _headers;
-      
+
       final response = await _executeWithRetry(
-        () => http.get(
-          Uri.parse('https://api.github.com/repos/$owner/$repo/issues?state=$state&per_page=50'),
-          headers: headers,
-        ).timeout(const Duration(seconds: 10)),
+        () => http
+            .get(
+              Uri.parse(
+                'https://api.github.com/repos/$owner/$repo/issues?state=$state&per_page=50',
+              ),
+              headers: headers,
+            )
+            .timeout(const Duration(seconds: 10)),
         operation: 'fetchIssues',
       );
 
@@ -181,7 +224,8 @@ class GitHubApiService {
         throw Exception('Failed to fetch issues');
       }
     } catch (e) {
-      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Network')) {
         throw Exception('No internet connection. Working offline.');
       }
       rethrow;
@@ -189,7 +233,9 @@ class GitHubApiService {
   }
 
   /// Create a new issue
-  Future<IssueItem> createIssue(String owner, String repo, {
+  Future<IssueItem> createIssue(
+    String owner,
+    String repo, {
     required String title,
     String? body,
     List<String>? labels,
@@ -199,19 +245,17 @@ class GitHubApiService {
       final headers = await _headers;
 
       // Build request body with only non-null fields
-      final Map<String, dynamic> requestBody = {
-        'title': title,
-      };
-      
+      final Map<String, dynamic> requestBody = {'title': title};
+
       if (body != null) {
         requestBody['body'] = body;
       }
-      
+
       if (labels != null && labels.isNotEmpty) {
         // GitHub API expects labels as array of names
         requestBody['labels'] = labels;
       }
-      
+
       if (assignee != null && assignee.isNotEmpty) {
         requestBody['assignee'] = assignee;
       }
@@ -219,31 +263,38 @@ class GitHubApiService {
       debugPrint('Creating issue in $owner/$repo with body: $requestBody');
 
       final response = await _executeWithRetry(
-        () => http.post(
-          Uri.parse('https://api.github.com/repos/$owner/$repo/issues'),
-          headers: headers,
-          body: json.encode(requestBody),
-        ).timeout(const Duration(seconds: 10)),
+        () => http
+            .post(
+              Uri.parse('https://api.github.com/repos/$owner/$repo/issues'),
+              headers: headers,
+              body: json.encode(requestBody),
+            )
+            .timeout(const Duration(seconds: 10)),
         operation: 'createIssue',
       );
 
       debugPrint('Create issue response status: ${response.statusCode}');
-      
+
       if (response.statusCode == 201) {
         return _parseIssue(json.decode(response.body));
       } else if (response.statusCode == 422) {
         final errorBody = json.decode(response.body);
         final errors = errorBody['errors'] as List?;
-        final errorMsg = errors?.map((e) => e['message'] as String).join(', ') ?? 'Unknown error';
+        final errorMsg =
+            errors?.map((e) => e['message'] as String).join(', ') ??
+            'Unknown error';
         throw Exception('Failed to create issue (422): $errorMsg');
       } else {
         final errorBody = json.decode(response.body);
-        throw Exception('Failed to create issue: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}');
+        throw Exception(
+          'Failed to create issue: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
       }
     } catch (e, stackTrace) {
       debugPrint('Create issue error: $e');
       debugPrint('Stack: $stackTrace');
-      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Network')) {
         throw Exception('No internet connection. Issue saved locally.');
       }
       rethrow;
@@ -252,11 +303,15 @@ class GitHubApiService {
 
   /// Update an issue (close/reopen/edit)
   /// Returns updated IssueItem
-  Future<IssueItem> updateIssue(String owner, String repo, int number, {
+  Future<IssueItem> updateIssue(
+    String owner,
+    String repo,
+    int number, {
     String? title,
     String? body,
     String? state, // 'open' or 'closed'
     List<String>? labels,
+    List<String>? assignees,
   }) async {
     try {
       debugPrint('Updating issue #${number} in ${owner}/${repo}...');
@@ -268,15 +323,20 @@ class GitHubApiService {
       if (body != null) requestBody['body'] = body;
       if (state != null) requestBody['state'] = state;
       if (labels != null) requestBody['labels'] = labels;
+      if (assignees != null) requestBody['assignees'] = assignees;
 
       debugPrint('Update request body: $requestBody');
 
       final response = await _executeWithRetry(
-        () => http.patch(
-          Uri.parse('https://api.github.com/repos/$owner/$repo/issues/$number'),
-          headers: headers,
-          body: json.encode(requestBody),
-        ).timeout(const Duration(seconds: 15)),
+        () => http
+            .patch(
+              Uri.parse(
+                'https://api.github.com/repos/$owner/$repo/issues/$number',
+              ),
+              headers: headers,
+              body: json.encode(requestBody),
+            )
+            .timeout(const Duration(seconds: 15)),
         operation: 'updateIssue',
       );
 
@@ -288,15 +348,276 @@ class GitHubApiService {
         return updatedIssue;
       } else {
         final errorBody = json.decode(response.body);
-        throw Exception('Failed to update issue: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}');
+        throw Exception(
+          'Failed to update issue: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
       }
     } catch (e, stackTrace) {
       debugPrint('✗ Error updating issue: $e');
       debugPrint('Stack trace: $stackTrace');
 
-      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Network')) {
         throw Exception('No internet connection. Changes saved locally.');
       }
+      rethrow;
+    }
+  }
+
+  /// Fetch issue comments
+  Future<List<Map<String, dynamic>>> fetchIssueComments(
+    String owner,
+    String repo,
+    int issueNumber,
+  ) async {
+    try {
+      debugPrint(
+        'Fetching comments for issue #$issueNumber in $owner/$repo...',
+      );
+      final headers = await _headers;
+
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/comments',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('Fetch comments response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> commentsData = json.decode(response.body);
+        debugPrint('✓ Fetched ${commentsData.length} comments');
+        return commentsData.cast<Map<String, dynamic>>();
+      } else {
+        final errorBody = json.decode(response.body);
+        throw Exception(
+          'Failed to fetch comments: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching comments: $e');
+      rethrow;
+    }
+  }
+
+  /// Add comment to issue
+  Future<void> addIssueComment(
+    String owner,
+    String repo,
+    int issueNumber,
+    String body,
+  ) async {
+    try {
+      debugPrint('Adding comment to issue #$issueNumber in $owner/$repo...');
+      final headers = await _headers;
+
+      final response = await http
+          .post(
+            Uri.parse(
+              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/comments',
+            ),
+            headers: headers,
+            body: json.encode({'body': body}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('Add comment response status: ${response.statusCode}');
+
+      if (response.statusCode == 201) {
+        debugPrint('✓ Comment added successfully');
+      } else {
+        final errorBody = json.decode(response.body);
+        throw Exception(
+          'Failed to add comment: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error adding comment: $e');
+      rethrow;
+    }
+  }
+
+  /// Remove a label from issue
+  Future<IssueItem> removeIssueLabel(
+    String owner,
+    String repo,
+    int issueNumber,
+    String label,
+  ) async {
+    try {
+      debugPrint(
+        'Removing label "$label" from issue #$issueNumber in $owner/$repo...',
+      );
+      final headers = await _headers;
+
+      // Encode label for URL
+      final encodedLabel = Uri.encodeComponent(label);
+
+      final response = await http
+          .delete(
+            Uri.parse(
+              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/labels/$encodedLabel',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('Remove label response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        // Fetch updated issue to get the new labels
+        final issueResponse = await http
+            .get(
+              Uri.parse(
+                'https://api.github.com/repos/$owner/$repo/issues/$issueNumber',
+              ),
+              headers: headers,
+            )
+            .timeout(const Duration(seconds: 15));
+
+        if (issueResponse.statusCode == 200) {
+          final updatedIssue = _parseIssue(json.decode(issueResponse.body));
+          debugPrint('✓ Label "$label" removed successfully');
+          return updatedIssue;
+        } else {
+          throw Exception('Failed to fetch updated issue');
+        }
+      } else {
+        final errorBody = json.decode(response.body);
+        throw Exception(
+          'Failed to remove label: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error removing label: $e');
+      rethrow;
+    }
+  }
+
+  /// Add a label to issue
+  Future<IssueItem> addIssueLabel(
+    String owner,
+    String repo,
+    int issueNumber,
+    String label,
+  ) async {
+    try {
+      debugPrint(
+        'Adding label "$label" to issue #$issueNumber in $owner/$repo...',
+      );
+      final headers = await _headers;
+
+      final response = await http
+          .post(
+            Uri.parse(
+              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/labels',
+            ),
+            headers: headers,
+            body: json.encode([label]),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('Add label response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        // Fetch updated issue to get the new labels
+        final issueResponse = await http
+            .get(
+              Uri.parse(
+                'https://api.github.com/repos/$owner/$repo/issues/$issueNumber',
+              ),
+              headers: headers,
+            )
+            .timeout(const Duration(seconds: 15));
+
+        if (issueResponse.statusCode == 200) {
+          final updatedIssue = _parseIssue(json.decode(issueResponse.body));
+          debugPrint('✓ Label "$label" added successfully');
+          return updatedIssue;
+        } else {
+          throw Exception('Failed to fetch updated issue');
+        }
+      } else {
+        final errorBody = json.decode(response.body);
+        throw Exception(
+          'Failed to add label: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error adding label: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetch available labels for a repository
+  Future<List<Map<String, dynamic>>> fetchRepoLabels(
+    String owner,
+    String repo,
+  ) async {
+    try {
+      debugPrint('Fetching labels for $owner/$repo...');
+      final headers = await _headers;
+
+      final response = await http
+          .get(
+            Uri.parse('https://api.github.com/repos/$owner/$repo/labels'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('Fetch labels response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> labelsData = json.decode(response.body);
+        debugPrint('✓ Fetched ${labelsData.length} labels');
+        return labelsData.cast<Map<String, dynamic>>();
+      } else {
+        final errorBody = json.decode(response.body);
+        throw Exception(
+          'Failed to fetch labels: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching labels: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetch collaborators for a repository
+  Future<List<Map<String, dynamic>>> fetchRepoCollaborators(
+    String owner,
+    String repo,
+  ) async {
+    try {
+      debugPrint('Fetching collaborators for $owner/$repo...');
+      final headers = await _headers;
+
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://api.github.com/repos/$owner/$repo/collaborators',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('Fetch collaborators response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> collaboratorsData = json.decode(response.body);
+        debugPrint('✓ Fetched ${collaboratorsData.length} collaborators');
+        return collaboratorsData.cast<Map<String, dynamic>>();
+      } else {
+        final errorBody = json.decode(response.body);
+        throw Exception(
+          'Failed to fetch collaborators: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching collaborators: $e');
       rethrow;
     }
   }
@@ -307,17 +628,18 @@ class GitHubApiService {
       final headers = await _headers;
       debugPrint('Fetching user info with headers: ${headers.keys}');
 
-      final response = await http.get(
-        Uri.parse('https://api.github.com/user'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse('https://api.github.com/user'), headers: headers)
+          .timeout(const Duration(seconds: 10));
 
       debugPrint('User API response status: ${response.statusCode}');
       debugPrint('Response body: ${response.body.substring(0, 200)}...');
 
       if (response.statusCode == 200) {
         final userData = json.decode(response.body);
-        debugPrint('User login: ${userData['login']}, name: ${userData['name']}');
+        debugPrint(
+          'User login: ${userData['login']}, name: ${userData['name']}',
+        );
         return userData;
       } else if (response.statusCode == 401) {
         debugPrint('401 Unauthorized - token may be invalid');
@@ -357,14 +679,16 @@ class GitHubApiService {
         }
       ''';
 
-      final response = await http.post(
-        Uri.parse('https://api.github.com/graphql'),
-        headers: headers,
-        body: json.encode({
-          'query': query,
-          'variables': {'first': first},
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse('https://api.github.com/graphql'),
+            headers: headers,
+            body: json.encode({
+              'query': query,
+              'variables': {'first': first},
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       debugPrint('Projects GraphQL response status: ${response.statusCode}');
 
@@ -375,7 +699,8 @@ class GitHubApiService {
           return [];
         }
 
-        final projects = data['data']?['viewer']?['projectsV2']?['nodes'] as List? ?? [];
+        final projects =
+            data['data']?['viewer']?['projectsV2']?['nodes'] as List? ?? [];
         debugPrint('Fetched ${projects.length} projects');
         return projects.cast<Map<String, dynamic>>();
       } else {
@@ -424,29 +749,33 @@ class GitHubApiService {
         }
       ''';
 
-      final response = await http.post(
-        Uri.parse('https://api.github.com/graphql'),
-        headers: headers,
-        body: json.encode({
-          'query': mutation,
-          'variables': {
-            'projectId': projectId,
-            'itemId': itemId,
-            'fieldId': fieldId,
-            'optionId': optionId,
-          },
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse('https://api.github.com/graphql'),
+            headers: headers,
+            body: json.encode({
+              'query': mutation,
+              'variables': {
+                'projectId': projectId,
+                'itemId': itemId,
+                'fieldId': fieldId,
+                'optionId': optionId,
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       debugPrint('Move item GraphQL response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         // Check for errors
         if (data['errors'] != null) {
           debugPrint('GraphQL errors: ${data['errors']}');
-          throw Exception('Failed to move item: ${data['errors'][0]['message']}');
+          throw Exception(
+            'Failed to move item: ${data['errors'][0]['message']}',
+          );
         }
 
         // Check if mutation succeeded
@@ -502,14 +831,16 @@ class GitHubApiService {
         }
       ''';
 
-      final response = await http.post(
-        Uri.parse('https://api.github.com/graphql'),
-        headers: headers,
-        body: json.encode({
-          'query': query,
-          'variables': {'projectId': projectId},
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse('https://api.github.com/graphql'),
+            headers: headers,
+            body: json.encode({
+              'query': query,
+              'variables': {'projectId': projectId},
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -565,19 +896,20 @@ class GitHubApiService {
         }
       ''';
 
-      final response = await http.post(
-        Uri.parse('https://api.github.com/graphql'),
-        headers: headers,
-        body: json.encode({
-          'query': mutation,
-          'variables': {
-            'projectId': projectId,
-            'contentId': issueNodeId,
-          },
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse('https://api.github.com/graphql'),
+            headers: headers,
+            body: json.encode({
+              'query': mutation,
+              'variables': {'projectId': projectId, 'contentId': issueNodeId},
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
-      debugPrint('Add project item GraphQL response status: ${response.statusCode}');
+      debugPrint(
+        'Add project item GraphQL response status: ${response.statusCode}',
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -670,20 +1002,24 @@ class GitHubApiService {
         }
       ''';
 
-      final response = await http.post(
-        Uri.parse('https://api.github.com/graphql'),
-        headers: headers,
-        body: json.encode({
-          'query': query,
-          'variables': {
-            'projectId': projectId,
-            'first': first,
-            'statusFieldId': statusFieldId,
-          },
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse('https://api.github.com/graphql'),
+            headers: headers,
+            body: json.encode({
+              'query': query,
+              'variables': {
+                'projectId': projectId,
+                'first': first,
+                'statusFieldId': statusFieldId,
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
-      debugPrint('Get project items GraphQL response status: ${response.statusCode}');
+      debugPrint(
+        'Get project items GraphQL response status: ${response.statusCode}',
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -724,7 +1060,9 @@ class GitHubApiService {
 
         return columnItems;
       } else {
-        debugPrint('✗ Failed to get project items: HTTP ${response.statusCode}');
+        debugPrint(
+          '✗ Failed to get project items: HTTP ${response.statusCode}',
+        );
         return {};
       }
     } catch (e, stackTrace) {
@@ -753,13 +1091,13 @@ class GitHubApiService {
       number: json['number'] as int,
       bodyMarkdown: json['body'] as String?,
       status: json['state'] == 'open' ? ItemStatus.open : ItemStatus.closed,
-      updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at'] as String) 
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
           : null,
       assigneeLogin: json['assignee']?['login'] as String?,
-      labels: (json['labels'] as List?)
-          ?.map((l) => l['name'] as String)
-          .toList() ?? [],
+      labels:
+          (json['labels'] as List?)?.map((l) => l['name'] as String).toList() ??
+          [],
       isLocalOnly: false,
     );
   }

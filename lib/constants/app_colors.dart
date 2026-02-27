@@ -25,6 +25,13 @@ class AppColors {
   // Issue status colors (GitHub-style)
   static const Color issueOpen = Color(0xFF238636);
   static const Color issueClosed = Color(0xFF6E7781);
+
+  // New design colors (from React design)
+  static const Color orangeAccent = Color(0xFFFF5E00);
+  static const Color secondaryText = Color(0xFFA0A0A5);
+  static const Color surfaceColor = Color(0xFF111111);
+  static const Color borderColor = Color(0xFF333333);
+  static const Color darkBackground = Color(0xFF0A0A0A);
 }
 
 /// App typography constants

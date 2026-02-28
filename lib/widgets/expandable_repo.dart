@@ -3,6 +3,8 @@ import '../constants/app_colors.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../services/github_api_service.dart';
+import '../screens/edit_issue_screen.dart';
+import 'braille_loader.dart';
 import 'issue_card.dart';
 
 /// ExpandableRepo - Modular, reusable widget for displaying a repository with collapsible issues list
@@ -10,20 +12,24 @@ class ExpandableRepo extends StatefulWidget {
   final RepoItem repo;
   final GitHubApiService githubApi;
   final ValueChanged<IssueItem>? onIssueTap;
-  final bool initiallyExpanded;
+  final bool? isExpanded; // External control (optional)
+  final bool initiallyExpanded; // Fallback if isExpanded is null
   final bool hideUsernameInRepo;
   final bool isPinned;
   final VoidCallback? onPinToggle;
+  final ValueChanged<bool>? onExpandToggle; // Callback for external control
 
   const ExpandableRepo({
     super.key,
     required this.repo,
     required this.githubApi,
     this.onIssueTap,
+    this.isExpanded,
     this.initiallyExpanded = true,
     this.hideUsernameInRepo = false,
     this.isPinned = false,
     this.onPinToggle,
+    this.onExpandToggle,
   });
 
   @override
@@ -31,16 +37,17 @@ class ExpandableRepo extends StatefulWidget {
 }
 
 class _ExpandableRepoState extends State<ExpandableRepo> {
-  bool _isExpanded = true;
   bool _isLoadingIssues = false;
   bool _hasLoadedIssues = false;
   List<IssueItem> _issues = [];
   String? _errorMessage;
 
+  // Get current expanded state (external control or internal)
+  bool get _isExpanded => widget.isExpanded ?? widget.initiallyExpanded;
+
   @override
   void initState() {
     super.initState();
-    _isExpanded = widget.initiallyExpanded;
 
     // Check if this is a vault repo (local)
     final isVaultRepo =
@@ -52,6 +59,15 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
       _hasLoadedIssues = true;
     } else if (_isExpanded && widget.repo.children.isEmpty) {
       // Only fetch from GitHub for non-vault repos
+      _loadIssues();
+    }
+  }
+
+  @override
+  void didUpdateWidget(ExpandableRepo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Load issues when expanding externally for the first time
+    if (_isExpanded && !_hasLoadedIssues && !_isLoadingIssues) {
       _loadIssues();
     }
   }
@@ -113,170 +129,165 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
     return widget.repo.fullName;
   }
 
+  void _openIssueForEdit(IssueItem issue) {
+    // Navigate to edit issue screen
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditIssueScreen(
+          issue: issue,
+          owner: widget.repo.fullName.split('/').first,
+          repo: widget.repo.fullName.split('/').last,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _closeIssue(IssueItem issue) async {
+    // Close issue action
+    debugPrint('Close issue: ${issue.title}');
+    // Call API to close issue or update local state
+    // This can be customized based on app requirements
+  }
+
   void _toggleExpand() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-    });
+    final newExpandedState = !_isExpanded;
+
+    // Use external callback if provided, otherwise manage internally
+    if (widget.onExpandToggle != null) {
+      widget.onExpandToggle!(newExpandedState);
+    } else {
+      setState(() {
+        // Internal management (fallback)
+      });
+    }
 
     // Load issues when expanding for the first time
-    if (_isExpanded && !_hasLoadedIssues && !_isLoadingIssues) {
+    if (newExpandedState && !_hasLoadedIssues && !_isLoadingIssues) {
       _loadIssues();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: Key(widget.repo.id),
-      direction: DismissDirection.horizontal,
-      background: Container(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 20),
-        color: AppColors.orange,
-        child: Icon(
-          widget.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-          color: Colors.white,
-        ),
-      ),
-      secondaryBackground: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: AppColors.orange,
-        child: Icon(
-          widget.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-          color: Colors.white,
-        ),
-      ),
-      confirmDismiss: (direction) async {
-        widget.onPinToggle?.call();
-        return false;
-      },
-      child: Card(
-        color: AppColors.cardBackground,
-        margin: const EdgeInsets.only(bottom: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Repo Header (clickable)
-            InkWell(
-              onTap: _toggleExpand,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    // Expand/Collapse Icon
-                    AnimatedRotation(
-                      turns: _isExpanded ? 0.25 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: const Icon(
-                        Icons.arrow_right,
-                        color: AppColors.red,
-                        size: 24,
-                      ),
+    // Use fullName as unique key - more reliable than node_id
+    return Card(
+      color: AppColors.cardBackground,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Repo Header (clickable)
+          InkWell(
+            onTap: _toggleExpand,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Expand/Collapse Icon
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.arrow_right,
+                      color: AppColors.red,
+                      size: 24,
                     ),
-                    const SizedBox(width: 8),
-                    // Repo Icon
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.orange.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.folder, color: AppColors.orange),
+                  ),
+                  const SizedBox(width: 8),
+                  // Repo Icon
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.orange.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(width: 8),
-                    // Pin icon for pinned repos
-                    if (widget.isPinned)
-                      const Icon(
-                        Icons.push_pin,
-                        color: AppColors.orange,
-                        size: 16,
-                      ),
-                    if (widget.isPinned) const SizedBox(width: 4),
-                    // Repo Info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                    child: const Icon(Icons.folder, color: AppColors.orange),
+                  ),
+                  const SizedBox(width: 8),
+                  // Pin icon for pinned repos
+                  if (widget.isPinned)
+                    const Icon(
+                      Icons.push_pin,
+                      color: AppColors.orange,
+                      size: 16,
+                    ),
+                  if (widget.isPinned) const SizedBox(width: 4),
+                  // Repo Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _getDisplayName(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (widget.repo.description != null &&
+                            widget.repo.description!.isNotEmpty)
                           Text(
-                            _getDisplayName(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            widget.repo.description!,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 12,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (widget.repo.description != null &&
-                              widget.repo.description!.isNotEmpty)
-                            Text(
-                              widget.repo.description!,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 12,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
+                      ],
+                    ),
+                  ),
+                  // Issue Count Badge
+                  if (_hasLoadedIssues || widget.repo.children.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.orange.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Text(
+                        _issues.isNotEmpty
+                            ? '${_issues.whereType<IssueItem>().length} issues'
+                            : '${widget.repo.children.whereType<IssueItem>().length} issues',
+                        style: const TextStyle(
+                          color: AppColors.orange,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                    // Issue Count Badge
-                    if (_hasLoadedIssues || widget.repo.children.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.orange.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.orange.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Text(
-                          _issues.isNotEmpty
-                              ? '${_issues.whereType<IssueItem>().length} issues'
-                              : '${widget.repo.children.whereType<IssueItem>().length} issues',
-                          style: const TextStyle(
-                            color: AppColors.orange,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    // Loading Indicator
-                    if (_isLoadingIssues)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                  ],
-                ),
+                  // Loading Indicator
+                  if (_isLoadingIssues) BrailleLoader(size: 20),
+                ],
               ),
             ),
-            // Issues List (collapsible)
-            if (_isExpanded)
-              AnimatedCrossFade(
-                firstChild: const SizedBox.shrink(),
-                secondChild: _buildIssuesList(),
-                crossFadeState:
-                    _hasLoadedIssues ||
-                        widget.repo.children.isNotEmpty ||
-                        _errorMessage != null
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 300),
-              ),
-          ],
-        ),
+          ),
+          // Issues List (collapsible)
+          if (_isExpanded)
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: _buildIssuesList(),
+              crossFadeState:
+                  _hasLoadedIssues ||
+                      widget.repo.children.isNotEmpty ||
+                      _errorMessage != null
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 300),
+            ),
+        ],
       ),
     );
   }
@@ -286,11 +297,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
     if (_isLoadingIssues) {
       return const Padding(
         padding: EdgeInsets.all(24),
-        child: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-          ),
-        ),
+        child: Center(child: BrailleLoader(size: 24)),
       );
     }
 
@@ -328,20 +335,50 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
 
     // Show issues from API
     if (_issues.isNotEmpty) {
-      return Column(
-        children: _issues
-            .map((issue) => IssueCard(issue: issue, onTap: widget.onIssueTap))
-            .toList(),
+      return Padding(
+        padding: const EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 8,
+          bottom: 100,
+        ),
+        child: Column(
+          children: _issues
+              .map(
+                (issue) => IssueCard(
+                  issue: issue,
+                  onTap: widget.onIssueTap,
+                  onSwipeRight: () => _openIssueForEdit(issue),
+                  onSwipeLeft: () => _closeIssue(issue),
+                ),
+              )
+              .toList(),
+        ),
       );
     }
 
     // Show local issues
     if (widget.repo.children.isNotEmpty) {
-      return Column(
-        children: widget.repo.children
-            .whereType<IssueItem>()
-            .map((issue) => IssueCard(issue: issue, onTap: widget.onIssueTap))
-            .toList(),
+      return Padding(
+        padding: const EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 8,
+          bottom: 100,
+        ),
+        child: Column(
+          children: widget.repo.children
+              .whereType<IssueItem>()
+              .map(
+                (issue) => IssueCard(
+                  issue: issue,
+                  onTap: widget.onIssueTap,
+                  onSwipeRight: () => _openIssueForEdit(issue),
+                  onSwipeLeft: () => _closeIssue(issue),
+                ),
+              )
+              .toList(),
+        ),
       );
     }
 

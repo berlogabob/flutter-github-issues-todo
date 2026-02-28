@@ -40,6 +40,9 @@ class SyncService {
   // Auto-sync debounce
   Timer? _autoSyncTimer;
 
+  // Listener support for UI updates
+  final _listeners = <VoidCallback>{};
+
   // Getters
   bool get isSyncing => _isSyncing;
   bool get isNetworkAvailable => _isNetworkAvailable;
@@ -49,6 +52,16 @@ class SyncService {
   String? get syncErrorMessage => _syncErrorMessage;
   int get syncedIssuesCount => _syncedIssuesCount;
   int get syncedProjectsCount => _syncedProjectsCount;
+
+  /// Add a listener for sync state changes
+  void addListener(VoidCallback listener) {
+    _listeners.add(listener);
+  }
+
+  /// Remove a listener
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+  }
 
   /// Initialize sync service
   void init() {
@@ -457,6 +470,8 @@ class SyncService {
   /// Notify listeners of status changes
   void _notifyListeners() {
     debugPrint('SyncService: Status updated - $_syncStatus');
-    // In production, use Riverpod or other state management
+    for (final listener in _listeners) {
+      listener();
+    }
   }
 }

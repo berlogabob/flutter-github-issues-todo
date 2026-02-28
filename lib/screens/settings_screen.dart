@@ -6,6 +6,7 @@ import '../models/repo_item.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/secure_storage_service.dart';
+import '../widgets/braille_loader.dart';
 import 'onboarding_screen.dart';
 import 'debug_screen.dart';
 
@@ -24,7 +25,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _autoSyncWifi = true;
   bool _autoSyncAny = false;
   bool _isLoadingUser = true;
-  
+
+  String _getAppVersion() {
+    // Version is read from pubspec.yaml - update here when version changes
+    return '0.5.0+40';
+  }
+
   // User data - will be fetched from GitHub
   Map<String, dynamic> _user = {
     'login': 'user',
@@ -32,7 +38,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     'avatar': null,
     'email': null,
   };
-  
+
   String _defaultRepo = 'user/gitdoit';
   String _defaultProject = 'Mobile Development';
   List<RepoItem> _userRepos = [];
@@ -55,7 +61,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadUserData() async {
     setState(() => _isLoadingUser = true);
-    
+
     // First try to load from local storage
     final localUser = await _localStorage.getUserData();
     if (localUser != null && mounted) {
@@ -64,16 +70,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _isLoadingUser = false;
       });
     }
-    
+
     // Then try to fetch fresh data from GitHub
     await _fetchUserData();
   }
 
   Future<void> _fetchUserData() async {
     if (!mounted) return;
-    
+
     setState(() => _isLoadingUser = true);
-    
+
     try {
       final userData = await _githubApi.getCurrentUser();
       if (userData != null && mounted) {
@@ -83,7 +89,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           'avatar': userData['avatar_url'],
           'email': userData['email'],
         };
-        
+
         setState(() {
           _user = userMap;
           _defaultRepo = userData['public_repos'] != null
@@ -94,7 +100,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         // Save to local storage
         await _localStorage.saveUserData(userMap);
-        
+
         // Load user repositories
         await _loadUserRepos();
       }
@@ -147,32 +153,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildSectionHeader('Account'),
           _buildUserTile(),
           _buildLogoutTile(),
-          
+
           const SizedBox(height: 8),
-          
+
           // Defaults Section
           _buildSectionHeader('Defaults'),
           _buildDefaultRepoTile(),
           _buildDefaultProjectTile(),
-          
+
           const SizedBox(height: 8),
-          
+
           // Sync Section
           _buildSectionHeader('Sync'),
           _buildAutoSyncWifiTile(),
           _buildAutoSyncAnyTile(),
           _buildSyncNowTile(),
           _buildTestConnectionTile(),
-          
+
           const SizedBox(height: 8),
-          
+
           // Danger Zone
           _buildSectionHeader('Danger Zone', isDanger: true),
           _buildClearCacheTile(),
           _buildResetTokenTile(),
-          
+
           const SizedBox(height: 16),
-          
+
           // App Info
           _buildAppInfo(),
         ],
@@ -201,39 +207,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
         leading: _isLoadingUser
-            ? const SizedBox(
-                width: 40,
-                height: 40,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
+            ? BrailleLoader(size: 40)
             : _user['avatar'] != null
-                ? ClipOval(
-                    child: Image.network(
-                      _user['avatar'] as String,
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return CircleAvatar(
-                          backgroundColor: AppColors.orange.withValues(alpha: 0.2),
-                          child: Text(
-                            (_user['login'] as String).substring(0, 1).toUpperCase(),
-                            style: const TextStyle(color: AppColors.orange),
-                          ),
-                        );
-                      },
-                    ),
-                  )
-                : CircleAvatar(
-                    backgroundColor: AppColors.orange.withValues(alpha: 0.2),
-                    child: Text(
-                      (_user['login'] as String).substring(0, 1).toUpperCase(),
-                      style: const TextStyle(color: AppColors.orange),
-                    ),
-                  ),
+            ? ClipOval(
+                child: Image.network(
+                  _user['avatar'] as String,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return CircleAvatar(
+                      backgroundColor: AppColors.orange.withValues(alpha: 0.2),
+                      child: Text(
+                        (_user['login'] as String)
+                            .substring(0, 1)
+                            .toUpperCase(),
+                        style: const TextStyle(color: AppColors.orange),
+                      ),
+                    );
+                  },
+                ),
+              )
+            : CircleAvatar(
+                backgroundColor: AppColors.orange.withValues(alpha: 0.2),
+                child: Text(
+                  (_user['login'] as String).substring(0, 1).toUpperCase(),
+                  style: const TextStyle(color: AppColors.orange),
+                ),
+              ),
         title: Text(
           _user['name'] as String,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         subtitle: _isLoadingUser
             ? const Text(
@@ -246,11 +253,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
         trailing: _isLoadingUser
             ? null
-            : const Icon(
-                Icons.verified_user,
-                color: AppColors.blue,
-                size: 24,
-              ),
+            : const Icon(Icons.verified_user, color: AppColors.blue, size: 24),
       ),
     );
   }
@@ -261,14 +264,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
         leading: const Icon(Icons.logout, color: AppColors.orange),
-        title: const Text(
-          'Logout',
-          style: TextStyle(color: Colors.white),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.red,
-        ),
+        title: const Text('Logout', style: TextStyle(color: Colors.white)),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _confirmLogout,
       ),
     );
@@ -291,10 +288,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.red,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _changeDefaultRepo,
       ),
     );
@@ -317,10 +311,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.red,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _changeDefaultProject,
       ),
     );
@@ -390,10 +381,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
         leading: const Icon(Icons.sync, color: AppColors.orange),
-        title: const Text(
-          'Sync Now',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Sync Now', style: TextStyle(color: Colors.white)),
         subtitle: Text(
           'Manually trigger sync',
           style: TextStyle(
@@ -401,10 +389,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.red,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _syncNow,
       ),
     );
@@ -427,10 +412,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.red,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _testConnection,
       ),
     );
@@ -446,9 +428,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-            ),
+            BrailleLoader(size: 24),
             const SizedBox(height: 16),
             const Text(
               'Testing connection...',
@@ -467,7 +447,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       if (!hasToken) {
         if (mounted) Navigator.pop(context);
-        _showTestResult(false, 'No token found. Please login with GitHub token.');
+        _showTestResult(
+          false,
+          'No token found. Please login with GitHub token.',
+        );
         return;
       }
 
@@ -478,20 +461,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         debugPrint('Network check: ${result.isNotEmpty ? "OK" : "FAILED"}');
       } on SocketException catch (e) {
         if (mounted) Navigator.pop(context);
-        _showTestResult(false, 'No internet connection.\n\nDetails: ${e.message}');
+        _showTestResult(
+          false,
+          'No internet connection.\n\nDetails: ${e.message}',
+        );
         return;
       }
 
       // Test 3: Try to fetch user info
       debugPrint('Testing GitHub API...');
       final user = await _githubApi.getCurrentUser();
-      
+
       if (mounted) Navigator.pop(context);
-      
+
       if (user != null) {
-        _showTestResult(true, '✓ Connected to GitHub!\n\nUser: ${user['login']}\nToken is valid and working.');
+        _showTestResult(
+          true,
+          '✓ Connected to GitHub!\n\nUser: ${user['login']}\nToken is valid and working.',
+        );
       } else {
-        _showTestResult(false, 'Failed to connect to GitHub.\n\nToken may be invalid or expired.');
+        _showTestResult(
+          false,
+          'Failed to connect to GitHub.\n\nToken may be invalid or expired.',
+        );
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
@@ -517,10 +509,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ],
         ),
-        content: Text(
-          message,
-          style: const TextStyle(color: Colors.white70),
-        ),
+        content: Text(message, style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -548,10 +537,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.red,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _confirmClearCache,
       ),
     );
@@ -574,10 +560,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.red,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _confirmResetToken,
       ),
     );
@@ -588,10 +571,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
-        title: const Text(
-          'Reset Token',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Reset Token', style: TextStyle(color: Colors.white)),
         content: Text(
           'This will delete your saved GitHub token and return you to the login screen.\n\nUse this if your token is corrupted or not working.',
           style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
@@ -621,17 +601,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // Delete token using singleton
     await SecureStorageService.deleteToken();
     await SecureStorageService.instance.delete(key: 'auth_type');
-    
+
     // Clear GitHub API cache
     _githubApi.clearCachedToken();
-    
+
     if (mounted) {
       // Navigate back to onboarding
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const OnboardingScreen()),
         (route) => false,
       );
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Token reset. Please login again.'),
@@ -662,7 +642,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Version 1.0.0',
+            'Version ${_getAppVersion()}',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,
@@ -687,10 +667,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
-        title: const Text(
-          'Logout',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Logout', style: TextStyle(color: Colors.white)),
         content: Text(
           'Are you sure you want to logout? You will need to authenticate again.',
           style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
@@ -723,17 +700,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Clear GitHub API cache
     _githubApi.clearCachedToken();
-    
+
     // Clear all local data
     await _localStorage.clearAllData();
-    
+
     if (mounted) {
       // Navigate back to onboarding and clear navigation stack
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const OnboardingScreen()),
         (route) => false, // Remove all previous routes
       );
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Logged out successfully'),
@@ -777,10 +754,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   });
                   _localStorage.saveDefaultRepo(repo.fullName);
                   Navigator.pop(context);
-                  
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Default repository set to ${repo.fullName}'),
+                      content: Text(
+                        'Default repository set to ${repo.fullName}',
+                      ),
                       backgroundColor: AppColors.orange,
                       duration: const Duration(seconds: 2),
                     ),
@@ -819,10 +798,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
-        title: const Text(
-          'Clear Cache',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Clear Cache', style: TextStyle(color: Colors.white)),
         content: Text(
           'This will delete all locally stored data. This action cannot be undone.',
           style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),

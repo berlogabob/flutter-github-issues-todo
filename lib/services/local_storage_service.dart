@@ -532,10 +532,12 @@ class LocalStorageService {
   Future<bool> getHideUsernameSetting() async {
     try {
       final value = await _storage.read(key: 'hide_username');
+      // Default to true (hide username, show just repo name)
+      if (value == null) return true;
       return value == 'true';
     } catch (e) {
       debugPrint('Error getting hide username setting: $e');
-      return false;
+      return true;
     }
   }
 }

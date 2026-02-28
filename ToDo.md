@@ -77,7 +77,7 @@ Act as a Senior Software Engineer. Your role is to deliver robust and scalable s
 5.  **Review:** Check against edge cases and depreciation risks.
 6.  **Output:** Present the solution with high precision.
 you are 10+ experienced flutter developer, solve uncheked tasks useing agents in "/agents" folder. in need-rescan whole project to realise roots of problem.
-fetch issues from https://github.com/berlogabob/flutter-github-issues-todo/issues with "ToDO' label -> append them as task here at the end of file. after task assumes as comlpete - mark it as complete (-[ ] -> -[x]).
+fetch issues from https://github.com/berlogabob/flutter-github-issues-todo/issues with "ToDO" and "open" label -> append them as task here at the end of file. after task assumes as comlpete - mark it as complete (-[ ] -> -[x]).
 
 1 - [x] feature. make visual separation of pinned and other repos. add thin white line as divider between them
 2 - [x]  first pinned repo overlap on filter widget
@@ -91,9 +91,14 @@ fetch issues from https://github.com/berlogabob/flutter-github-issues-todo/issue
   - [x] offline new issue create with #null in name why? 
   - [x] i cant see created issues in local folder with file explorer, why?
 
-- [ ] now in local mode issues are saved as markdown files in the vault folder, but the didnt show up in the app
-- [ ] after switching apps or close it -> aplication asks again with welcome screen and permisiioon to access local folder. if user chooce to work offline there s no need to ask again.
-- [ ] now in offline mode local folder shows in indicator that there is 6 issuues ( in chip) in list of issues it shows only 3. in folder with file explorer i could see 3. 
+- [x] now in local mode issues are saved as markdown files in the vault folder, but the didnt show up in the app
+- [x] after switching apps or close it -> aplication asks again with welcome screen and permisiioon to access local folder. if user chooce to work offline there s no need to ask again.
+- [x] now in offline mode local folder shows in indicator that there is 6 issuues ( in chip) in list of issues it shows only 3. in folder with file explorer i could see 3. 
 - [x] hide show repo name ( in this case local folder name) does not work. issues list as "(local) test name".
 
 - [x] GitHub Issue #15: Create issue (ToDO label) - Already implemented in app (_showCreateIssueDialog)
+- [x] user have problem on main screen in online mode. ( offline cant be tested ). user allways see repository of this project ( by this it is repository of that app that we develop here) (link https://github.com/berlogabob/flutter-github-issues-todo). when user trying to pin or unpi this repo app pin and unpit other repo that looks like swowing right under https://github.com/berlogabob/flutter-github-issues-todo card.
+
+- [x] GitHub Issue #16: default state (ToDO label) - Fix pinned repo pin/unpin behavior
+
+- [x] GitHub Issue #17: app version (ToDO label) - Display app version in settings screen

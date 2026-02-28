@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import '../constants/app_colors.dart';
-import '../models/issue_item.dart';
-import '../models/item.dart';
 import '../services/github_api_service.dart';
-import '../services/local_storage_service.dart';
+import '../models/repo_item.dart';
+import '../widgets/braille_loader.dart';
 
 class CreateIssueScreen extends StatefulWidget {
   final String? owner;
   final String? repo;
   final String? defaultProject;
   final List<Map<String, dynamic>>? projects;
+  final List<RepoItem>? availableRepos;
 
   const CreateIssueScreen({
     super.key,
@@ -18,6 +17,7 @@ class CreateIssueScreen extends StatefulWidget {
     this.repo,
     this.defaultProject,
     this.projects,
+    this.availableRepos,
   });
 
   @override
@@ -26,12 +26,12 @@ class CreateIssueScreen extends StatefulWidget {
 
 class _CreateIssueScreenState extends State<CreateIssueScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
-  final LocalStorageService _localStorage = LocalStorageService();
 
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
   List<String> _labels = [];
   String? _assignee;
+  String? _selectedRepoFullName;
   bool _isSaving = false;
   bool _isLoadingLabels = false;
   bool _isLoadingAssignees = false;
@@ -39,20 +39,24 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
   List<Map<String, dynamic>> _availableLabels = [];
   List<Map<String, dynamic>> _availableAssignees = [];
 
-  String? _selectedProject;
-  String? _selectedColumn;
-
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController();
     _bodyController = TextEditingController();
-    _selectedProject = widget.defaultProject;
+    _selectedRepoFullName = widget.repo;
     _loadRepoData();
   }
 
   Future<void> _loadRepoData() async {
-    if (widget.repo == null || widget.owner == null) return;
+    final repoFullName = _selectedRepoFullName ?? widget.repo;
+    if (repoFullName == null) return;
+
+    final parts = repoFullName.split('/');
+    if (parts.length != 2) return;
+
+    final owner = parts[0];
+    final repo = parts[1];
 
     setState(() {
       _isLoadingLabels = true;
@@ -61,20 +65,14 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
 
     try {
       // Fetch labels
-      final labels = await _githubApi.fetchRepoLabels(
-        widget.owner!,
-        widget.repo!,
-      );
+      final labels = await _githubApi.fetchRepoLabels(owner, repo);
       setState(() {
         _availableLabels = labels;
         _isLoadingLabels = false;
       });
 
       // Fetch collaborators for assignee
-      final assignees = await _githubApi.fetchRepoCollaborators(
-        widget.owner!,
-        widget.repo!,
-      );
+      final assignees = await _githubApi.fetchRepoCollaborators(owner, repo);
       setState(() {
         _availableAssignees = assignees;
         _isLoadingAssignees = false;
@@ -86,6 +84,13 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         _isLoadingAssignees = false;
       });
     }
+  }
+
+  void _onRepoChanged(String? newRepoFullName) {
+    setState(() {
+      _selectedRepoFullName = newRepoFullName;
+    });
+    _loadRepoData();
   }
 
   @override
@@ -128,9 +133,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-                  ),
+                  BrailleLoader(size: 32),
                   SizedBox(height: 16),
                   Text(
                     'Creating issue...',
@@ -160,7 +163,8 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${widget.owner}/${widget.repo}',
+                          _selectedRepoFullName ??
+                              '${widget.owner}/${widget.repo}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w500,
@@ -169,6 +173,46 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       ],
                     ),
                   ),
+                  // Repository dropdown (if available repos provided)
+                  if (widget.availableRepos != null &&
+                      widget.availableRepos!.length > 1) ...[
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Repository',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBackground,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _selectedRepoFullName ?? widget.repo,
+                        isExpanded: true,
+                        dropdownColor: AppColors.cardBackground,
+                        underline: const SizedBox(),
+                        items: widget.availableRepos!.map((repo) {
+                          return DropdownMenuItem(
+                            value: repo.fullName,
+                            child: Text(
+                              repo.fullName,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          _onRepoChanged(value);
+                        },
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
 
                   // Title
@@ -261,15 +305,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            if (_isLoadingLabels)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-                ),
-              ),
+            if (_isLoadingLabels) BrailleLoader(size: 16),
           ],
         ),
         const SizedBox(height: 8),
@@ -343,15 +379,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            if (_isLoadingAssignees)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-                ),
-              ),
+            if (_isLoadingAssignees) BrailleLoader(size: 16),
           ],
         ),
         const SizedBox(height: 8),
@@ -431,7 +459,8 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
       return;
     }
 
-    if (widget.owner == null || widget.repo == null) {
+    final repoFullName = _selectedRepoFullName ?? widget.repo;
+    if (repoFullName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No repository selected'),
@@ -441,14 +470,28 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
       return;
     }
 
+    final parts = repoFullName.split('/');
+    if (parts.length != 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid repository name'),
+          backgroundColor: AppColors.red,
+        ),
+      );
+      return;
+    }
+
+    final owner = parts[0];
+    final repo = parts[1];
+
     setState(() => _isSaving = true);
 
     try {
       final body = _bodyController.text.trim();
 
       final createdIssue = await _githubApi.createIssue(
-        widget.owner!,
-        widget.repo!,
+        owner,
+        repo,
         title: title,
         body: body.isNotEmpty ? body : null,
         labels: _labels.isNotEmpty ? _labels : null,

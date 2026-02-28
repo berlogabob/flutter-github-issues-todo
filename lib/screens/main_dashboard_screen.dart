@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/secure_storage_service.dart';
+import '../widgets/braille_loader.dart';
 import '../widgets/expandable_repo.dart';
 import '../widgets/sync_cloud_icon.dart';
 import 'create_issue_screen.dart';
@@ -35,14 +37,20 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   final LocalStorageService _localStorage = LocalStorageService();
   final SyncService _syncService = SyncService();
 
+  // App repository to filter from display
+  static const String _appRepoFullName =
+      'berlogabob/flutter-github-issues-todo';
+
   String _filterStatus = 'open';
-  bool _hideUsernameInRepo = false;
+  bool _hideUsernameInRepo =
+      true; // Default: hide username, show just repo name
   bool _isLoading = false;
   bool _isOfflineMode = false;
   bool _isFetchingRepos = false;
   bool _isFetchingProjects = false;
   String? _errorMessage;
   String? _vaultFolderName;
+  String? _defaultRepoSetting; // Cached default repo from settings
 
   // Repositories with issues
   List<RepoItem> _repositories = [];
@@ -50,11 +58,17 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   // Pinned repos (stored as set of repo IDs)
   Set<String> _pinnedRepos = {};
 
+  // Track which repo is currently expanded (only one at a time)
+  String? _expandedRepoId;
+
   // Projects for issue creation
   List<Map<String, dynamic>> _projects = [];
   Map<String, String> _projectFieldIds = {}; // projectName -> fieldId
   Map<String, Map<String, String>> _columnOptionIds =
       {}; // projectName -> {columnName -> optionId}
+
+  // Timer for periodic cloud icon refresh
+  Timer? _cloudIconRefreshTimer;
 
   @override
   void initState() {
@@ -62,9 +76,30 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     _syncService.init();
     _checkOfflineMode();
     _loadHideUsernameSetting();
+    _loadDefaultRepoSetting();
 
     // Set up callback for when internet becomes available with local issues
     _syncService.onSyncNeeded = _showSyncLocalIssuesDialog;
+
+    // Listen to sync service changes to update cloud icon
+    _syncService.addListener(() {
+      if (mounted) {
+        setState(() {
+          // This will trigger rebuild and update cloud icon
+        });
+      }
+    });
+
+    // Update cloud icon every 2 seconds to reflect sync state
+    _cloudIconRefreshTimer = Timer.periodic(const Duration(seconds: 2), (
+      timer,
+    ) {
+      if (mounted) {
+        setState(() {
+          // Force rebuild to update cloud icon
+        });
+      }
+    });
 
     // Check immediately if there are local issues to sync
     _checkLocalIssuesToSync();
@@ -78,6 +113,18 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       setState(() {
         _hideUsernameInRepo = hide;
       });
+    }
+  }
+
+  Future<void> _loadDefaultRepoSetting() async {
+    final defaultRepo = await _localStorage.getDefaultRepo();
+    if (mounted) {
+      setState(() {
+        _defaultRepoSetting = defaultRepo;
+      });
+      if (defaultRepo != null) {
+        debugPrint('Default repo setting: $defaultRepo');
+      }
     }
   }
 
@@ -219,13 +266,29 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   @override
   void dispose() {
-    _syncService.dispose();
+    _cloudIconRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload filters when screen becomes visible (e.g., after returning from library)
+    _reloadFiltersIfNeeded();
+  }
+
+  bool _isInitialLoad = true;
+  Future<void> _reloadFiltersIfNeeded() async {
+    // Only reload after initial load is complete
+    if (!_isInitialLoad) {
+      await _loadSavedFilters();
+    }
   }
 
   Future<void> _loadData() async {
     // Load saved filters
     await _loadSavedFilters();
+    _isInitialLoad = false;
 
     // Load local issues
     await _loadLocalIssues();
@@ -264,11 +327,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     if (_pinnedRepos.isEmpty) {
       final defaultRepoName = await _localStorage.getDefaultRepo();
       if (defaultRepoName != null && mounted) {
-        // Find repo by fullName and get its ID
+        // Find repo by fullName and pin using fullName
         for (final repo in _repositories) {
           if (repo.fullName == defaultRepoName) {
             setState(() {
-              _pinnedRepos.add(repo.id);
+              _pinnedRepos.add(repo.fullName);
             });
             await _localStorage.saveFilters(
               filterStatus: _filterStatus,
@@ -287,41 +350,24 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       final localIssues = await _localStorage.getLocalIssues();
       debugPrint('Loaded ${localIssues.length} local issues');
 
-      // In offline mode, always show Vault repo (even if empty)
-      // so users can create new issues
-      if ((localIssues.isNotEmpty || _isOfflineMode) && mounted) {
-        final vaultName = _vaultFolderName ?? 'Vault';
+      if (mounted) {
+        setState(() {
+          // CRITICAL: Remove any existing vault repo FIRST to prevent duplicates
+          _repositories.removeWhere((r) => r.id == 'vault');
 
-        // Check if Vault repo already exists
-        final hasVaultRepo = _repositories.any((r) => r.id == 'vault');
-
-        if (!hasVaultRepo) {
-          final vaultRepo = RepoItem(
-            id: 'vault',
-            title: vaultName,
-            fullName: 'local/$vaultName',
-            description: 'Local vault folder (will sync when online)',
-            children: localIssues,
-          );
-
-          setState(() {
+          // Add vault repo only if local issues exist OR offline mode
+          if (localIssues.isNotEmpty || _isOfflineMode) {
+            final vaultName = _vaultFolderName ?? 'Vault';
+            final vaultRepo = RepoItem(
+              id: 'vault',
+              title: vaultName,
+              fullName: 'local/$vaultName',
+              description: 'Local vault folder (will sync when online)',
+              children: localIssues,
+            );
             _repositories.insert(0, vaultRepo);
-          });
-        } else {
-          // Update existing vault repo with local issues
-          final index = _repositories.indexWhere((r) => r.id == 'vault');
-          if (index != -1) {
-            setState(() {
-              _repositories[index] = RepoItem(
-                id: 'vault',
-                title: vaultName,
-                fullName: 'local/$vaultName',
-                description: 'Local vault folder (will sync when online)',
-                children: localIssues,
-              );
-            });
           }
-        }
+        });
       }
     } catch (e) {
       debugPrint('Error loading local issues: $e');
@@ -381,10 +427,17 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         // Always reload local issues
         final localIssues = await _localStorage.getLocalIssues();
 
+        // Filter out the app's own repository
+        final filteredRepos = repos.where((repo) {
+          final isAppRepo = repo.fullName == _appRepoFullName;
+          if (isAppRepo) {
+            debugPrint('Filtering out app repository: $_appRepoFullName');
+          }
+          return !isAppRepo;
+        }).toList();
+
         setState(() {
-          _repositories = List.from(
-            repos,
-          ); // Create new list to avoid race conditions
+          _repositories = filteredRepos;
 
           // Add vault repo back with updated local issues
           if (existingVaultRepo != null ||
@@ -402,7 +455,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           }
 
           _isFetchingRepos = false;
-          debugPrint('✓ UI updated with ${_repositories.length} repos');
+          debugPrint(
+            '✓ UI updated with ${_repositories.length} repos (app repo filtered)',
+          );
         });
 
         // Auto-pin default repo if no pinned repos exist
@@ -611,21 +666,34 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         ),
         actions: [
           // Sync cloud icon with states + Last sync time
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SyncCloudIcon(
-                state: _getSyncCloudState(),
-                size: 24.w,
-                isRotating: _syncService.isSyncing,
-              ),
-              if (_syncService.lastSyncTime != null)
-                Text(
-                  _getLastSyncText(),
-                  style: TextStyle(color: Colors.white54, fontSize: 8.sp),
+          Padding(
+            padding: EdgeInsets.only(right: 4.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SyncCloudIcon(state: _getSyncCloudState(), size: 24.w),
+                    // Add BrailleLoader next to icon when syncing
+                    if (_syncService.isSyncing) ...[
+                      SizedBox(width: 4.w),
+                      BrailleLoader(size: 16.w),
+                    ],
+                  ],
                 ),
-            ],
+                if (_syncService.lastSyncTime != null)
+                  Text(
+                    _getLastSyncText(),
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 7.sp, // Slightly smaller for readability
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+              ],
+            ),
           ),
           // Repository icon (SVG)
           IconButton(
@@ -666,13 +734,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             // Task List
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.orange,
-                        ),
-                      ),
-                    )
+                  ? const Center(child: BrailleLoader(size: 32))
                   : RefreshIndicator(
                       onRefresh: _fetchRepositories,
                       color: AppColors.orange,
@@ -752,14 +814,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-            ),
-          ),
+          BrailleLoader(size: 20),
           const SizedBox(width: 12),
           Text(
             'Fetching your repositories...',
@@ -869,7 +924,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   Widget _buildTaskList() {
-    if (_repositories.isEmpty && !_isFetchingRepos) {
+    // Get repos to display (filtered by mode: offline=vault, online=default repo)
+    final displayedRepos = _getDisplayedRepos();
+
+    if (displayedRepos.isEmpty && !_isFetchingRepos) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -903,7 +961,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // Filter repositories and issues based on selected filter
     final filteredRepos = <RepoItem>[];
-    for (final repo in _repositories) {
+    for (final repo in displayedRepos) {
       final filteredIssues = repo.children.where((item) {
         // Cast to IssueItem for filtering
         final issue = item is IssueItem ? item : null;
@@ -941,7 +999,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Find the index where unpinned repos start
     int? dividerIndex;
     for (int i = 0; i < sortedFilteredRepos.length; i++) {
-      if (!_pinnedRepos.contains(sortedFilteredRepos[i].id)) {
+      if (!_pinnedRepos.contains(sortedFilteredRepos[i].fullName)) {
         if (i > 0) {
           dividerIndex = i;
         }
@@ -953,7 +1011,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     final double topPadding =
         (dividerIndex != null ||
             (sortedFilteredRepos.isNotEmpty &&
-                _pinnedRepos.contains(sortedFilteredRepos.first.id)))
+                _pinnedRepos.contains(sortedFilteredRepos.first.fullName)))
         ? 8.0
         : 0.0;
 
@@ -966,7 +1024,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       itemCount: sortedFilteredRepos.length,
       itemBuilder: (context, index) {
         final repo = sortedFilteredRepos[index];
-        final isPinned = _pinnedRepos.contains(repo.id);
+        final isPinned = _pinnedRepos.contains(repo.fullName);
 
         // Add divider after pinned repos
         if (dividerIndex != null && index == dividerIndex) {
@@ -976,10 +1034,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 repo: repo,
                 githubApi: _githubApi,
                 onIssueTap: _openIssueDetail,
-                initiallyExpanded: false,
+                isExpanded: _expandedRepoId == repo.id,
+                onExpandToggle: (expanded) => _onRepoToggle(repo.id, expanded),
                 hideUsernameInRepo: _hideUsernameInRepo,
                 isPinned: isPinned,
-                onPinToggle: () => _togglePinRepo(repo.id),
+                onPinToggle: () => _togglePinRepo(repo.fullName),
               ),
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -997,10 +1056,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           repo: repo,
           githubApi: _githubApi,
           onIssueTap: _openIssueDetail,
-          initiallyExpanded: index == 0 || isFirstUnpinned,
+          isExpanded: _expandedRepoId == repo.id,
+          onExpandToggle: (expanded) => _onRepoToggle(repo.id, expanded),
           hideUsernameInRepo: _hideUsernameInRepo,
           isPinned: isPinned,
-          onPinToggle: () => _togglePinRepo(repo.id),
+          onPinToggle: () => _togglePinRepo(repo.fullName),
         );
       },
     );
@@ -1108,12 +1168,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
   }
 
-  void _togglePinRepo(String repoId) {
+  void _togglePinRepo(String repoFullName) {
     setState(() {
-      if (_pinnedRepos.contains(repoId)) {
-        _pinnedRepos.remove(repoId);
+      if (_pinnedRepos.contains(repoFullName)) {
+        _pinnedRepos.remove(repoFullName);
       } else {
-        _pinnedRepos.add(repoId);
+        _pinnedRepos.add(repoFullName);
       }
     });
     _localStorage.saveFilters(
@@ -1122,16 +1182,65 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     );
   }
 
+  void _onRepoToggle(String repoId, bool isExpanded) {
+    setState(() {
+      if (isExpanded) {
+        // Only set this repo as expanded (collapsing any others)
+        _expandedRepoId = repoId;
+      } else {
+        // Collapsing this repo
+        _expandedRepoId = null;
+      }
+    });
+  }
+
   List<RepoItem> _getSortedRepos(List<RepoItem> repos) {
     final sorted = List<RepoItem>.from(repos);
     sorted.sort((a, b) {
-      final aPinned = _pinnedRepos.contains(a.id);
-      final bPinned = _pinnedRepos.contains(b.id);
+      final aPinned = _pinnedRepos.contains(a.fullName);
+      final bPinned = _pinnedRepos.contains(b.fullName);
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       return 0;
     });
     return sorted;
+  }
+
+  /// Get list of repos to display on main screen
+  /// - Offline mode: show only vault
+  /// - Online mode: show only default repo
+  List<RepoItem> _getDisplayedRepos() {
+    if (_repositories.isEmpty) return [];
+
+    // Offline mode: show only vault repo
+    if (_isOfflineMode) {
+      return _repositories.where((r) => r.id == 'vault').toList();
+    }
+
+    // Online mode: show only default repo
+    if (_defaultRepoSetting != null && _defaultRepoSetting!.isNotEmpty) {
+      try {
+        final defaultRepo = _repositories.firstWhere(
+          (r) => r.fullName == _defaultRepoSetting && r.id != 'vault',
+        );
+        debugPrint('Displaying default repo: $_defaultRepoSetting');
+        return [defaultRepo];
+      } catch (e) {
+        debugPrint('Default repo not found in list: $_defaultRepoSetting');
+      }
+    }
+
+    // Fallback: if no default set, show first non-vault repo
+    try {
+      final firstRepo = _repositories.firstWhere(
+        (r) => r.id != 'vault',
+        orElse: () => _repositories.first,
+      );
+      debugPrint('No default repo set, showing: ${firstRepo.fullName}');
+      return [firstRepo];
+    } catch (e) {
+      return _repositories;
+    }
   }
 
   /// Get sync cloud state based on sync service status
@@ -1157,8 +1266,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     final now = DateTime.now();
     final diff = now.difference(lastSync);
 
-    if (diff.inMinutes < 1) {
+    if (diff.inSeconds < 10) {
       return 'now';
+    } else if (diff.inSeconds < 60) {
+      return '${diff.inSeconds}s';
     } else if (diff.inMinutes < 60) {
       return '${diff.inMinutes}m';
     } else if (diff.inHours < 24) {
@@ -1241,6 +1352,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // Navigate to full-screen create issue screen
     if (mounted) {
+      // Filter out vault repo from available repos for selection
+      final availableRepos = _repositories
+          .where((r) => r.id != 'vault')
+          .toList();
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -1251,6 +1367,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 ? _projects.first['title'] as String?
                 : null,
             projects: _projects,
+            availableRepos: availableRepos,
           ),
         ),
       ).then((createdIssue) {
@@ -1510,17 +1627,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                       'Project (Optional)',
                       style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
-                    if (_isFetchingProjects)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.orange,
-                          ),
-                        ),
-                      ),
+                    if (_isFetchingProjects) BrailleLoader(size: 16),
                   ],
                 ),
                 const SizedBox(height: 8),

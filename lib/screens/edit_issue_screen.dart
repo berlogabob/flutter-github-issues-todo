@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
+import '../widgets/braille_loader.dart';
 
 /// EditIssueScreen - Edit existing issue
 /// Allows editing title, body, and labels
@@ -12,7 +13,12 @@ class EditIssueScreen extends StatefulWidget {
   final String? owner;
   final String? repo;
 
-  const EditIssueScreen({super.key, required this.issue, this.owner, this.repo});
+  const EditIssueScreen({
+    super.key,
+    required this.issue,
+    this.owner,
+    this.repo,
+  });
 
   @override
   State<EditIssueScreen> createState() => _EditIssueScreenState();
@@ -21,7 +27,7 @@ class EditIssueScreen extends StatefulWidget {
 class _EditIssueScreenState extends State<EditIssueScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
-  
+
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
   late List<String> _labels;
@@ -32,7 +38,9 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.issue.title);
-    _bodyController = TextEditingController(text: widget.issue.bodyMarkdown ?? '');
+    _bodyController = TextEditingController(
+      text: widget.issue.bodyMarkdown ?? '',
+    );
     _labels = List.from(widget.issue.labels);
     _isLoading = false;
   }
@@ -50,10 +58,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text(
-          'Edit Issue',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Edit Issue', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             icon: const Icon(Icons.check, color: AppColors.orange),
@@ -63,155 +68,184 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
         ],
       ),
       body: _isLoading
+          ? const Center(child: BrailleLoader(size: 32))
+          : _isSaving
           ? const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  BrailleLoader(size: 32),
+                  SizedBox(height: 16),
+                  Text(
+                    'Saving changes...',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
               ),
             )
-          : _isSaving
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Saving changes...',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title
-                      _buildSection(
-                        title: 'Title',
-                        child: TextField(
-                          controller: _titleController,
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                          decoration: InputDecoration(
-                            hintText: 'Issue title',
-                            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.orange, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: AppColors.cardBackground,
-                          ),
-                          maxLines: null,
-                          textInputAction: TextInputAction.next,
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  _buildSection(
+                    title: 'Title',
+                    child: TextField(
+                      controller: _titleController,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      decoration: InputDecoration(
+                        hintText: 'Issue title',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3),
                         ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: AppColors.orange,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.cardBackground,
                       ),
-                      const SizedBox(height: 24),
+                      maxLines: null,
+                      textInputAction: TextInputAction.next,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
 
-                      // Labels
-                      _buildSection(
-                        title: 'Labels',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  // Labels
+                  _buildSection(
+                    title: 'Labels',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                ..._labels.map((label) => _buildLabelChip(label)),
-                                _buildAddLabelChip(),
-                              ],
-                            ),
-                            if (_labels.isEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'No labels yet. Tap + to add.',
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-                                ),
-                              ),
+                            ..._labels.map((label) => _buildLabelChip(label)),
+                            _buildAddLabelChip(),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Body
-                      _buildSection(
-                        title: 'Description (Markdown)',
-                        child: TextField(
-                          controller: _bodyController,
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
-                          decoration: InputDecoration(
-                            hintText: 'Write a description using Markdown...',
-                            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.orange, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: AppColors.cardBackground,
-                          ),
-                          maxLines: 15,
-                          minLines: 10,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Preview
-                      if (_bodyController.text.isNotEmpty) ...[
-                        const Text(
-                          'Preview',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardBackground,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: MarkdownBody(
-                            data: _bodyController.text,
-                            styleSheet: MarkdownStyleSheet(
-                              p: const TextStyle(color: Colors.white70, fontSize: 14),
-                              h1: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                              h2: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                              h3: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                              code: const TextStyle(
-                                color: AppColors.orange,
-                                backgroundColor: Color(0xFF2D2D2D),
-                                fontSize: 12,
+                        if (_labels.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'No labels yet. Tap + to add.',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.5),
                               ),
                             ),
                           ),
-                        ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+
+                  // Body
+                  _buildSection(
+                    title: 'Description (Markdown)',
+                    child: TextField(
+                      controller: _bodyController,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Write a description using Markdown...',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: AppColors.orange,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.cardBackground,
+                      ),
+                      maxLines: 15,
+                      minLines: 10,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Preview
+                  if (_bodyController.text.isNotEmpty) ...[
+                    const Text(
+                      'Preview',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBackground,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: MarkdownBody(
+                        data: _bodyController.text,
+                        styleSheet: MarkdownStyleSheet(
+                          p: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                          h1: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          h2: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          h3: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          code: const TextStyle(
+                            color: AppColors.orange,
+                            backgroundColor: Color(0xFF2D2D2D),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
     );
   }
 
@@ -235,7 +269,10 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
 
   Widget _buildLabelChip(String label) {
     return Chip(
-      label: Text(label, style: const TextStyle(fontSize: 12, color: Colors.white)),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12, color: Colors.white),
+      ),
       backgroundColor: AppColors.orange.withValues(alpha: 0.3),
       deleteIcon: const Icon(Icons.close, size: 16, color: Colors.white),
       onDeleted: () => _removeLabel(label),
@@ -281,19 +318,14 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
-        title: const Text(
-          'Add Label',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Add Label', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: labelController,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: 'Enter label name',
             hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           autofocus: true,
           onSubmitted: (value) {
@@ -392,7 +424,9 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       final effectiveOwner = widget.owner ?? 'berlogabob';
       final effectiveRepo = widget.repo ?? 'gitdoit';
 
-      debugPrint('Updating issue #${widget.issue.number} in $effectiveOwner/$effectiveRepo...');
+      debugPrint(
+        'Updating issue #${widget.issue.number} in $effectiveOwner/$effectiveRepo...',
+      );
 
       final updatedIssue = await _githubApi.updateIssue(
         effectiveOwner,

@@ -7,6 +7,7 @@ import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../utils/responsive_utils.dart';
+import '../widgets/braille_loader.dart';
 import 'issue_detail_screen.dart';
 
 /// ProjectBoardScreen - Kanban-style project board with real GitHub data
@@ -203,11 +204,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-        ),
-      );
+      return const Center(child: BrailleLoader(size: 32));
     }
 
     if (_error != null) {
@@ -684,11 +681,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
             ],
           ),
           trailing: _isMoving
-              ? SizedBox(
-                  width: 20.w,
-                  height: 20.w,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? BrailleLoader(size: 20)
               : Icon(Icons.drag_handle, color: AppColors.red, size: 20.w),
           onTap: () => _openIssueDetail(item),
         ),

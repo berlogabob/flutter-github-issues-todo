@@ -12,6 +12,7 @@ import '../services/local_storage_service.dart';
 import '../services/oauth_service.dart';
 import '../services/github_api_service.dart';
 import '../utils/responsive_utils.dart';
+import '../widgets/braille_loader.dart';
 import 'main_dashboard_screen.dart';
 
 /// OnboardingScreen - First screen with authentication choice
@@ -143,9 +144,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ],
               if (_isLoading) ...[
                 const SizedBox(height: 16),
-                const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6200)),
-                ),
+                BrailleLoader(size: 24),
               ],
               if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
@@ -793,9 +792,7 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-            ),
+            BrailleLoader(size: 24),
             const SizedBox(height: 16),
             const Text(
               'Loading your repositories...',

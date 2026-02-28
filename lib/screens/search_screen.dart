@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
+import '../widgets/braille_loader.dart';
 
 /// SearchScreen - Global search across issues
 /// Implements brief section 7, screen 6
@@ -66,9 +67,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           // Search filters
           if (_lastQuery.isNotEmpty) _buildSearchFilters(),
           // Results
-          Expanded(
-            child: _buildResults(),
-          ),
+          Expanded(child: _buildResults()),
         ],
       ),
     );
@@ -91,10 +90,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         children: [
           const Text(
             'Filters:',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(width: 8),
           _buildFilterChip('Title', true),
@@ -123,7 +119,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       selectedColor: AppColors.orange.withValues(alpha: 0.3),
       checkmarkColor: AppColors.orange,
       labelStyle: TextStyle(
-        color: isActive ? AppColors.orange : Colors.white.withValues(alpha: 0.7),
+        color: isActive
+            ? AppColors.orange
+            : Colors.white.withValues(alpha: 0.7),
         fontSize: 11,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -139,16 +137,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.orange),
-            ),
+            BrailleLoader(size: 32),
             SizedBox(height: 16),
             Text(
               'Searching...',
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Colors.white54, fontSize: 14),
             ),
           ],
         ),
@@ -241,7 +234,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildSearchResult(IssueItem issue) {
     final isOpen = issue.status == ItemStatus.open;
-    
+
     return Card(
       color: AppColors.cardBackground,
       margin: const EdgeInsets.only(bottom: 8),
@@ -267,7 +260,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (issue.bodyMarkdown != null && issue.bodyMarkdown!.isNotEmpty) ...[
+            if (issue.bodyMarkdown != null &&
+                issue.bodyMarkdown!.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
                 issue.bodyMarkdown!,
@@ -285,7 +279,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 spacing: 4,
                 children: issue.labels.take(3).map((label) {
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.orange.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
@@ -309,20 +306,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   const SizedBox(width: 4),
                   Text(
                     issue.assigneeLogin!,
-                    style: const TextStyle(
-                      color: AppColors.blue,
-                      fontSize: 11,
-                    ),
+                    style: const TextStyle(color: AppColors.blue, fontSize: 11),
                   ),
                 ],
               ),
             ],
           ],
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.red,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: () => _openIssue(issue),
       ),
     );
@@ -359,7 +350,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               id: 'search1',
               title: 'Search result for: $query',
               number: 100,
-              bodyMarkdown: 'This is a sample search result matching your query.',
+              bodyMarkdown:
+                  'This is a sample search result matching your query.',
               status: ItemStatus.open,
               labels: ['search', 'result'],
               assigneeLogin: 'user',

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../constants/app_colors.dart';
+import '../widgets/braille_loader.dart';
 
 /// DebugScreen - Shows app diagnostics and helps identify issues
 class DebugScreen extends StatefulWidget {
@@ -45,11 +46,7 @@ class _DebugScreenState extends State<DebugScreen> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: _isTesting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? BrailleLoader(size: 20)
                     : const Icon(Icons.bug_report),
                 label: Text(_isTesting ? 'Testing...' : 'Run Full Diagnostics'),
                 onPressed: _isTesting ? null : _runDiagnostics,
@@ -68,7 +65,9 @@ class _DebugScreenState extends State<DebugScreen> {
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.orange.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.orange.withValues(alpha: 0.3),
+                ),
               ),
               child: _logs.isEmpty
                   ? const Center(
@@ -86,7 +85,7 @@ class _DebugScreenState extends State<DebugScreen> {
                         final isError = log.startsWith('❌');
                         final isSuccess = log.startsWith('✅');
                         final isWarning = log.startsWith('⚠️');
-                        
+
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Row(
@@ -104,10 +103,10 @@ class _DebugScreenState extends State<DebugScreen> {
                                     color: isError
                                         ? AppColors.red
                                         : isSuccess
-                                            ? Colors.green
-                                            : isWarning
-                                                ? AppColors.orange
-                                                : Colors.white70,
+                                        ? Colors.green
+                                        : isWarning
+                                        ? AppColors.orange
+                                        : Colors.white70,
                                     fontSize: 12,
                                     fontFamily: 'monospace',
                                   ),
@@ -162,9 +161,11 @@ class _DebugScreenState extends State<DebugScreen> {
     _addLog('Testing network connectivity...');
     try {
       final result = await _testNetworkConnectivity();
-      _addLog(result['success'] == true 
-          ? '✅ Network OK - ${result['host']} reachable' 
-          : '❌ Cannot reach ${result['host']}');
+      _addLog(
+        result['success'] == true
+            ? '✅ Network OK - ${result['host']} reachable'
+            : '❌ Cannot reach ${result['host']}',
+      );
       if (result['error'] != null) {
         _addLog('   Details: ${result['error']}');
       }
@@ -218,10 +219,10 @@ class _DebugScreenState extends State<DebugScreen> {
     const storage = FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true),
     );
-    
+
     final token = await storage.read(key: 'github_token');
     final authType = await storage.read(key: 'auth_type');
-    
+
     return {
       'exists': token != null && token.isNotEmpty,
       'length': token?.length ?? 0,
@@ -237,11 +238,7 @@ class _DebugScreenState extends State<DebugScreen> {
         'host': 'api.github.com',
       };
     } on SocketException catch (e) {
-      return {
-        'success': false,
-        'host': 'api.github.com',
-        'error': e.message,
-      };
+      return {'success': false, 'host': 'api.github.com', 'error': e.message};
     }
   }
 
@@ -249,42 +246,32 @@ class _DebugScreenState extends State<DebugScreen> {
     const storage = FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true),
     );
-    
+
     final token = await storage.read(key: 'github_token');
-    
+
     if (token == null || token.isEmpty) {
-      return {
-        'success': false,
-        'error': 'No token found',
-      };
+      return {'success': false, 'error': 'No token found'};
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('https://api.github.com/user'),
-        headers: {
-          'Authorization': 'token $token',
-          'Accept': 'application/vnd.github.v3+json',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('https://api.github.com/user'),
+            headers: {
+              'Authorization': 'token $token',
+              'Accept': 'application/vnd.github.v3+json',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return {
-          'success': true,
-          'user': data['login'],
-        };
+        return {'success': true, 'user': data['login']};
       } else {
-        return {
-          'success': false,
-          'error': 'HTTP ${response.statusCode}',
-        };
+        return {'success': false, 'error': 'HTTP ${response.statusCode}'};
       }
     } catch (e) {
-      return {
-        'success': false,
-        'error': e.toString(),
-      };
+      return {'success': false, 'error': e.toString()};
     }
   }
 
@@ -292,25 +279,25 @@ class _DebugScreenState extends State<DebugScreen> {
     const storage = FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true),
     );
-    
+
     // Write test
     await storage.write(key: '_debug_test', value: 'test123');
-    
+
     // Read test
     final value = await storage.read(key: '_debug_test');
-    
+
     // Cleanup
     await storage.delete(key: '_debug_test');
-    
+
     return value == 'test123';
   }
 
   Future<void> _copyLogs() async {
     if (_logs.isEmpty) return;
-    
+
     final text = _logs.join('\n');
     await Clipboard.setData(ClipboardData(text: text));
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

@@ -7,6 +7,7 @@ import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../utils/relative_time.dart';
+import '../widgets/braille_loader.dart';
 import 'edit_issue_screen.dart';
 
 class IssueDetailScreen extends ConsumerStatefulWidget {
@@ -80,13 +81,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           _buildSyncBanner(),
           Expanded(
             child: _isUpdating
-                ? Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.orangeAccent,
-                      ),
-                    ),
-                  )
+                ? const Center(child: BrailleLoader(size: 32))
                 : CustomScrollView(
                     slivers: [
                       _buildSliverAppBar(isOpen),
@@ -563,11 +558,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           Center(
             child: Padding(
               padding: EdgeInsets.all(16.w),
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  AppColors.orangeAccent,
-                ),
-              ),
+              child: BrailleLoader(size: 24),
             ),
           )
         else if (_comments.isEmpty)
@@ -670,7 +661,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
 
   Widget _buildBottomActionBar(bool isOpen) {
     return Container(
-      padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 32.h),
+      padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.95),
         border: Border(top: BorderSide(color: AppColors.borderColor)),
@@ -679,7 +670,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         children: [
           Expanded(
             child: SizedBox(
-              height: 56.h,
+              height: 40.h,
               child: ElevatedButton(
                 onPressed: _isUpdating ? null : _toggleStatus,
                 style: ElevatedButton.styleFrom(
@@ -689,22 +680,22 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                   ),
                 ),
                 child: Text(
-                  isOpen ? 'CLOSE ISSUE' : 'REOPEN ISSUE',
+                  isOpen ? 'CLOSE' : 'REOPEN',
                   style: TextStyle(
                     color: Colors.black,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.2,
-                    fontSize: 14.sp,
+                    fontSize: 12.sp,
                   ),
                 ),
               ),
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 8.w),
           _buildSquareAction(Icons.person_outline, _showAssigneeDialog),
-          SizedBox(width: 8.w),
+          SizedBox(width: 4.w),
           _buildSquareAction(Icons.label_outline, _showLabelsDialog),
-          SizedBox(width: 8.w),
+          SizedBox(width: 4.w),
           _buildSquareAction(Icons.comment_outlined, _addComment),
         ],
       ),
@@ -715,14 +706,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 56.w,
-        height: 56.h,
+        width: 40.w,
+        height: 40.h,
         decoration: BoxDecoration(
           color: AppColors.surfaceColor,
           border: Border.all(color: AppColors.borderColor),
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(12.r),
         ),
-        child: Icon(icon, color: AppColors.secondaryText, size: 24.sp),
+        child: Icon(icon, color: AppColors.secondaryText, size: 20.sp),
       ),
     );
   }

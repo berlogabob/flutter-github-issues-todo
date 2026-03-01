@@ -4,13 +4,48 @@ import '../services/github_api_service.dart';
 import '../models/repo_item.dart';
 import '../widgets/braille_loader.dart';
 
+/// Screen for creating new GitHub issues.
+///
+/// Supports:
+/// - Title and body input with Markdown support
+/// - Label selection from available repository labels
+/// - Assignee selection from repository collaborators
+/// - Repository selection from user's repositories
+/// - Real-time loading of labels and assignees
+///
+/// Usage:
+/// ```dart
+/// final result = await Navigator.push(
+///   context,
+///   MaterialPageRoute(
+///     builder: (context) => CreateIssueScreen(
+///       owner: 'owner',
+///       repo: 'repo',
+///     ),
+///   ),
+/// );
+/// ```
 class CreateIssueScreen extends StatefulWidget {
+  /// Repository owner login.
   final String? owner;
+
+  /// Repository name.
   final String? repo;
+
+  /// Default project name for assignment.
   final String? defaultProject;
+
+  /// List of available projects for assignment.
   final List<Map<String, dynamic>>? projects;
+
+  /// List of available repositories for selection.
   final List<RepoItem>? availableRepos;
 
+  /// Creates the create issue screen.
+  ///
+  /// [owner] and [repo] specify the target repository.
+  /// [defaultProject] and [projects] are used for project assignment.
+  /// [availableRepos] provides a list of repositories to choose from.
   const CreateIssueScreen({
     super.key,
     this.owner,
@@ -101,7 +136,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not load labels/assignees: ${e.toString()}'),
-            backgroundColor: AppColors.orange,
+            backgroundColor: AppColors.orangePrimary,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -143,7 +178,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             child: Text(
               'Create',
               style: TextStyle(
-                color: _isSaving ? Colors.white54 : AppColors.orange,
+                color: _isSaving ? Colors.white54 : AppColors.orangePrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -187,7 +222,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       color: AppColors.cardBackground,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: AppColors.orange.withValues(alpha: 0.3),
+                        color: AppColors.orangePrimary.withValues(alpha: 0.3),
                       ),
                     ),
                     child: DropdownButton<String>(
@@ -197,7 +232,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       underline: const SizedBox(),
                       icon: const Icon(
                         Icons.arrow_drop_down,
-                        color: AppColors.orange,
+                        color: AppColors.orangePrimary,
                       ),
                       items:
                           widget.availableRepos != null &&
@@ -251,7 +286,9 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: AppColors.orange),
+                        borderSide: const BorderSide(
+                          color: AppColors.orangePrimary,
+                        ),
                       ),
                     ),
                     autofocus: true,
@@ -282,7 +319,9 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: AppColors.orange),
+                        borderSide: const BorderSide(
+                          color: AppColors.orangePrimary,
+                        ),
                       ),
                     ),
                     maxLines: 8,
@@ -427,7 +466,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                     children: [
                       CircleAvatar(
                         radius: 12,
-                        backgroundColor: AppColors.orange,
+                        backgroundColor: AppColors.orangePrimary,
                         backgroundImage: user['avatar_url'] != null
                             ? NetworkImage(user['avatar_url'] as String)
                             : null,
@@ -514,7 +553,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Issue #${createdIssue.number} created successfully'),
-            backgroundColor: AppColors.orange,
+            backgroundColor: AppColors.orangePrimary,
           ),
         );
         Navigator.pop(context, createdIssue);

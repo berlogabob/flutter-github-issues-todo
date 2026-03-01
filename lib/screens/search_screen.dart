@@ -1,13 +1,37 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
+import '../services/github_api_service.dart';
 import '../widgets/braille_loader.dart';
+import '../widgets/status_badge.dart';
+import '../widgets/label_chip.dart';
+import 'issue_detail_screen.dart';
 
-/// SearchScreen - Global search across issues
-/// Implements brief section 7, screen 6
+/// Screen for global search across all GitHub issues.
+///
+/// Features:
+/// - Search by title, body, and labels
+/// - Debounced search for performance
+/// - Filter by content type (title/body/labels)
+/// - Filter by status (all/open/closed)
+/// - Search across all user repositories
+/// - Real-time search results
+/// - Error handling and retry
+///
+/// Implements brief section 7, screen 6.
+///
+/// Usage:
+/// ```dart
+/// Navigator.push(
+///   context,
+///   MaterialPageRoute(builder: (context) => const SearchScreen()),
+/// );
+/// ```
 class SearchScreen extends ConsumerStatefulWidget {
+  /// Creates the search screen.
   const SearchScreen({super.key});
 
   @override
@@ -17,9 +41,18 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
+  Timer? _debounceTimer;
   bool _isSearching = false;
   List<IssueItem> _searchResults = [];
   String _lastQuery = '';
+  String _filterStatus = 'all';
+  String? _searchError;
+  final GitHubApiService _githubApi = GitHubApiService();
+
+  // Filter states
+  bool _filterTitle = true;
+  bool _filterBody = true;
+  bool _filterLabels = true;
 
   @override
   void initState() {
@@ -32,6 +65,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -51,7 +85,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             hintText: 'Search issues...',
             hintStyle: TextStyle(color: Colors.white54),
             border: InputBorder.none,
-            suffixIcon: Icon(Icons.search, color: AppColors.orange),
+            suffixIcon: Icon(Icons.search, color: AppColors.orangePrimary),
           ),
           onChanged: _onSearchChanged,
           textInputAction: TextInputAction.search,
@@ -98,12 +132,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           _buildFilterChip('Body', true),
           const SizedBox(width: 4),
           _buildFilterChip('Labels', true),
+          const SizedBox(width: 12),
+          // Status filter dropdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: AppColors.orangePrimary.withValues(alpha: 0.5),
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: DropdownButton<String>(
+              value: _filterStatus,
+              underline: const SizedBox(),
+              dropdownColor: AppColors.cardBackground,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              items: const [
+                DropdownMenuItem(value: 'all', child: Text('All')),
+                DropdownMenuItem(value: 'open', child: Text('Open')),
+                DropdownMenuItem(value: 'closed', child: Text('Closed')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _filterStatus = value;
+                  });
+                  if (_lastQuery.isNotEmpty) {
+                    _performSearch(_lastQuery);
+                  }
+                }
+              },
+            ),
+          ),
           const Spacer(),
           TextButton(
             onPressed: _clearFilters,
             child: const Text(
               'Clear',
-              style: TextStyle(color: AppColors.orange, fontSize: 12),
+              style: TextStyle(color: AppColors.orangePrimary, fontSize: 12),
             ),
           ),
         ],
@@ -112,21 +178,57 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildFilterChip(String label, bool isActive) {
+    bool isSelected;
+    String filterType;
+
+    switch (label) {
+      case 'Title':
+        isSelected = _filterTitle;
+        filterType = 'title';
+        break;
+      case 'Body':
+        isSelected = _filterBody;
+        filterType = 'body';
+        break;
+      case 'Labels':
+        isSelected = _filterLabels;
+        filterType = 'labels';
+        break;
+      default:
+        isSelected = isActive;
+        filterType = label.toLowerCase();
+    }
+
     return FilterChip(
       label: Text(label),
-      selected: isActive,
+      selected: isSelected,
       backgroundColor: AppColors.background,
-      selectedColor: AppColors.orange.withValues(alpha: 0.3),
-      checkmarkColor: AppColors.orange,
+      selectedColor: AppColors.orangePrimary.withValues(alpha: 0.3),
+      checkmarkColor: AppColors.orangePrimary,
       labelStyle: TextStyle(
-        color: isActive
-            ? AppColors.orange
+        color: isSelected
+            ? AppColors.orangePrimary
             : Colors.white.withValues(alpha: 0.7),
         fontSize: 11,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       onSelected: (selected) {
-        // TODO: Toggle filter
+        setState(() {
+          switch (filterType) {
+            case 'title':
+              _filterTitle = selected;
+              break;
+            case 'body':
+              _filterBody = selected;
+              break;
+            case 'labels':
+              _filterLabels = selected;
+              break;
+          }
+        });
+        if (_lastQuery.isNotEmpty) {
+          _performSearch(_lastQuery);
+        }
       },
     );
   }
@@ -142,6 +244,47 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Text(
               'Searching...',
               style: TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_searchError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 80,
+              color: Colors.red.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Search Error',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _searchError!,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => _performSearch(_lastQuery),
+              child: const Text('Retry'),
             ),
           ],
         ),
@@ -233,20 +376,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildSearchResult(IssueItem issue) {
-    final isOpen = issue.status == ItemStatus.open;
-
     return Card(
       color: AppColors.cardBackground,
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: isOpen ? Colors.green : Colors.red,
-            shape: BoxShape.circle,
-          ),
-        ),
+        leading: StatusBadge(status: issue.status),
         title: Text(
           '#${issue.number} ${issue.title}',
           style: const TextStyle(
@@ -277,25 +411,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               const SizedBox(height: 4),
               Wrap(
                 spacing: 4,
-                children: issue.labels.take(3).map((label) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.orange,
-                        fontSize: 10,
-                      ),
-                    ),
-                  );
-                }).toList(),
+                children: issue.labels
+                    .take(3)
+                    .map((label) => LabelChipWidget(label: label))
+                    .toList(),
               ),
             ],
             if (issue.assigneeLogin != null) ...[
@@ -320,15 +439,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onSearchChanged(String query) {
-    // Debounce search
-    // TODO: Implement proper debouncing
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(query);
+    });
   }
 
-  void _performSearch(String query) {
-    if (query.isEmpty) {
+  Future<void> _performSearch(String query) async {
+    if (query.trim().isEmpty) {
       setState(() {
         _searchResults = [];
         _lastQuery = '';
+        _searchError = null;
       });
       return;
     }
@@ -336,37 +458,93 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     setState(() {
       _isSearching = true;
       _lastQuery = query;
+      _searchError = null;
     });
 
-    // TODO: Perform actual search
-    // Simulating search for demo
-    Future.delayed(const Duration(milliseconds: 500), () {
+    try {
+      // Search issues across all user repositories
+      final allIssues = <IssueItem>[];
+      final repos = await _githubApi.fetchMyRepositories(perPage: 100);
+
+      for (final repo in repos) {
+        try {
+          final parts = repo.fullName.split('/');
+          if (parts.length == 2) {
+            final issues = await _githubApi.fetchIssues(parts[0], parts[1]);
+
+            // Filter by search query (title, labels, body) based on active filters
+            final matchingIssues = issues.where((issue) {
+              final queryLower = query.toLowerCase();
+              bool matches = false;
+
+              if (_filterTitle &&
+                  issue.title.toLowerCase().contains(queryLower)) {
+                matches = true;
+              }
+              if (_filterLabels &&
+                  issue.labels.any(
+                    (label) => label.toLowerCase().contains(queryLower),
+                  )) {
+                matches = true;
+              }
+              if (_filterBody &&
+                  (issue.bodyMarkdown?.toLowerCase().contains(queryLower) ??
+                      false)) {
+                matches = true;
+              }
+
+              return matches;
+            }).toList();
+
+            allIssues.addAll(matchingIssues);
+          }
+        } catch (e) {
+          debugPrint('Error searching ${repo.fullName}: $e');
+          // Continue with next repo
+        }
+      }
+
+      // Apply status filter
+      final filteredIssues = allIssues.where((issue) {
+        if (_filterStatus == 'all') return true;
+        if (_filterStatus == 'open') return issue.status == ItemStatus.open;
+        if (_filterStatus == 'closed') return issue.status == ItemStatus.closed;
+        return true;
+      }).toList();
+
       if (mounted) {
         setState(() {
+          _searchResults = filteredIssues;
           _isSearching = false;
-          // Sample results
-          _searchResults = [
-            IssueItem(
-              id: 'search1',
-              title: 'Search result for: $query',
-              number: 100,
-              bodyMarkdown:
-                  'This is a sample search result matching your query.',
-              status: ItemStatus.open,
-              labels: ['search', 'result'],
-              assigneeLogin: 'user',
-            ),
-          ];
         });
       }
-    });
+    } catch (e) {
+      debugPrint('Search error: $e');
+      if (mounted) {
+        setState(() {
+          _searchError = e.toString();
+          _isSearching = false;
+        });
+      }
+    }
   }
 
   void _clearFilters() {
-    // TODO: Clear search filters
+    setState(() {
+      _filterTitle = true;
+      _filterBody = true;
+      _filterLabels = true;
+      _filterStatus = 'all';
+    });
+    if (_lastQuery.isNotEmpty) {
+      _performSearch(_lastQuery);
+    }
   }
 
   void _openIssue(IssueItem issue) {
-    // TODO: Navigate to issue detail
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => IssueDetailScreen(issue: issue)),
+    );
   }
 }

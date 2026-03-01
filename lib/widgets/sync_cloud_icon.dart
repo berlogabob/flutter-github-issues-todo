@@ -47,7 +47,7 @@ class _SyncCloudIconState extends State<SyncCloudIcon> {
       case SyncCloudState.offline:
         return Colors.grey;
       case SyncCloudState.syncing:
-        return AppColors.orange;
+        return AppColors.orangePrimary;
       case SyncCloudState.synced:
         return Colors.green;
       case SyncCloudState.error:
@@ -78,7 +78,7 @@ class _SyncCloudIconState extends State<SyncCloudIcon> {
         width: widget.size * 0.3,
         height: widget.size * 0.3,
         decoration: BoxDecoration(
-          color: AppColors.orange,
+          color: AppColors.orangePrimary,
           shape: BoxShape.circle,
         ),
       ),

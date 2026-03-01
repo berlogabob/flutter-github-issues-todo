@@ -1,20 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
+import '../services/issue_service.dart';
 import '../utils/relative_time.dart';
 import '../widgets/braille_loader.dart';
+import '../widgets/label_chip.dart';
 import 'edit_issue_screen.dart';
 
+/// Screen displaying detailed information about a single GitHub issue.
+///
+/// Features:
+/// - Full issue details with Markdown rendering
+/// - Status toggle (open/close)
+/// - Labels display and management
+/// - Assignee information
+/// - Comments section with Markdown support
+/// - Activity timeline
+/// - Edit functionality
+/// - Sync status banner
+///
+/// Usage:
+/// ```dart
+/// Navigator.push(
+///   context,
+///   MaterialPageRoute(
+///     builder: (context) => IssueDetailScreen(
+///       issue: issueItem,
+///       owner: 'owner',
+///       repo: 'repo',
+///     ),
+///   ),
+/// );
+/// ```
 class IssueDetailScreen extends ConsumerStatefulWidget {
+  /// The issue to display.
   final IssueItem issue;
+
+  /// Repository owner login.
   final String? owner;
+
+  /// Repository name.
   final String? repo;
 
+  /// Creates the issue detail screen.
+  ///
+  /// [issue] is the issue to display (required).
+  /// [owner] and [repo] specify the target repository for GitHub-synced issues.
   const IssueDetailScreen({
     super.key,
     required this.issue,
@@ -28,6 +64,7 @@ class IssueDetailScreen extends ConsumerStatefulWidget {
 
 class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
+  final IssueService _issueService = IssueService();
   late IssueItem _currentIssue;
   bool _isUpdating = false;
   bool _isDescExpanded = false;
@@ -121,7 +158,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   Widget _buildSyncBanner() {
     return Container(
       width: double.infinity,
-      color: AppColors.orangeAccent,
+      color: AppColors.orangeSecondary,
       padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 16.w),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -178,7 +215,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orangeAccent,
+                backgroundColor: AppColors.orangeSecondary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),
@@ -199,7 +236,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return Text(
       '$_effectiveOwner/$_effectiveRepo > #${_currentIssue.number ?? '---'}',
       style: TextStyle(
-        color: AppColors.orangeAccent,
+        color: AppColors.orangeSecondary,
         fontSize: 12.sp,
         fontFamily: 'monospace',
       ),
@@ -233,7 +270,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           _buildIconText(
             Icons.person_outline,
             '@${_currentIssue.assigneeLogin}',
-            color: AppColors.orangeAccent,
+            color: AppColors.orangeSecondary,
             isBold: true,
           ),
         _buildIconText(Icons.visibility_outlined, '0'),
@@ -247,7 +284,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.orangeAccent),
+        border: Border.all(color: AppColors.orangeSecondary),
         borderRadius: BorderRadius.circular(20.r),
       ),
       child: Row(
@@ -320,26 +357,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       spacing: 8.w,
       runSpacing: 8.h,
       children: _currentIssue.labels
-          .map((label) => _buildLabelChip(label))
+          .map((label) => LabelChipWidget(label: label))
           .toList(),
-    );
-  }
-
-  Widget _buildLabelChip(String label) {
-    final color = _getLabelColor(label);
-    return Chip(
-      label: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          color: color,
-          fontSize: 10.sp,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      backgroundColor: color.withValues(alpha: 0.1),
-      side: BorderSide(color: color.withValues(alpha: 0.3)),
-      padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
     );
   }
 
@@ -351,7 +370,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     if (labelLower.contains('enhancement')) return const Color(0xFF238636);
     if (labelLower.contains('documentation')) return const Color(0xFF6E7781);
     if (labelLower.contains('help')) return const Color(0xFFA371F7);
-    return AppColors.orangeAccent;
+    return AppColors.orangeSecondary;
   }
 
   Widget _buildDescription() {
@@ -395,7 +414,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                       color: Colors.white,
                     ),
                     code: TextStyle(
-                      color: AppColors.orangeAccent,
+                      color: AppColors.orangeSecondary,
                       backgroundColor: const Color(0xFF2D2D2D),
                       fontSize: 12.sp,
                     ),
@@ -407,7 +426,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                       color: Colors.white.withValues(alpha: 0.7),
                       fontStyle: FontStyle.italic,
                     ),
-                    listBullet: TextStyle(color: AppColors.orangeAccent),
+                    listBullet: TextStyle(color: AppColors.orangeSecondary),
                   ),
                   shrinkWrap: !_isDescExpanded,
                 ),
@@ -421,7 +440,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         child: Text(
                           _isDescExpanded ? 'SHOW LESS' : 'READ MORE',
                           style: TextStyle(
-                            color: AppColors.orangeAccent,
+                            color: AppColors.orangeSecondary,
                             fontWeight: FontWeight.bold,
                             fontSize: 12.sp,
                           ),
@@ -511,7 +530,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                   icon,
                   size: 16.sp,
                   color: isAccent
-                      ? AppColors.orangeAccent
+                      ? AppColors.orangeSecondary
                       : AppColors.secondaryText,
                 ),
                 Expanded(
@@ -607,7 +626,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             children: [
               CircleAvatar(
                 radius: 12.r,
-                backgroundColor: AppColors.orangeAccent,
+                backgroundColor: AppColors.orangeSecondary,
                 backgroundImage: avatarUrl != null
                     ? NetworkImage(avatarUrl)
                     : null,
@@ -648,7 +667,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             styleSheet: MarkdownStyleSheet(
               p: TextStyle(fontSize: 14.sp, height: 1.4, color: Colors.white),
               code: TextStyle(
-                color: AppColors.orangeAccent,
+                color: AppColors.orangeSecondary,
                 backgroundColor: const Color(0xFF2D2D2D),
                 fontSize: 12.sp,
               ),
@@ -674,7 +693,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
               child: ElevatedButton(
                 onPressed: _isUpdating ? null : _toggleStatus,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeAccent,
+                  backgroundColor: AppColors.orangeSecondary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16.r),
                   ),
@@ -747,14 +766,10 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     setState(() => _isUpdating = true);
 
     try {
-      final newStatus = _currentIssue.status == ItemStatus.open
-          ? 'closed'
-          : 'open';
-      final updatedIssue = await _githubApi.updateIssue(
+      final updatedIssue = await _issueService.toggleIssueStatus(
+        _currentIssue,
         _effectiveOwner,
         _effectiveRepo,
-        _currentIssue.number!,
-        state: newStatus,
       );
 
       setState(() {
@@ -818,7 +833,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             if (_currentIssue.assigneeLogin != null)
               ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: AppColors.orangeAccent,
+                  backgroundColor: AppColors.orangeSecondary,
                   child: Text(
                     _currentIssue.assigneeLogin![0].toUpperCase(),
                     style: const TextStyle(color: Colors.black),
@@ -856,7 +871,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                   _addAssignee();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeAccent,
+                  backgroundColor: AppColors.orangeSecondary,
                 ),
                 child: const Text(
                   'Add Assignee',
@@ -935,7 +950,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                   icon: const Icon(Icons.add),
                   label: const Text('Add Label'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orangeAccent,
+                    backgroundColor: AppColors.orangeSecondary,
                     foregroundColor: Colors.black,
                   ),
                 ),
@@ -1083,7 +1098,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                   _submitComment(controller.text);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeAccent,
+                  backgroundColor: AppColors.orangeSecondary,
                 ),
                 child: const Text(
                   'Submit',
@@ -1146,7 +1161,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppColors.orangeAccent,
+        backgroundColor: AppColors.orangeSecondary,
         duration: const Duration(seconds: 2),
       ),
     );

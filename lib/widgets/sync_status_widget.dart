@@ -27,7 +27,7 @@ class SyncStatusWidget extends StatelessWidget {
   Widget _buildContent() {
     // Show BrailleLoader when syncing
     if (isSyncing) {
-      return BrailleLoader(size: size * 0.7, color: AppColors.orange);
+      return BrailleLoader(size: size * 0.7, color: AppColors.orangePrimary);
     }
 
     // Show last sync time when not syncing

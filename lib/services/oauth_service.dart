@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// OAuth Device Flow Service
 /// Implements GitHub OAuth Device Flow for authentication
-/// 
+///
 /// Flow:
 /// 1. Request device code from GitHub
 /// 2. Show user code and verification URL
@@ -19,18 +19,28 @@ class OAuthService {
   factory OAuthService() => _instance;
   OAuthService._internal();
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-  );
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // GitHub OAuth credentials
-  // In production, these should come from a secure backend
-  static const String _clientId = String.fromEnvironment(
-    'GITHUB_CLIENT_ID',
-    defaultValue: 'Iv1.0c0f0e0d0c0b0a09', // Placeholder - replace with real client ID
-  );
+  // Security: Client ID must be provided via environment variable
+  // Never hardcode credentials in source code
+  static const String _clientId = String.fromEnvironment('GITHUB_CLIENT_ID');
+
+  // Validate client ID at initialization
+  static void _validateClientId() {
+    if (_clientId.isEmpty) {
+      throw Exception(
+        'GITHUB_CLIENT_ID environment variable is not set.\n'
+        'Please set the GITHUB_CLIENT_ID environment variable:\n'
+        '  1. Copy .env.example to .env\n'
+        '  2. Add your GitHub OAuth Client ID to .env\n'
+        '  3. Run: flutter run --dart-define=GITHUB_CLIENT_ID=your_client_id\n'
+        'See README.md for detailed setup instructions.',
+      );
+    }
+  }
+
+  static bool _validated = false;
 
   // Device code response
   DeviceCodeResponse? _deviceCode;
@@ -39,20 +49,25 @@ class OAuthService {
 
   /// Request device code from GitHub
   Future<DeviceCodeResponse?> requestDeviceCode() async {
+    // Validate client ID before proceeding
+    if (!_validated) {
+      _validateClientId();
+      _validated = true;
+    }
+
     try {
       debugPrint('OAuthService: Requesting device code...');
 
-      final response = await http.post(
-        Uri.parse('https://github.com/login/device/code'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'client_id': _clientId,
-          'scope': 'repo user',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse('https://github.com/login/device/code'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: {'client_id': _clientId, 'scope': 'repo user'},
+          )
+          .timeout(const Duration(seconds: 15));
 
       debugPrint('Device code response status: ${response.statusCode}');
 
@@ -70,7 +85,9 @@ class OAuthService {
         return _deviceCode;
       } else {
         debugPrint('Failed to get device code: ${response.statusCode}');
-        throw Exception('Failed to request device code: ${response.statusCode}');
+        throw Exception(
+          'Failed to request device code: ${response.statusCode}',
+        );
       }
     } catch (e, stackTrace) {
       debugPrint('OAuthService: Error requesting device code: $e');
@@ -117,33 +134,36 @@ class OAuthService {
 
     _isPolling = true;
     final completer = Completer<String?>();
-    final expiresAt = DateTime.now().add(Duration(seconds: _deviceCode!.expiresIn));
-
-    debugPrint('OAuthService: Starting polling (expires in ${_deviceCode!.expiresIn}s)');
-
-    _pollingTimer = Timer.periodic(
-      Duration(seconds: _deviceCode!.interval),
-      (timer) async {
-        // Check if expired
-        if (DateTime.now().isAfter(expiresAt)) {
-          debugPrint('OAuthService: Device code expired');
-          timer.cancel();
-          _isPolling = false;
-          completer.complete(null);
-          return;
-        }
-
-        // Poll for token
-        final token = await _pollForToken();
-        if (token != null) {
-          debugPrint('OAuthService: Access token received');
-          timer.cancel();
-          _isPolling = false;
-          await _saveToken(token);
-          completer.complete(token);
-        }
-      },
+    final expiresAt = DateTime.now().add(
+      Duration(seconds: _deviceCode!.expiresIn),
     );
+
+    debugPrint(
+      'OAuthService: Starting polling (expires in ${_deviceCode!.expiresIn}s)',
+    );
+
+    _pollingTimer = Timer.periodic(Duration(seconds: _deviceCode!.interval), (
+      timer,
+    ) async {
+      // Check if expired
+      if (DateTime.now().isAfter(expiresAt)) {
+        debugPrint('OAuthService: Device code expired');
+        timer.cancel();
+        _isPolling = false;
+        completer.complete(null);
+        return;
+      }
+
+      // Poll for token
+      final token = await _pollForToken();
+      if (token != null) {
+        debugPrint('OAuthService: Access token received');
+        timer.cancel();
+        _isPolling = false;
+        await _saveToken(token);
+        completer.complete(token);
+      }
+    });
 
     // First poll immediately
     final token = await _pollForToken();
@@ -160,24 +180,26 @@ class OAuthService {
   /// Poll for access token
   Future<String?> _pollForToken() async {
     try {
-      final response = await http.post(
-        Uri.parse('https://github.com/login/oauth/access_token'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'client_id': _clientId,
-          'device_code': _deviceCode!.deviceCode,
-          'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('https://github.com/login/oauth/access_token'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: {
+              'client_id': _clientId,
+              'device_code': _deviceCode!.deviceCode,
+              'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       debugPrint('Poll response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         // Check for error
         final error = data['error'] as String?;
         if (error == 'authorization_pending') {
@@ -194,7 +216,9 @@ class OAuthService {
         // Success - got access token
         final accessToken = data['access_token'] as String?;
         if (accessToken != null) {
-          debugPrint('OAuthService: Access token received (${accessToken.length} chars)');
+          debugPrint(
+            'OAuthService: Access token received (${accessToken.length} chars)',
+          );
           return accessToken;
         }
       }

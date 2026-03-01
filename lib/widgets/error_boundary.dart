@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
 /// Error Boundary Widget - Catches and displays errors in child widgets
-/// 
+///
 /// Usage:
 /// ```dart
 /// ErrorBoundary(
@@ -39,10 +39,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
       return _buildErrorUI();
     }
 
-    return _ErrorBoundaryScope(
-      onError: _handleError,
-      child: widget.child,
-    );
+    return _ErrorBoundaryScope(onError: _handleError, child: widget.child);
   }
 
   void _handleError(Object error, StackTrace stackTrace) {
@@ -97,7 +94,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orange,
+                backgroundColor: AppColors.orangePrimary,
                 foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
@@ -123,10 +120,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
 class _ErrorBoundaryScope extends InheritedWidget {
   final Function(Object error, StackTrace stackTrace) onError;
 
-  const _ErrorBoundaryScope({
-    required this.onError,
-    required super.child,
-  });
+  const _ErrorBoundaryScope({required this.onError, required super.child});
 
   static _ErrorBoundaryScope? of(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<_ErrorBoundaryScope>();
@@ -166,9 +160,7 @@ class InlineError extends StatelessWidget {
     if (fullScreen) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        body: Center(
-          child: _buildErrorContent(context),
-        ),
+        body: Center(child: _buildErrorContent(context)),
       );
     }
 

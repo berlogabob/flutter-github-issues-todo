@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 class AppBreakpoints {
   /// Mobile: phones in portrait
   static const double mobile = 0;
-  
+
   /// Tablet: phones in landscape / small tablets
   static const double tablet = 600;
-  
+
   /// Desktop: large tablets / desktops
   static const double desktop = 1024;
-  
+
   /// Wide desktop: large monitors
   static const double wide = 1440;
 }
@@ -22,37 +22,37 @@ class AppResponsive {
   static bool isMobile(BuildContext context) {
     return MediaQuery.of(context).size.width < AppBreakpoints.tablet;
   }
-  
+
   /// Check if screen width is tablet (600-1024px)
   static bool isTablet(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     return width >= AppBreakpoints.tablet && width < AppBreakpoints.desktop;
   }
-  
+
   /// Check if screen width is desktop (>= 1024px)
   static bool isDesktop(BuildContext context) {
     return MediaQuery.of(context).size.width >= AppBreakpoints.desktop;
   }
-  
+
   /// Check if screen is in landscape orientation
   static bool isLandscape(BuildContext context) {
     return MediaQuery.of(context).orientation == Orientation.landscape;
   }
-  
+
   /// Get screen width
   static double width(BuildContext context) {
     return MediaQuery.of(context).size.width;
   }
-  
+
   /// Get screen height
   static double height(BuildContext context) {
     return MediaQuery.of(context).size.height;
   }
-  
+
   /// Get responsive padding based on screen size
   static EdgeInsets responsivePadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    
+
     if (width >= AppBreakpoints.desktop) {
       return const EdgeInsets.symmetric(horizontal: 48, vertical: 24);
     } else if (width >= AppBreakpoints.tablet) {
@@ -61,11 +61,11 @@ class AppResponsive {
       return const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
     }
   }
-  
+
   /// Get responsive horizontal padding
   static double horizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    
+
     if (width >= AppBreakpoints.desktop) {
       return 48;
     } else if (width >= AppBreakpoints.tablet) {
@@ -74,11 +74,11 @@ class AppResponsive {
       return 16;
     }
   }
-  
+
   /// Get max content width for readability on large screens
   static double maxContentWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    
+
     if (width >= AppBreakpoints.wide) {
       return 1200;
     } else if (width >= AppBreakpoints.desktop) {
@@ -89,15 +89,16 @@ class AppResponsive {
       return width - 32; // Full width with padding
     }
   }
-  
+
   /// Get responsive font size
-  static double fontSize(BuildContext context, {
+  static double fontSize(
+    BuildContext context, {
     required double mobile,
     double? tablet,
     double? desktop,
   }) {
     final width = MediaQuery.of(context).size.width;
-    
+
     if (width >= AppBreakpoints.desktop && desktop != null) {
       return desktop;
     } else if (width >= AppBreakpoints.tablet && tablet != null) {
@@ -106,11 +107,11 @@ class AppResponsive {
       return mobile;
     }
   }
-  
+
   /// Get responsive grid columns count
   static int gridColumns(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    
+
     if (width >= AppBreakpoints.wide) {
       return 4;
     } else if (width >= AppBreakpoints.desktop) {
@@ -121,7 +122,7 @@ class AppResponsive {
       return 1;
     }
   }
-  
+
   /// Build widget based on screen size
   static Widget buildForScreen({
     required BuildContext context,
@@ -130,7 +131,7 @@ class AppResponsive {
     Widget? desktop,
   }) {
     final width = MediaQuery.of(context).size.width;
-    
+
     if (width >= AppBreakpoints.desktop && desktop != null) {
       return desktop;
     } else if (width >= AppBreakpoints.tablet && tablet != null) {
@@ -146,21 +147,22 @@ class ResponsiveLayout extends StatelessWidget {
   final Widget mobile;
   final Widget? tablet;
   final Widget? desktop;
-  
+
   const ResponsiveLayout({
     super.key,
     required this.mobile,
     this.tablet,
     this.desktop,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= AppBreakpoints.desktop && desktop != null) {
           return desktop!;
-        } else if (constraints.maxWidth >= AppBreakpoints.tablet && tablet != null) {
+        } else if (constraints.maxWidth >= AppBreakpoints.tablet &&
+            tablet != null) {
           return tablet!;
         } else {
           return mobile;
@@ -174,23 +176,20 @@ class ResponsiveLayout extends StatelessWidget {
 class ConstrainedContent extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
-  
-  const ConstrainedContent({
-    super.key,
-    required this.child,
-    this.padding,
-  });
-  
+
+  const ConstrainedContent({super.key, required this.child, this.padding});
+
   @override
   Widget build(BuildContext context) {
     final maxWidth = AppResponsive.maxContentWidth(context);
     final horizontalPadding = AppResponsive.horizontalPadding(context);
-    
+
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: Padding(
-          padding: padding ?? EdgeInsets.symmetric(horizontal: horizontalPadding),
+          padding:
+              padding ?? EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: child,
         ),
       ),
@@ -201,13 +200,14 @@ class ConstrainedContent extends StatelessWidget {
 /// Responsive spacing utility
 class AppSpacing {
   /// Get spacing based on screen size
-  static double spacing(BuildContext context, {
+  static double spacing(
+    BuildContext context, {
     required double mobile,
     double? tablet,
     double? desktop,
   }) {
     final width = MediaQuery.of(context).size.width;
-    
+
     if (width >= AppBreakpoints.desktop && desktop != null) {
       return desktop;
     } else if (width >= AppBreakpoints.tablet && tablet != null) {
@@ -216,7 +216,7 @@ class AppSpacing {
       return mobile;
     }
   }
-  
+
   /// Standard spacing values (mobile base)
   static double xs(BuildContext context) => 4;
   static double sm(BuildContext context) => 8;

@@ -2,6 +2,9 @@
 
 **Minimalist GitHub Issues & Projects TODO Manager**
 
+![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
+![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
 [![Flutter](https://img.shields.io/badge/Flutter-3.24+-blue.svg)](https://flutter.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -19,7 +22,8 @@ A cross-platform mobile application (Android + iOS) that transforms GitHub Issue
 
 ## 📱 Screenshots
 
-The app includes 7 MVP screens:
+<!-- Screenshots coming soon -->
+<!-- The app includes 7 MVP screens:
 1. **Onboarding** - Authentication choice (OAuth/PAT/Offline)
 2. **Dashboard** - Main task hierarchy view
 3. **Issue Detail** - Detailed issue view with markdown
@@ -27,12 +31,13 @@ The app includes 7 MVP screens:
 5. **Repo/Project Library** - Manage repositories and projects
 6. **Search** - Global search functionality
 7. **Settings** - App settings and account management
+-->
 
 ## 🏗️ Architecture
 
 ### Tech Stack (as per brief)
 - **Framework**: Flutter 3.24+
-- **State Management**: Riverpod 2.x
+- **State Management**: Riverpod 3.0.3
 - **Local Storage**: Hive
 - **Network**: http + graphql_flutter
 - **Secure Storage**: flutter_secure_storage
@@ -83,8 +88,8 @@ lib/
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/your-org/gitdoit.git
-cd gitdoit
+git clone https://github.com/berlogabob/flutter-github-issues-todo.git
+cd flutter-github-issues-todo
 ```
 
 2. **Install dependencies**
@@ -97,7 +102,43 @@ flutter pub get
 flutter pub run build_runner build --delete-conflicting-outputs
 ```
 
-4. **Run the app**
+4. **Configure OAuth (Required for GitHub Login)**
+
+   **Step 1: Create GitHub OAuth App**
+   - Go to https://github.com/settings/developers
+   - Click "New OAuth App" or "Register a new application"
+   - Fill in the application details:
+     - **Application name**: GitDoIt (or your preferred name)
+     - **Homepage URL**: `https://github.com/berlogabob/flutter-github-issues-todo`
+     - **Authorization callback URL**: `https://github.com/login/device` (for Device Flow)
+   - Click "Register application"
+   - Copy your **Client ID** (you'll need this)
+
+   **Step 2: Set up environment variable**
+   
+   Option A - Using .env file (Recommended for development):
+   ```bash
+   # Copy the example file
+   cp .env.example .env
+   
+   # Edit .env and add your Client ID
+   # GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxxxxxx
+   ```
+   
+   Option B - Using command line flag:
+   ```bash
+   flutter run --dart-define=GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxxxxxx
+   ```
+   
+   Option C - Using Makefile:
+   ```bash
+   # Create .env file first (see Option A), then:
+   make run-with-env
+   ```
+
+   **Security Note**: Never commit your `.env` file to version control. The `.env` file is already included in `.gitignore`.
+
+5. **Run the app**
 ```bash
 flutter run
 ```
@@ -195,7 +236,7 @@ coordinator.registerAgent(FlutterDeveloperAgent());
 await coordinator.startAll();
 ```
 
-See [AGENTS_README.md](AGENTS_README.md) for detailed documentation.
+<!-- See [AGENTS_README.md](AGENTS_README.md) for detailed documentation. -->
 
 ## 📋 MVP Scope
 
@@ -300,6 +341,15 @@ make version-increment
 3. Tag: v0.5.0 (current version without build number)
 4. Upload: build/app-release.apk
 
+## 📚 API Documentation
+
+Generated API documentation is available at [docs/api/index.html](docs/api/index.html).
+
+To generate:
+```bash
+dart doc
+```
+
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
@@ -313,6 +363,26 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 📞 Support
 
 For issues and feature requests, please create an issue in the repository.
+
+## 🗺️ Roadmap
+
+### Q2 2026
+- [ ] GitHub Projects v2 integration
+- [ ] Bulk issue operations
+- [ ] Advanced filtering
+- [ ] Custom labels
+
+### Q3 2026
+- [ ] Calendar sync
+- [ ] Kanban board view
+- [ ] Team collaboration features
+- [ ] Notifications
+
+### Future
+- [ ] GitHub Comments support
+- [ ] Pull request integration
+- [ ] Multi-account support
+- [ ] Desktop app (Windows/macOS/Linux)
 
 ---
 

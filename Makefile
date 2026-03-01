@@ -2,7 +2,7 @@
 # Repository: https://github.com/berlogabob/flutter-github-issues-todo
 # Purpose: Build Android APK and Web release with automatic version increment
 
-.PHONY: all clean build-android build-web release
+.PHONY: all clean build-android build-web release run-with-env
 
 # Clear terminal screen as first step (cross-platform)
 CLEAR := $(shell which clear 2>/dev/null || echo "printf '\033c'")
@@ -42,6 +42,8 @@ help:
 	@echo "  make release          - Build both Android and Web releases"
 	@echo "  make clean            - Clean build directories"
 	@echo "  make version-increment - Only increment build number"
+	@echo "  make run-with-env     - Run app with environment variables from .env"
+	@echo "  make validate-env     - Validate .env file exists and has required variables"
 	@echo ""
 
 # Clear terminal and show current status
@@ -65,6 +67,35 @@ version-increment:
 	@awk -v ver="$(NEW_VERSION)" '/^  String _getAppVersion/ {print; getline; print "    // Version from pubspec.yaml: " ver; print "    return '\''" ver "'\'';"; next} {print}' lib/screens/settings_screen.dart > lib/screens/settings_screen.dart.tmp && mv lib/screens/settings_screen.dart.tmp lib/screens/settings_screen.dart
 	@echo "✅ Build number incremented to $(NEW_VERSION)"
 	@echo "✅ Settings screen version updated to $(NEW_VERSION)"
+
+# Validate environment file
+validate-env:
+	@echo "🔒 Validating environment configuration..."
+	@if [ ! -f .env ]; then \
+		echo "❌ Error: .env file not found!"; \
+		echo "   Copy .env.example to .env and fill in your GITHUB_CLIENT_ID"; \
+		echo "   cp .env.example .env"; \
+		exit 1; \
+	fi
+	@if ! grep -q "^GITHUB_CLIENT_ID=" .env; then \
+		echo "❌ Error: GITHUB_CLIENT_ID not set in .env!"; \
+		echo "   Add your GitHub OAuth Client ID to .env"; \
+		exit 1; \
+	fi
+	@if grep -q "GITHUB_CLIENT_ID=your_client_id_here" .env; then \
+		echo "⚠️  Warning: GITHUB_CLIENT_ID still has placeholder value!"; \
+		echo "   Replace 'your_client_id_here' with your actual Client ID"; \
+		echo "   Get it from: https://github.com/settings/developers"; \
+		exit 1; \
+	fi
+	@echo "✅ Environment validation passed"
+
+# Run app with environment variables from .env file
+run-with-env: validate-env
+	@echo "🚀 Running app with environment variables..."
+	@export GITHUB_CLIENT_ID=$$(grep "^GITHUB_CLIENT_ID=" .env | cut -d'=' -f2) && \
+		echo "Using GITHUB_CLIENT_ID: $${GITHUB_CLIENT_ID:0:8}..." && \
+		flutter run --dart-define=GITHUB_CLIENT_ID=$${GITHUB_CLIENT_ID}
 
 # Build Android APK
 build-android: init version-increment

@@ -77,7 +77,7 @@ class _RepoProjectLibraryScreenState
               content: Text(
                 'No repositories found. Create a repo on GitHub first.',
               ),
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
             ),
           );
         }
@@ -126,7 +126,7 @@ class _RepoProjectLibraryScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Repositories and projects refreshed'),
-            backgroundColor: AppColors.orange,
+            backgroundColor: AppColors.orangePrimary,
           ),
         );
       }
@@ -158,12 +158,12 @@ class _RepoProjectLibraryScreenState
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.orange),
+            icon: const Icon(Icons.refresh, color: AppColors.orangePrimary),
             onPressed: _isLoading ? null : _refreshAll,
             tooltip: 'Refresh All',
           ),
           IconButton(
-            icon: const Icon(Icons.add, color: AppColors.orange),
+            icon: const Icon(Icons.add, color: AppColors.orangePrimary),
             onPressed: _addByUri,
             tooltip: 'Add by URL',
           ),
@@ -193,7 +193,7 @@ class _RepoProjectLibraryScreenState
                   )
                 : RefreshIndicator(
                     onRefresh: _refreshAll,
-                    color: AppColors.orange,
+                    color: AppColors.orangePrimary,
                     child: _buildList(),
                   ),
           ),
@@ -234,7 +234,7 @@ class _RepoProjectLibraryScreenState
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.orange : Colors.transparent,
+          color: isSelected ? AppColors.orangePrimary : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -339,7 +339,7 @@ class _RepoProjectLibraryScreenState
           ),
           const SizedBox(height: 16),
           Text(
-            'No ${type}',
+            'No $type',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
               fontSize: 16,
@@ -368,7 +368,7 @@ class _RepoProjectLibraryScreenState
       background: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 20),
-        color: AppColors.orange,
+        color: AppColors.orangePrimary,
         child: const Row(
           children: [
             Icon(Icons.add, color: Colors.white),
@@ -410,10 +410,14 @@ class _RepoProjectLibraryScreenState
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: AppColors.orange.withValues(alpha: 0.15),
+              color: AppColors.orangePrimary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.folder, color: AppColors.orange, size: 24),
+            child: const Icon(
+              Icons.folder,
+              color: AppColors.orangePrimary,
+              size: 24,
+            ),
           ),
           title: Text(
             repo.fullName,
@@ -453,13 +457,13 @@ class _RepoProjectLibraryScreenState
                   ),
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.orange.withValues(alpha: 0.2),
+                    color: AppColors.orangePrimary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
                     'Main',
                     style: TextStyle(
-                      color: AppColors.orange,
+                      color: AppColors.orangePrimary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -503,7 +507,7 @@ class _RepoProjectLibraryScreenState
               Text('$fullName will appear on main page'),
             ],
           ),
-          backgroundColor: AppColors.orange,
+          backgroundColor: AppColors.orangePrimary,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -669,7 +673,7 @@ class _RepoProjectLibraryScreenState
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.orange),
+                  borderSide: const BorderSide(color: AppColors.orangePrimary),
                 ),
               ),
               autofocus: true,
@@ -697,7 +701,7 @@ class _RepoProjectLibraryScreenState
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
               foregroundColor: Colors.black,
             ),
             child: const Text('Add'),
@@ -777,14 +781,14 @@ class _RepoProjectLibraryScreenState
               content: Text(
                 'No projects found. Create a project on GitHub first.',
               ),
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Loaded ${projectsList.length} projects'),
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
             ),
           );
         }
@@ -801,40 +805,6 @@ class _RepoProjectLibraryScreenState
           ),
         );
       }
-    }
-  }
-
-  void _handleRepoAction(String action, RepoItem repo) {
-    switch (action) {
-      case 'default':
-        // TODO: Set as default
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Set ${repo.fullName} as default'),
-            backgroundColor: AppColors.orange,
-          ),
-        );
-        break;
-      case 'issues':
-        // TODO: Navigate to repo issues
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Viewing issues for ${repo.fullName}'),
-            backgroundColor: AppColors.orange,
-          ),
-        );
-        break;
-    }
-  }
-
-  void _handleProjectAction(String action, Map<String, dynamic> project) {
-    switch (action) {
-      case 'default':
-        // TODO: Set as default
-        break;
-      case 'remove':
-        // TODO: Remove project
-        break;
     }
   }
 }

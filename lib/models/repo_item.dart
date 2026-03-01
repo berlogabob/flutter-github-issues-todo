@@ -26,17 +26,17 @@ class RepoItem extends Item {
     bool? isLocalOnly,
     DateTime? localUpdatedAt,
   }) : super(
-    id: id,
-    title: title,
-    status: status ?? ItemStatus.open,
-    updatedAt: updatedAt,
-    assigneeLogin: assigneeLogin,
-    labels: labels ?? const [],
-    children: children ?? const [],
-    isExpanded: isExpanded ?? false,
-    isLocalOnly: isLocalOnly ?? false,
-    localUpdatedAt: localUpdatedAt,
-  );
+         id: id,
+         title: title,
+         status: status ?? ItemStatus.open,
+         updatedAt: updatedAt,
+         assigneeLogin: assigneeLogin,
+         labels: labels ?? const [],
+         children: children ?? const [],
+         isExpanded: isExpanded ?? false,
+         isLocalOnly: isLocalOnly ?? false,
+         localUpdatedAt: localUpdatedAt,
+       );
 
   @override
   Map<String, dynamic> toJson() {
@@ -55,7 +55,7 @@ class RepoItem extends Item {
       'localUpdatedAt': localUpdatedAt?.toIso8601String(),
     };
   }
-  
+
   factory RepoItem.fromJson(Map<String, dynamic> json) {
     return RepoItem(
       id: json['id'] as String,
@@ -66,20 +66,22 @@ class RepoItem extends Item {
         (e) => e.toString().split('.').last == json['status'],
         orElse: () => ItemStatus.open,
       ),
-      updatedAt: json['updatedAt'] != null 
-        ? DateTime.parse(json['updatedAt'] as String) 
-        : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
       assigneeLogin: json['assigneeLogin'] as String?,
       labels: (json['labels'] as List?)?.cast<String>() ?? [],
-      children: (json['children'] as List?)
-        ?.map((c) => Item.fromJson(c))
-        .cast<Item>()
-        .toList() ?? [],
+      children:
+          (json['children'] as List?)
+              ?.map((c) => Item.fromJson(c))
+              .cast<Item>()
+              .toList() ??
+          [],
       isExpanded: json['isExpanded'] as bool? ?? false,
       isLocalOnly: json['isLocalOnly'] as bool? ?? false,
       localUpdatedAt: json['localUpdatedAt'] != null
-        ? DateTime.parse(json['localUpdatedAt'] as String)
-        : null,
+          ? DateTime.parse(json['localUpdatedAt'] as String)
+          : null,
     );
   }
 }

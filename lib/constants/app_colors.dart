@@ -9,7 +9,7 @@ class AppColors {
   static const Color cardBackground = Color(0xFF1E1E1E);
 
   // Accent colors
-  static const Color orange = Color(0xFFFF6200);
+  static const Color orangePrimary = Color(0xFFFF6200);
   static const Color orangeLight = Color(0xFFFF8A33);
   static const Color red = Color(0xFFFF3B30);
   static const Color blue = Color(0xFF0A84FF);
@@ -27,7 +27,7 @@ class AppColors {
   static const Color issueClosed = Color(0xFF6E7781);
 
   // New design colors (from React design)
-  static const Color orangeAccent = Color(0xFFFF5E00);
+  static const Color orangeSecondary = Color(0xFFFF5E00);
   static const Color secondaryText = Color(0xFFA0A0A5);
   static const Color surfaceColor = Color(0xFF111111);
   static const Color borderColor = Color(0xFF333333);

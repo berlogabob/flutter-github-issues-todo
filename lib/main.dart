@@ -44,6 +44,21 @@ class AuthState {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Add Flutter error handlers
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('Flutter Error: ${details.exception}');
+    debugPrint('Stack: ${details.stack}');
+    // In production: log to analytics/crash reporting
+  };
+
+  WidgetsBinding.instance.platformDispatcher.onError =
+      (Object error, StackTrace stack) {
+        debugPrint('Platform Error: $error');
+        debugPrint('Stack: $stack');
+        // In production: log to analytics/crash reporting
+        return true;
+      };
+
   // Check if user is already logged in using singleton
   String? token;
   String? authType;
@@ -93,9 +108,9 @@ class GitDoItApp extends StatelessWidget {
           theme: ThemeData(
             brightness: Brightness.dark,
             scaffoldBackgroundColor: AppColors.background,
-            primaryColor: AppColors.orange,
+            primaryColor: AppColors.orangePrimary,
             colorScheme: const ColorScheme.dark(
-              primary: AppColors.orange,
+              primary: AppColors.orangePrimary,
               secondary: AppColors.red,
               surface: AppColors.cardBackground,
               error: AppColors.red,
@@ -115,7 +130,7 @@ class GitDoItApp extends StatelessWidget {
             ),
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orange,
+                backgroundColor: AppColors.orangePrimary,
                 foregroundColor: Colors.black,
                 elevation: 2,
                 shape: RoundedRectangleBorder(
@@ -126,7 +141,7 @@ class GitDoItApp extends StatelessWidget {
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
-                side: const BorderSide(color: AppColors.orange),
+                side: const BorderSide(color: AppColors.orangePrimary),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),
@@ -140,7 +155,7 @@ class GitDoItApp extends StatelessWidget {
                 borderSide: BorderSide(color: Color(0x4DFFFFFF)),
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColors.orange),
+                borderSide: BorderSide(color: AppColors.orangePrimary),
               ),
             ),
             fontFamily: '.SF Pro Text',

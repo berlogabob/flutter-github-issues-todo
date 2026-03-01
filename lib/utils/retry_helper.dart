@@ -23,7 +23,7 @@ class RetryHelper {
   });
 
   /// Execute a function with retry logic
-  /// 
+  ///
   /// Example:
   /// ```dart
   /// final retryHelper = RetryHelper(maxRetries: 3);
@@ -44,24 +44,31 @@ class RetryHelper {
     while (true) {
       try {
         attempt++;
-        debugPrint('RetryHelper: Attempt $attempt/${maxRetries + 1} ${operationName ?? ''}');
-        
+        debugPrint(
+          'RetryHelper: Attempt $attempt/${maxRetries + 1} ${operationName ?? ''}',
+        );
+
         return await operation();
       } catch (e) {
         debugPrint('RetryHelper: Error on attempt $attempt: $e');
 
         // Check if we should retry
         final canRetry = attempt <= maxRetries;
-        final shouldRetryThisError = shouldRetry?.call(e) ?? _isRetryableError(e);
+        final shouldRetryThisError =
+            shouldRetry?.call(e) ?? _isRetryableError(e);
 
         if (!canRetry || !shouldRetryThisError) {
-          debugPrint('RetryHelper: Not retrying - max attempts reached or non-retryable error');
+          debugPrint(
+            'RetryHelper: Not retrying - max attempts reached or non-retryable error',
+          );
           rethrow;
         }
 
         // Calculate delay with exponential backoff
         final delayMs = currentDelay.inMilliseconds;
-        final clampedDelayMs = delayMs > maxDelay.inMilliseconds ? maxDelay.inMilliseconds : delayMs;
+        final clampedDelayMs = delayMs > maxDelay.inMilliseconds
+            ? maxDelay.inMilliseconds
+            : delayMs;
         final delay = Duration(milliseconds: clampedDelayMs);
         debugPrint('RetryHelper: Retrying in ${delay.inMilliseconds}ms...');
 
@@ -73,7 +80,8 @@ class RetryHelper {
 
         // Increase delay for next retry (exponential backoff)
         currentDelay = Duration(
-          milliseconds: (currentDelay.inMilliseconds * backoffMultiplier).round(),
+          milliseconds: (currentDelay.inMilliseconds * backoffMultiplier)
+              .round(),
         );
       }
     }
@@ -106,8 +114,15 @@ class RetryHelper {
     if (errorMessage.contains('503') || // Service Unavailable
         errorMessage.contains('502') || // Bad Gateway
         errorMessage.contains('504') || // Gateway Timeout
-        errorMessage.contains('429')) { // Rate Limit
-      debugPrint('RetryHelper: Retryable - HTTP ${errorMessage.contains('503') ? '503' : errorMessage.contains('429') ? '429' : '5xx'}');
+        errorMessage.contains('429')) {
+      // Rate Limit
+      debugPrint(
+        'RetryHelper: Retryable - HTTP ${errorMessage.contains('503')
+            ? '503'
+            : errorMessage.contains('429')
+            ? '429'
+            : '5xx'}',
+      );
       return true;
     }
 
@@ -134,7 +149,7 @@ class RetryHelper {
         return await operation();
       } catch (e) {
         if (attempt > retries) rethrow;
-        
+
         debugPrint('RetryHelper: Retrying in ${delay.inSeconds}s...');
         await Future.delayed(delay);
       }
@@ -197,8 +212,10 @@ class ApiCallTracker {
       'successfulCalls': _successfulCalls,
       'failedCalls': _failedCalls,
       'retryAttempts': _retryAttempts,
-      'successRate': _totalCalls > 0 ? (_successfulCalls / _totalCalls * 100).toStringAsFixed(1) : '0.0',
-      'averageLatency': _totalCalls > 0 
+      'successRate': _totalCalls > 0
+          ? (_successfulCalls / _totalCalls * 100).toStringAsFixed(1)
+          : '0.0',
+      'averageLatency': _totalCalls > 0
           ? Duration(milliseconds: _totalLatency.inMilliseconds ~/ _totalCalls)
           : Duration.zero,
       'lastCallTime': _lastCallTime,

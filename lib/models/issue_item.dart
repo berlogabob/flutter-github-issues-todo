@@ -34,18 +34,18 @@ class IssueItem extends Item {
     bool? isLocalOnly,
     DateTime? localUpdatedAt,
   }) : super(
-    id: id,
-    title: title,
-    status: status ?? ItemStatus.open,
-    updatedAt: updatedAt,
-    assigneeLogin: assigneeLogin,
-    labels: labels ?? const [],
-    children: children ?? const [],
-    isExpanded: isExpanded ?? false,
-    isLocalOnly: isLocalOnly ?? false,
-    localUpdatedAt: localUpdatedAt,
-  );
-  
+         id: id,
+         title: title,
+         status: status ?? ItemStatus.open,
+         updatedAt: updatedAt,
+         assigneeLogin: assigneeLogin,
+         labels: labels ?? const [],
+         children: children ?? const [],
+         isExpanded: isExpanded ?? false,
+         isLocalOnly: isLocalOnly ?? false,
+         localUpdatedAt: localUpdatedAt,
+       );
+
   @override
   Map<String, dynamic> toJson() {
     return {
@@ -65,7 +65,7 @@ class IssueItem extends Item {
       'localUpdatedAt': localUpdatedAt?.toIso8601String(),
     };
   }
-  
+
   factory IssueItem.fromJson(Map<String, dynamic> json) {
     return IssueItem(
       id: json['id'] as String,
@@ -78,20 +78,57 @@ class IssueItem extends Item {
         (e) => e.toString().split('.').last == json['status'],
         orElse: () => ItemStatus.open,
       ),
-      updatedAt: json['updatedAt'] != null 
-        ? DateTime.parse(json['updatedAt'] as String) 
-        : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
       assigneeLogin: json['assigneeLogin'] as String?,
       labels: (json['labels'] as List?)?.cast<String>() ?? [],
-      children: (json['children'] as List?)
-        ?.map((c) => Item.fromJson(c))
-        .cast<Item>()
-        .toList() ?? [],
+      children:
+          (json['children'] as List?)
+              ?.map((c) => Item.fromJson(c))
+              .cast<Item>()
+              .toList() ??
+          [],
       isExpanded: json['isExpanded'] as bool? ?? false,
       isLocalOnly: json['isLocalOnly'] as bool? ?? false,
       localUpdatedAt: json['localUpdatedAt'] != null
-        ? DateTime.parse(json['localUpdatedAt'] as String)
-        : null,
+          ? DateTime.parse(json['localUpdatedAt'] as String)
+          : null,
+    );
+  }
+
+  /// Create a copy of this IssueItem with updated fields
+  IssueItem copyWith({
+    String? id,
+    String? title,
+    int? number,
+    String? bodyMarkdown,
+    String? projectColumnName,
+    String? projectItemNodeId,
+    ItemStatus? status,
+    DateTime? updatedAt,
+    String? assigneeLogin,
+    List<String>? labels,
+    List<Item>? children,
+    bool? isExpanded,
+    bool? isLocalOnly,
+    DateTime? localUpdatedAt,
+  }) {
+    return IssueItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      number: number ?? this.number,
+      bodyMarkdown: bodyMarkdown ?? this.bodyMarkdown,
+      projectColumnName: projectColumnName ?? this.projectColumnName,
+      projectItemNodeId: projectItemNodeId ?? this.projectItemNodeId,
+      status: status ?? this.status,
+      updatedAt: updatedAt ?? this.updatedAt,
+      assigneeLogin: assigneeLogin ?? this.assigneeLogin,
+      labels: labels ?? this.labels,
+      children: children ?? this.children,
+      isExpanded: isExpanded ?? this.isExpanded,
+      isLocalOnly: isLocalOnly ?? this.isLocalOnly,
+      localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
     );
   }
 }

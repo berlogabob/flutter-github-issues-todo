@@ -8,12 +8,14 @@ import '../constants/app_colors.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
-import '../services/github_api_service.dart';
+import '../services/dashboard_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/secure_storage_service.dart';
 import '../widgets/braille_loader.dart';
-import '../widgets/expandable_repo.dart';
+import '../widgets/dashboard_filters.dart';
+import '../widgets/dashboard_empty_state.dart';
+import '../widgets/repo_list.dart';
 import '../widgets/sync_cloud_icon.dart';
 import '../widgets/sync_status_widget.dart';
 import 'create_issue_screen.dart';
@@ -34,38 +36,25 @@ class MainDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
-  final GitHubApiService _githubApi = GitHubApiService();
+  final DashboardService _dashboardService = DashboardService();
   final LocalStorageService _localStorage = LocalStorageService();
   final SyncService _syncService = SyncService();
 
   String _filterStatus = 'open';
-  bool _hideUsernameInRepo =
-      true; // Default: hide username, show just repo name
+  bool _hideUsernameInRepo = true;
   bool _isLoading = false;
   bool _isOfflineMode = false;
   bool _isFetchingRepos = false;
   bool _isFetchingProjects = false;
   String? _errorMessage;
   String? _vaultFolderName;
-  String? _defaultRepoSetting; // Cached default repo from settings
 
-  // Repositories with issues
   List<RepoItem> _repositories = [];
-
-  // Pinned repos (stored as set of repo IDs)
   Set<String> _pinnedRepos = {};
-
-  // Track which repo is currently expanded (only one at a time)
   String? _expandedRepoId;
-
-  // Projects for issue creation
   List<Map<String, dynamic>> _projects = [];
-  Map<String, String> _projectFieldIds = {}; // projectName -> fieldId
-  Map<String, Map<String, String>> _columnOptionIds =
-      {}; // projectName -> {columnName -> optionId}
-
-  // Timer for periodic cloud icon refresh
   Timer? _cloudIconRefreshTimer;
+  late VoidCallback _syncListener;
 
   @override
   void initState() {
@@ -79,13 +68,14 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     _syncService.onSyncNeeded = _showSyncLocalIssuesDialog;
 
     // Listen to sync service changes to update cloud icon
-    _syncService.addListener(() {
+    _syncListener = () {
       if (mounted) {
         setState(() {
           // This will trigger rebuild and update cloud icon
         });
       }
-    });
+    };
+    _syncService.addListener(_syncListener);
 
     // Update cloud icon every 2 seconds to reflect sync state
     _cloudIconRefreshTimer = Timer.periodic(const Duration(seconds: 2), (
@@ -116,9 +106,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   Future<void> _loadDefaultRepoSetting() async {
     final defaultRepo = await _localStorage.getDefaultRepo();
     if (mounted) {
-      setState(() {
-        _defaultRepoSetting = defaultRepo;
-      });
       if (defaultRepo != null) {
         debugPrint('Default repo setting: $defaultRepo');
       }
@@ -147,7 +134,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         backgroundColor: AppColors.cardBackground,
         title: const Row(
           children: [
-            Icon(Icons.sync, color: AppColors.orange),
+            Icon(Icons.sync, color: AppColors.orangePrimary),
             SizedBox(width: 8),
             Text('Sync Local Issues', style: TextStyle(color: Colors.white)),
           ],
@@ -174,7 +161,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 itemBuilder: (context, index) {
                   final repo = _repositories[index];
                   return ListTile(
-                    leading: const Icon(Icons.folder, color: AppColors.orange),
+                    leading: const Icon(
+                      Icons.folder,
+                      color: AppColors.orangePrimary,
+                    ),
                     title: Text(
                       repo.fullName,
                       style: const TextStyle(color: Colors.white),
@@ -264,6 +254,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   @override
   void dispose() {
     _cloudIconRefreshTimer?.cancel();
+    _syncService.removeListener(_syncListener);
     super.dispose();
   }
 
@@ -299,16 +290,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   Future<void> _loadSavedFilters() async {
     try {
-      final filters = await _localStorage.getFilters();
+      final filters = await _dashboardService.loadSavedFilters();
       if (mounted) {
         setState(() {
           _filterStatus = filters['filterStatus'] ?? 'open';
-          final pinnedList = filters['pinnedRepos'];
-          if (pinnedList != null) {
-            _pinnedRepos = (pinnedList as List)
-                .map((e) => e.toString())
-                .toSet();
-          }
+          _pinnedRepos = filters['pinnedRepos'] as Set<String>? ?? {};
         });
         debugPrint(
           'Loaded saved filters: $_filterStatus, pinned: $_pinnedRepos',
@@ -400,7 +386,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
 
       // Check if we have a token
-      final hasToken = await _githubApi.getToken();
+      final hasToken = await _dashboardService.getToken();
       debugPrint(
         'Token available: ${hasToken != null}, length: ${hasToken?.length ?? 0}',
       );
@@ -411,10 +397,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
 
       debugPrint('Calling fetchMyRepositories()...');
-      final repos = await _githubApi.fetchMyRepositories(perPage: 30);
+      final repos = await _dashboardService.fetchMyRepositories(perPage: 30);
       debugPrint('✓ Fetched ${repos.length} repositories from GitHub');
 
-      if (mounted) {
+      if (!mounted) return;
+      {
         // Preserve vault repo if exists, but refresh its issues from local storage
         final vaultRepoIndex = _repositories.indexWhere((r) => r.id == 'vault');
         final existingVaultRepo = vaultRepoIndex != -1
@@ -424,6 +411,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         // Always reload local issues
         final localIssues = await _localStorage.getLocalIssues();
 
+        if (!mounted) return;
         setState(() {
           _repositories = repos; // Don't filter, show all repos
 
@@ -486,7 +474,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         final parts = repo.fullName.split('/');
         if (parts.length == 2) {
           debugPrint('Fetching issues for ${repo.fullName}...');
-          final issues = await _githubApi.fetchIssues(parts[0], parts[1]);
+          final issues = await _dashboardService.fetchIssues(
+            parts[0],
+            parts[1],
+          );
           if (mounted) {
             setState(() {
               repo.children.addAll(issues);
@@ -505,32 +496,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     debugPrint('✓ Finished fetching issues for all repos');
   }
 
-  Future<void> _fetchIssues(String owner, String repo) async {
-    try {
-      debugPrint('Fetching issues for $owner/$repo...');
-      final issues = await _githubApi.fetchIssues(owner, repo);
-      if (mounted && _repositories.isNotEmpty) {
-        setState(() {
-          _repositories.first.children.clear();
-          _repositories.first.children.addAll(issues);
-        });
-        debugPrint('✓ Fetched ${issues.length} issues');
-      }
-    } catch (e) {
-      debugPrint('✗ Error fetching issues: $e');
-      // Don't fail silently - log the error
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not fetch issues: ${e.toString()}'),
-            backgroundColor: AppColors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
-  }
-
   /// Fetch projects and their field/column mappings
   Future<void> _fetchProjects() async {
     if (_isFetchingProjects) return;
@@ -539,53 +504,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     try {
       debugPrint('Fetching projects...');
-      final projects = await _githubApi.fetchProjects();
+      final projects = await _dashboardService.fetchProjects();
       debugPrint('Fetched ${projects.length} projects');
 
       if (mounted) {
-        // Fetch field IDs for each project
-        final projectFieldIds = <String, String>{};
-        final columnOptionIds = <String, Map<String, String>>{};
-
-        for (final project in projects) {
-          final projectId = project['id'] as String;
-          final projectTitle = project['title'] as String;
-
-          debugPrint('Fetching fields for project: $projectTitle ($projectId)');
-          final fields = await _githubApi.getProjectFields(projectId);
-
-          if (fields != null && fields.isNotEmpty) {
-            // Find the Status field (single select)
-            for (final field in fields) {
-              if (field['__typename'] == 'ProjectV2SingleSelectField') {
-                final fieldId = field['id'] as String;
-
-                // Store field ID for this project
-                projectFieldIds[projectTitle] = fieldId;
-
-                // Store option IDs for columns
-                final options =
-                    (field['options'] as List?)?.cast<Map<String, dynamic>>() ??
-                    [];
-                final optionMap = <String, String>{};
-                for (final option in options) {
-                  optionMap[option['name'] as String] = option['id'] as String;
-                }
-                columnOptionIds[projectTitle] = optionMap;
-
-                debugPrint(
-                  '  Status field: $fieldId with ${options.length} options',
-                );
-                break; // Only need the first single-select field (Status)
-              }
-            }
-          }
-        }
-
         setState(() {
           _projects = projects;
-          _projectFieldIds = projectFieldIds;
-          _columnOptionIds = columnOptionIds;
           _isFetchingProjects = false;
         });
       }
@@ -700,7 +624,22 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         child: Column(
           children: [
             // Filters
-            _buildFilters(),
+            DashboardFilters(
+              filterStatus: _filterStatus,
+              onFilterChanged: (status) async {
+                setState(() {
+                  _filterStatus = status;
+                });
+                await _localStorage.saveFilters(filterStatus: _filterStatus);
+              },
+              onHideUsernameToggle: (hide) {
+                setState(() {
+                  _hideUsernameInRepo = hide;
+                });
+                _localStorage.saveHideUsernameSetting(_hideUsernameInRepo);
+              },
+              hideUsernameInRepo: _hideUsernameInRepo,
+            ),
             // Error message if any
             if (_errorMessage != null) _buildErrorMessage(),
             // Fetching indicator
@@ -711,7 +650,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                   ? const Center(child: BrailleLoader(size: 32))
                   : RefreshIndicator(
                       onRefresh: _fetchRepositories,
-                      color: AppColors.orange,
+                      color: AppColors.orangePrimary,
                       child: _buildTaskList(),
                     ),
             ),
@@ -719,7 +658,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.orange,
+        backgroundColor: AppColors.orangePrimary,
         foregroundColor: Colors.black,
         icon: const Icon(Icons.add),
         label: const Text('New Issue'),
@@ -774,7 +713,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             onPressed: _fetchRepositories,
             child: const Text(
               'Retry',
-              style: TextStyle(color: AppColors.orange),
+              style: TextStyle(color: AppColors.orangePrimary),
             ),
           ),
         ],
@@ -802,326 +741,24 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     );
   }
 
-  Widget _buildFilters() {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          ResponsiveLayout(
-            mobile: _buildFiltersMobile(),
-            tablet: _buildFiltersTablet(),
-            desktop: _buildFiltersTablet(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFiltersMobile() {
-    return Row(
-      children: [
-        _buildFilterChip('Open'),
-        SizedBox(width: 8.w),
-        _buildFilterChip('Closed'),
-        SizedBox(width: 8.w),
-        _buildFilterChip('All'),
-        const Spacer(),
-        _buildHideUsernameButton(),
-      ],
-    );
-  }
-
-  Widget _buildFiltersTablet() {
-    return Row(
-      children: [
-        _buildFilterChip('Open'),
-        SizedBox(width: 8.w),
-        _buildFilterChip('Closed'),
-        SizedBox(width: 8.w),
-        _buildFilterChip('All'),
-        const Spacer(),
-        _buildHideUsernameButton(),
-      ],
-    );
-  }
-
-  Widget _buildHideUsernameButton() {
-    return IconButton(
-      icon: Icon(
-        _hideUsernameInRepo ? Icons.visibility_off : Icons.visibility,
-        color: _hideUsernameInRepo ? Colors.white54 : AppColors.orange,
-        size: 20.w,
-      ),
-      onPressed: () {
-        setState(() {
-          _hideUsernameInRepo = !_hideUsernameInRepo;
-        });
-        _localStorage.saveHideUsernameSetting(_hideUsernameInRepo);
-      },
-      tooltip: _hideUsernameInRepo
-          ? 'Show username in repo name'
-          : 'Hide username in repo name',
-    );
-  }
-
-  Widget _buildFilterChip(String label) {
-    final isSelected = _filterStatus == label.toLowerCase();
-    return FilterChip(
-      label: Text(label, style: TextStyle(fontSize: 13.sp)),
-      selected: isSelected,
-      backgroundColor: AppColors.background,
-      selectedColor: AppColors.orange.withValues(alpha: 0.3),
-      checkmarkColor: AppColors.orange,
-      labelStyle: TextStyle(
-        color: isSelected
-            ? AppColors.orange
-            : Colors.white.withValues(alpha: 0.8),
-        fontSize: 13.sp,
-      ),
-      onSelected: (selected) async {
-        setState(() {
-          _filterStatus = label.toLowerCase();
-        });
-        await _localStorage.saveFilters(filterStatus: _filterStatus);
-      },
-    );
-  }
-
   Widget _buildTaskList() {
-    // Get repos to display (filtered by mode: offline=vault, online=default repo)
     final displayedRepos = _getDisplayedRepos();
 
     if (displayedRepos.isEmpty && !_isFetchingRepos) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.folder_open,
-              size: 80,
-              color: Colors.white.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No repositories',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap the folder icon to add repositories',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.3),
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      );
+      return const DashboardEmptyState();
     }
 
-    // Filter repositories and issues based on selected filter
-    final filteredRepos = <RepoItem>[];
-    for (final repo in displayedRepos) {
-      final filteredIssues = repo.children.where((item) {
-        // Cast to IssueItem for filtering
-        final issue = item is IssueItem ? item : null;
-        if (issue == null) return false;
-
-        // Filter by status
-        if (_filterStatus == 'all') {
-          // Continue
-        } else if (_filterStatus == 'open') {
-          if (issue.status != ItemStatus.open) return false;
-        } else if (_filterStatus == 'closed') {
-          if (issue.status != ItemStatus.closed) return false;
-        }
-
-        return true;
-      }).toList();
-
-      // Include repo if it has issues matching the filter, or if filter is 'all'
-      if (filteredIssues.isNotEmpty || _filterStatus == 'all') {
-        final filteredRepo = RepoItem(
-          id: repo.id,
-          title: repo.title,
-          fullName: repo.fullName,
-          description: repo.description,
-          status: repo.status,
-          children: filteredIssues,
-        );
-        filteredRepos.add(filteredRepo);
-      }
-    }
-
-    // Sort repos - pinned ones first
-    final sortedFilteredRepos = _getSortedRepos(filteredRepos);
-
-    // Find the index where unpinned repos start
-    int? dividerIndex;
-    for (int i = 0; i < sortedFilteredRepos.length; i++) {
-      if (!_pinnedRepos.contains(sortedFilteredRepos[i].fullName)) {
-        if (i > 0) {
-          dividerIndex = i;
-        }
-        break;
-      }
-    }
-
-    // Add top padding if first repo is pinned to avoid overlap with filters
-    final double topPadding =
-        (dividerIndex != null ||
-            (sortedFilteredRepos.isNotEmpty &&
-                _pinnedRepos.contains(sortedFilteredRepos.first.fullName)))
-        ? 8.0
-        : 0.0;
-
-    return ListView.builder(
-      padding: EdgeInsets.only(
-        left: MediaQuery.of(context).size.width * 0.02,
-        right: MediaQuery.of(context).size.width * 0.02,
-        top: topPadding,
-      ),
-      itemCount: sortedFilteredRepos.length,
-      itemBuilder: (context, index) {
-        final repo = sortedFilteredRepos[index];
-        final isPinned = _pinnedRepos.contains(repo.fullName);
-
-        // Add divider after pinned repos
-        if (dividerIndex != null && index == dividerIndex) {
-          return Column(
-            children: [
-              ExpandableRepo(
-                repo: repo,
-                githubApi: _githubApi,
-                onIssueTap: _openIssueDetail,
-                isExpanded: _expandedRepoId == repo.id,
-                onExpandToggle: (expanded) => _onRepoToggle(repo.id, expanded),
-                hideUsernameInRepo: _hideUsernameInRepo,
-                isPinned: isPinned,
-                onPinToggle: () => _togglePinRepo(repo.fullName),
-              ),
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                height: 1,
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
-            ],
-          );
-        }
-
-        // First unpinned repo should be expanded
-        final isFirstUnpinned = dividerIndex != null && index == dividerIndex;
-
-        return ExpandableRepo(
-          repo: repo,
-          githubApi: _githubApi,
-          onIssueTap: _openIssueDetail,
-          isExpanded: _expandedRepoId == repo.id,
-          onExpandToggle: (expanded) => _onRepoToggle(repo.id, expanded),
-          hideUsernameInRepo: _hideUsernameInRepo,
-          isPinned: isPinned,
-          onPinToggle: () => _togglePinRepo(repo.fullName),
-        );
-      },
+    return RepoList(
+      repositories: displayedRepos,
+      githubApi: _dashboardService,
+      expandedRepoId: _expandedRepoId,
+      onExpandToggle: _onRepoToggle,
+      onIssueTap: _openIssueDetail,
+      filterStatus: _filterStatus,
+      hideUsernameInRepo: _hideUsernameInRepo,
+      pinnedRepos: _pinnedRepos,
+      onPinToggle: _togglePinRepo,
     );
-  }
-
-  void _sync() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final success = await _syncService.syncAll(forceRefresh: true);
-
-      if (success && mounted) {
-        await _fetchRepositories();
-
-        // Show detailed sync results
-        final issuesCount = _syncService.syncedIssuesCount;
-        final projectsCount = _syncService.syncedProjectsCount;
-
-        String message = 'Synced $issuesCount issues';
-        if (projectsCount > 0) {
-          message += ' • $projectsCount projects';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.green),
-                const SizedBox(width: 8),
-                Expanded(child: Text(message)),
-              ],
-            ),
-            backgroundColor: AppColors.orange,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Sync failed: ${_syncService.syncErrorMessage ?? 'Unknown error'}',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.red,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'RETRY',
-              textColor: Colors.white,
-              onPressed: _sync,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Sync failed: $e')),
-              ],
-            ),
-            backgroundColor: AppColors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _forceRefresh() async {
-    setState(() {
-      _repositories = [];
-      _errorMessage = null;
-    });
-    await _fetchRepositories();
   }
 
   void _navigateToSearch() {
@@ -1150,9 +787,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         _pinnedRepos.add(repoFullName);
       }
     });
-    _localStorage.saveFilters(
+    _dashboardService.togglePinRepo(
+      repoFullName: repoFullName,
+      pinnedRepos: _pinnedRepos,
       filterStatus: _filterStatus,
-      pinnedRepos: _pinnedRepos.toList(),
     );
   }
 
@@ -1168,87 +806,18 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     });
   }
 
-  List<RepoItem> _getSortedRepos(List<RepoItem> repos) {
-    final sorted = List<RepoItem>.from(repos);
-    sorted.sort((a, b) {
-      final aPinned = _pinnedRepos.contains(a.fullName);
-      final bPinned = _pinnedRepos.contains(b.fullName);
-      if (aPinned && !bPinned) return -1;
-      if (!aPinned && bPinned) return 1;
-      return 0;
-    });
-    return sorted;
-  }
-
   /// Get list of repos to display on main screen
-  /// - Offline mode: show only vault
-  /// - Online mode: show pinned repos (or first repo if none pinned)
   List<RepoItem> _getDisplayedRepos() {
-    if (_repositories.isEmpty) return [];
-
-    // Offline mode: show only vault repo
-    if (_isOfflineMode) {
-      return _repositories.where((r) => r.id == 'vault').toList();
-    }
-
-    // Online mode: show pinned repos
-    if (_pinnedRepos.isNotEmpty) {
-      final pinned = _repositories
-          .where((r) => _pinnedRepos.contains(r.fullName) && r.id != 'vault')
-          .toList();
-      if (pinned.isNotEmpty) {
-        debugPrint('Displaying ${pinned.length} pinned repo(s): $_pinnedRepos');
-        return pinned;
-      }
-    }
-
-    // Fallback: if no pinned repos, show first non-vault repo
-    try {
-      final firstRepo = _repositories.firstWhere(
-        (r) => r.id != 'vault',
-        orElse: () => _repositories.first,
-      );
-      debugPrint('No pinned repos, showing: ${firstRepo.fullName}');
-      return [firstRepo];
-    } catch (e) {
-      return _repositories;
-    }
+    return _dashboardService.getDisplayedRepos(
+      repositories: _repositories,
+      isOfflineMode: _isOfflineMode,
+      pinnedRepos: _pinnedRepos,
+    );
   }
 
   /// Get sync cloud state based on sync service status
   SyncCloudState _getSyncCloudState() {
-    // Check offline mode first (user selected offline on startup)
-    if (_isOfflineMode || !_syncService.isNetworkAvailable) {
-      return SyncCloudState.offline;
-    }
-    if (_syncService.isSyncing) {
-      return SyncCloudState.syncing;
-    }
-    if (_syncService.syncStatus == 'error') {
-      return SyncCloudState.error;
-    }
-    return SyncCloudState.synced;
-  }
-
-  /// Get last sync time as human-readable text
-  String _getLastSyncText() {
-    final lastSync = _syncService.lastSyncTime;
-    if (lastSync == null) return '';
-
-    final now = DateTime.now();
-    final diff = now.difference(lastSync);
-
-    if (diff.inSeconds < 10) {
-      return 'now';
-    } else if (diff.inSeconds < 60) {
-      return '${diff.inSeconds}s';
-    } else if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}m';
-    } else if (diff.inHours < 24) {
-      return '${diff.inHours}h';
-    } else {
-      return '${diff.inDays}d';
-    }
+    return _dashboardService.getSyncCloudState(isOfflineMode: _isOfflineMode);
   }
 
   void _createNewIssue() async {
@@ -1407,7 +976,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                     borderSide: BorderSide(color: Color(0x4DFFFFFF)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.orange),
+                    borderSide: BorderSide(color: AppColors.orangePrimary),
                   ),
                 ),
                 autofocus: true,
@@ -1424,7 +993,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                     borderSide: BorderSide(color: Color(0x4DFFFFFF)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.orange),
+                    borderSide: BorderSide(color: AppColors.orangePrimary),
                   ),
                 ),
                 maxLines: 5,
@@ -1471,7 +1040,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                           const Text('Local issue created'),
                         ],
                       ),
-                      backgroundColor: AppColors.orange,
+                      backgroundColor: AppColors.orangePrimary,
                       duration: const Duration(seconds: 3),
                     ),
                   );
@@ -1482,7 +1051,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
               foregroundColor: Colors.black,
             ),
             child: const Text('Create'),
@@ -1514,466 +1083,5 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             IssueDetailScreen(issue: issue, owner: owner, repo: repo),
       ),
     );
-  }
-
-  void _showCreateIssueDialog() async {
-    // In offline mode, check if Local Issues repo exists
-    if (_repositories.isEmpty && !_isOfflineMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 8),
-              const Text(
-                'No repositories available. Please fetch repositories first.',
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.red,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'FETCH',
-            textColor: Colors.white,
-            onPressed: _fetchRepositories,
-          ),
-        ),
-      );
-      return;
-    }
-
-    // In offline mode with no repos, create issue in Vault repo
-    if (_repositories.isEmpty && _isOfflineMode) {
-      _createLocalIssue();
-      return;
-    }
-
-    // Check if Vault repo exists for offline mode
-    final hasVaultRepo = _repositories.any((r) => r.id == 'vault');
-    if (_isOfflineMode && !hasVaultRepo) {
-      _createLocalIssue();
-      return;
-    }
-
-    // Load default repo from settings
-    final defaultRepoName = await _localStorage.getDefaultRepo();
-
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    // Use default repo if available and exists in loaded repos, otherwise use first repo
-    String? selectedRepo =
-        defaultRepoName != null &&
-            _repositories.any((r) => r.fullName == defaultRepoName)
-        ? defaultRepoName
-        : _repositories.first.fullName;
-
-    String? selectedProject;
-    String? selectedColumn;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.cardBackground,
-          title: const Text(
-            'Create New Issue',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Repository selector
-                const Text(
-                  'Repository *',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedRepo,
-                    underline: const SizedBox(),
-                    isExpanded: true,
-                    dropdownColor: AppColors.background,
-                    items: _repositories.map((repo) {
-                      return DropdownMenuItem(
-                        value: repo.fullName,
-                        child: Text(
-                          repo.fullName,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        selectedRepo = value!;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Project selector (optional) - with real projects from GitHub
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Project (Optional)',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                    if (_isFetchingProjects) BrailleLoader(size: 16),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedProject,
-                    hint: const Text(
-                      'No project',
-                      style: TextStyle(color: Colors.white54),
-                    ),
-                    underline: const SizedBox(),
-                    isExpanded: true,
-                    dropdownColor: AppColors.background,
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text(
-                          'No project',
-                          style: TextStyle(color: Colors.white54),
-                        ),
-                      ),
-                      ..._projects.map((project) {
-                        return DropdownMenuItem(
-                          value: project['title'] as String,
-                          child: Text(
-                            project['title'] as String,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        );
-                      }),
-                    ],
-                    onChanged: _projects.isEmpty
-                        ? null
-                        : (value) {
-                            setDialogState(() {
-                              selectedProject = value;
-                              selectedColumn = null;
-                            });
-                          },
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Column selector (appears when project is selected)
-                if (selectedProject != null) ...[
-                  const Text(
-                    'Column (Optional)',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButton<String>(
-                      value: selectedColumn,
-                      hint: const Text(
-                        'Select column',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                      underline: const SizedBox(),
-                      isExpanded: true,
-                      dropdownColor: AppColors.background,
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text(
-                            'Select column',
-                            style: TextStyle(color: Colors.white54),
-                          ),
-                        ),
-                        ...(_columnOptionIds[selectedProject]?.entries.map((
-                              entry,
-                            ) {
-                              return DropdownMenuItem(
-                                value: entry.key,
-                                child: Text(
-                                  entry.key,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              );
-                            }).toList() ??
-                            []),
-                      ],
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedColumn = value;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Title
-                TextField(
-                  controller: titleController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Title *',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0x4DFFFFFF)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColors.orange),
-                    ),
-                  ),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 16),
-
-                // Description
-                TextField(
-                  controller: descriptionController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Description (Markdown)',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0x4DFFFFFF)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: AppColors.orange),
-                    ),
-                  ),
-                  maxLines: 5,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                titleController.dispose();
-                descriptionController.dispose();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (titleController.text.trim().isNotEmpty &&
-                    selectedRepo != null) {
-                  _createIssue(
-                    titleController.text.trim(),
-                    descriptionController.text,
-                    selectedRepo!,
-                    selectedProject,
-                    selectedColumn,
-                  );
-                  Navigator.pop(context);
-                  titleController.dispose();
-                  descriptionController.dispose();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orange,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Create'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _createIssue(
-    String title,
-    String description,
-    String? repo,
-    String? project,
-    String? column,
-  ) async {
-    if (_repositories.isEmpty || repo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No repositories to add issue to'),
-          backgroundColor: AppColors.red,
-        ),
-      );
-      return;
-    }
-
-    // Parse owner and repo from fullName
-    final parts = repo.split('/');
-    if (parts.length != 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid repository format'),
-          backgroundColor: AppColors.red,
-        ),
-      );
-      return;
-    }
-    final owner = parts[0];
-    final repoName = parts[1];
-
-    // Find the selected repository
-    final targetRepo = _repositories.firstWhere(
-      (r) => r.fullName == repo,
-      orElse: () => _repositories.first,
-    );
-
-    try {
-      // Create issue in GitHub
-      final createdIssue = await _githubApi.createIssue(
-        owner,
-        repoName,
-        title: title,
-        body: description.isNotEmpty ? description : null,
-      );
-
-      debugPrint('✓ Created issue #${createdIssue.number} in $owner/$repoName');
-
-      // If project and column are selected, add issue to project
-      String? projectColumnName;
-      if (project != null && column != null) {
-        final projectId = _projectFieldIds[project];
-        final fieldId = _projectFieldIds[project];
-        final optionId = _columnOptionIds[project]?[column];
-
-        if (projectId != null && fieldId != null && optionId != null) {
-          debugPrint('Adding issue to project: $project, column: $column');
-
-          // Add the issue to the project using GraphQL mutation
-          final projectItemId = await _githubApi.addProjectItem(
-            projectId: projectId,
-            issueNodeId: createdIssue.id,
-          );
-
-          if (projectItemId != null) {
-            debugPrint('✓ Issue added to project with item ID: $projectItemId');
-
-            // Set the column (status) for the newly added item
-            final moved = await _githubApi.moveProjectItem(
-              projectId: projectId,
-              itemId: projectItemId,
-              fieldId: fieldId,
-              optionId: optionId,
-            );
-
-            if (moved) {
-              debugPrint('✓ Issue column set to: $column');
-              projectColumnName = column;
-            } else {
-              debugPrint('⚠ Failed to set column for issue');
-              projectColumnName = column; // Still store the column name
-            }
-          } else {
-            debugPrint('⚠ Failed to add issue to project');
-          }
-        } else {
-          debugPrint('⚠ Missing project/field/column IDs');
-          debugPrint('  Project ID: $projectId');
-          debugPrint('  Field ID: $fieldId');
-          debugPrint('  Option ID: $optionId');
-        }
-      }
-
-      // Create IssueItem with GitHub data
-      final newIssue = IssueItem(
-        id: createdIssue.id,
-        title: createdIssue.title,
-        number: createdIssue.number,
-        bodyMarkdown: createdIssue.bodyMarkdown,
-        status: ItemStatus.open,
-        updatedAt: DateTime.now(),
-        isLocalOnly: false,
-        projectColumnName: projectColumnName,
-        labels: createdIssue.labels,
-      );
-
-      if (mounted) {
-        setState(() {
-          targetRepo.children.insert(0, newIssue);
-        });
-
-        String statusText = 'Issue #${createdIssue.number} created';
-        if (project != null && column != null && projectColumnName != null) {
-          statusText += ' in $project → $column';
-        } else {
-          statusText += ' in $repo';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text(statusText)),
-              ],
-            ),
-            backgroundColor: AppColors.orange,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('✗ Failed to create issue: $e');
-
-      // Fallback: create local issue
-      final newIssue = IssueItem(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        number: null,
-        bodyMarkdown: description.isNotEmpty ? description : null,
-        status: ItemStatus.open,
-        updatedAt: DateTime.now(),
-        isLocalOnly: true,
-        projectColumnName: column,
-      );
-
-      await _localStorage.saveLocalIssue(newIssue);
-
-      if (mounted) {
-        setState(() {
-          targetRepo.children.insert(0, newIssue);
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.warning, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Saved locally: ${e.toString()}')),
-              ],
-            ),
-            backgroundColor: AppColors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
   }
 }

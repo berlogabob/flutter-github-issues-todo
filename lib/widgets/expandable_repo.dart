@@ -4,6 +4,7 @@ import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
+import '../services/issue_service.dart';
 import '../screens/edit_issue_screen.dart';
 import 'braille_loader.dart';
 import 'issue_card.dart';
@@ -38,6 +39,7 @@ class ExpandableRepo extends StatefulWidget {
 }
 
 class _ExpandableRepoState extends State<ExpandableRepo> {
+  final IssueService _issueService = IssueService();
   bool _isLoadingIssues = false;
   bool _hasLoadedIssues = false;
   List<IssueItem> _issues = [];
@@ -167,18 +169,15 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Issue closed'),
-            backgroundColor: AppColors.orange,
+            backgroundColor: AppColors.orangePrimary,
             duration: Duration(seconds: 1),
           ),
         );
       } else {
-        // GitHub issue - call API
-        final updatedIssue = await widget.githubApi.updateIssue(
-          owner,
-          repo,
-          issue.number!,
-          state: 'closed',
-        );
+        // GitHub issue - use IssueService
+        await _issueService.closeIssue(issue, owner, repo);
+
+        if (!mounted) return;
 
         setState(() {
           // Remove closed issue from the list
@@ -201,6 +200,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
       }
     } catch (e) {
       debugPrint('Failed to close issue: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to close issue: ${e.toString()}'),
@@ -262,17 +262,20 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppColors.orange.withValues(alpha: 0.2),
+                      color: AppColors.orangePrimary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.folder, color: AppColors.orange),
+                    child: const Icon(
+                      Icons.folder,
+                      color: AppColors.orangePrimary,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   // Pin icon for pinned repos
                   if (widget.isPinned)
                     const Icon(
                       Icons.push_pin,
-                      color: AppColors.orange,
+                      color: AppColors.orangePrimary,
                       size: 16,
                     ),
                   if (widget.isPinned) const SizedBox(width: 4),
@@ -313,10 +316,10 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.orange.withValues(alpha: 0.2),
+                        color: AppColors.orangePrimary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppColors.orange.withValues(alpha: 0.5),
+                          color: AppColors.orangePrimary.withValues(alpha: 0.5),
                         ),
                       ),
                       child: Text(
@@ -324,7 +327,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                             ? '${_issues.whereType<IssueItem>().length} issues'
                             : '${widget.repo.children.whereType<IssueItem>().length} issues',
                         style: const TextStyle(
-                          color: AppColors.orange,
+                          color: AppColors.orangePrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -387,7 +390,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
               onPressed: _loadIssues,
               child: const Text(
                 'Retry',
-                style: TextStyle(color: AppColors.orange),
+                style: TextStyle(color: AppColors.orangePrimary),
               ),
             ),
           ],

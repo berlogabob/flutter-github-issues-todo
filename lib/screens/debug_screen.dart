@@ -28,7 +28,7 @@ class _DebugScreenState extends State<DebugScreen> {
         title: const Text('Debug Diagnostics'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.orange),
+            icon: const Icon(Icons.refresh, color: AppColors.orangePrimary),
             onPressed: _isTesting ? null : _runDiagnostics,
           ),
           IconButton(
@@ -51,7 +51,7 @@ class _DebugScreenState extends State<DebugScreen> {
                 label: Text(_isTesting ? 'Testing...' : 'Run Full Diagnostics'),
                 onPressed: _isTesting ? null : _runDiagnostics,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orange,
+                  backgroundColor: AppColors.orangePrimary,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -66,7 +66,7 @@ class _DebugScreenState extends State<DebugScreen> {
                 color: AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: AppColors.orange.withValues(alpha: 0.3),
+                  color: AppColors.orangePrimary.withValues(alpha: 0.3),
                 ),
               ),
               child: _logs.isEmpty
@@ -105,7 +105,7 @@ class _DebugScreenState extends State<DebugScreen> {
                                         : isSuccess
                                         ? Colors.green
                                         : isWarning
-                                        ? AppColors.orange
+                                        ? AppColors.orangePrimary
                                         : Colors.white70,
                                     fontSize: 12,
                                     fontFamily: 'monospace',
@@ -216,9 +216,7 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<Map<String, dynamic>> _testTokenStorage() async {
-    const storage = FlutterSecureStorage(
-      aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    );
+    const storage = FlutterSecureStorage();
 
     final token = await storage.read(key: 'github_token');
     final authType = await storage.read(key: 'auth_type');
@@ -243,9 +241,7 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<Map<String, dynamic>> _testGitHubAPI() async {
-    const storage = FlutterSecureStorage(
-      aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    );
+    const storage = FlutterSecureStorage();
 
     final token = await storage.read(key: 'github_token');
 
@@ -276,9 +272,7 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Future<bool> _testSecureStorage() async {
-    const storage = FlutterSecureStorage(
-      aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    );
+    const storage = FlutterSecureStorage();
 
     // Write test
     await storage.write(key: '_debug_test', value: 'test123');
@@ -302,7 +296,7 @@ class _DebugScreenState extends State<DebugScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Logs copied to clipboard'),
-          backgroundColor: AppColors.orange,
+          backgroundColor: AppColors.orangePrimary,
         ),
       );
     }

@@ -260,7 +260,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           title: Row(
             children: [
-              Icon(Icons.qr_code_2, color: AppColors.orange, size: 28),
+              Icon(Icons.qr_code_2, color: AppColors.orangePrimary, size: 28),
               const SizedBox(width: 8),
               const Text(
                 'Authorize GitDoIt',
@@ -306,7 +306,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     icon: const Icon(Icons.copy),
                     label: const Text('Copy Code'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.orange,
+                      backgroundColor: AppColors.orangePrimary,
                       foregroundColor: Colors.black,
                     ),
                     onPressed: () {
@@ -316,7 +316,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Code copied to clipboard'),
-                          backgroundColor: AppColors.orange,
+                          backgroundColor: AppColors.orangePrimary,
                           duration: Duration(seconds: 2),
                         ),
                       );
@@ -377,14 +377,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: AppColors.orange.withValues(alpha: 0.2),
+              color: AppColors.orangePrimary.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
                 number,
                 style: const TextStyle(
-                  color: AppColors.orange,
+                  color: AppColors.orangePrimary,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -408,13 +408,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       color: AppColors.background,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: AppColors.orange.withValues(alpha: 0.5),
+                        color: AppColors.orangePrimary.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Text(
                       value,
                       style: TextStyle(
-                        color: isCode ? AppColors.orange : Colors.white,
+                        color: isCode ? AppColors.orangePrimary : Colors.white,
                         fontWeight: isCode
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -647,7 +647,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         backgroundColor: AppColors.cardBackground,
         title: const Row(
           children: [
-            Icon(Icons.folder_off, color: AppColors.orange),
+            Icon(Icons.folder_off, color: AppColors.orangePrimary),
             SizedBox(width: 8),
             Text(
               'Storage Permission Required',
@@ -687,7 +687,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               openAppSettings();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
               foregroundColor: Colors.black,
             ),
             child: const Text('Open Settings'),
@@ -832,7 +832,7 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
       backgroundColor: AppColors.cardBackground,
       title: Row(
         children: [
-          const Icon(Icons.folder, color: AppColors.orange),
+          const Icon(Icons.folder, color: AppColors.orangePrimary),
           const SizedBox(width: 8),
           const Text(
             'Select Default Repository',
@@ -868,7 +868,7 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
                       return ListTile(
                         leading: const Icon(
                           Icons.folder,
-                          color: AppColors.orange,
+                          color: AppColors.orangePrimary,
                         ),
                         title: Text(
                           repo.fullName,
@@ -896,13 +896,13 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                icon: const Icon(Icons.add, color: AppColors.orange),
+                icon: const Icon(Icons.add, color: AppColors.orangePrimary),
                 label: const Text(
                   'Create New Repository on GitHub',
-                  style: TextStyle(color: AppColors.orange),
+                  style: TextStyle(color: AppColors.orangePrimary),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.orange),
+                  side: const BorderSide(color: AppColors.orangePrimary),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 onPressed: () async {

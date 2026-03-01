@@ -7,14 +7,42 @@ import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../widgets/braille_loader.dart';
+import '../widgets/label_chip.dart';
 import 'issue_detail_screen.dart';
 
-/// RepoDetailScreen - In-app view for a single repository
-/// Shows repo info, stats, and list of issues
+/// Screen displaying detailed information about a single GitHub repository.
+///
+/// Features:
+/// - Repository information and description
+/// - Issue statistics (open/closed counts)
+/// - List of all repository issues
+/// - Pull-to-refresh functionality
+/// - Open repository in browser
+/// - Navigate to issue details
+///
+/// Usage:
+/// ```dart
+/// Navigator.push(
+///   context,
+///   MaterialPageRoute(
+///     builder: (context) => RepoDetailScreen(
+///       owner: 'owner',
+///       repo: 'repo',
+///     ),
+///   ),
+/// );
+/// ```
 class RepoDetailScreen extends ConsumerStatefulWidget {
+  /// Repository owner login.
   final String owner;
+
+  /// Repository name.
   final String repo;
 
+  /// Creates the repository detail screen.
+  ///
+  /// [owner] is the repository owner login (required).
+  /// [repo] is the repository name (required).
   const RepoDetailScreen({super.key, required this.owner, required this.repo});
 
   @override
@@ -136,7 +164,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orange,
+                backgroundColor: AppColors.orangePrimary,
                 foregroundColor: Colors.black,
               ),
             ),
@@ -147,7 +175,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadRepoDetails,
-      color: AppColors.orange,
+      color: AppColors.orangePrimary,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -212,14 +240,16 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.orange.withValues(alpha: 0.2),
+        color: AppColors.orangePrimary.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.orange.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: AppColors.orangePrimary.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.orange, size: 16),
+          Icon(icon, color: AppColors.orangePrimary, size: 16),
           const SizedBox(width: 4),
           Text(
             value,
@@ -313,25 +343,10 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
             ? Wrap(
                 spacing: 4,
                 runSpacing: 4,
-                children: issue.labels.take(3).map((label) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.orange,
-                        fontSize: 10,
-                      ),
-                    ),
-                  );
-                }).toList(),
+                children: issue.labels
+                    .take(3)
+                    .map((label) => LabelChipWidget(label: label))
+                    .toList(),
               )
             : null,
         trailing: const Icon(

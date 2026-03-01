@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import '../constants/app_colors.dart';
 import '../models/repo_item.dart';
 import '../services/github_api_service.dart';
@@ -11,9 +10,27 @@ import '../widgets/braille_loader.dart';
 import 'onboarding_screen.dart';
 import 'debug_screen.dart';
 
-/// SettingsScreen - App settings and account management
-/// Implements brief section 7, screen 7
+/// Settings screen for app configuration and account management.
+///
+/// Provides access to:
+/// - User account settings and logout
+/// - Repository and project defaults
+/// - Sync configuration (WiFi/mobile data)
+/// - Connection testing
+/// - Cache management and token reset
+/// - App version information
+///
+/// Implements brief section 7, screen 7.
+///
+/// Usage:
+/// ```dart
+/// Navigator.push(
+///   context,
+///   MaterialPageRoute(builder: (context) => const SettingsScreen()),
+/// );
+/// ```
 class SettingsScreen extends ConsumerStatefulWidget {
+  /// Creates the settings screen.
   const SettingsScreen({super.key});
 
   @override
@@ -26,36 +43,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _autoSyncWifi = true;
   bool _autoSyncAny = false;
   bool _isLoadingUser = true;
-  String _appVersion = 'Loading...';
 
   @override
   void initState() {
     super.initState();
-    _loadAppVersion();
     _loadUserData();
     _loadDefaultRepo();
   }
 
-  Future<void> _loadAppVersion() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      if (mounted) {
-        setState(() {
-          _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading app version: $e');
-      if (mounted) {
-        setState(() {
-          _appVersion = 'Unknown';
-        });
-      }
-    }
-  }
-
   String _getAppVersion() {
-    // Version from pubspec.yaml: 0.5.0+62
+    // Version from pubspec.yaml: 0.5.0+63
+    return '0.5.0+63';
     return '0.5.0+62';
   }
 
@@ -156,7 +154,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bug_report, color: AppColors.orange),
+            icon: const Icon(Icons.bug_report, color: AppColors.orangePrimary),
             onPressed: () {
               Navigator.push(
                 context,
@@ -238,22 +236,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return CircleAvatar(
-                      backgroundColor: AppColors.orange.withValues(alpha: 0.2),
+                      backgroundColor: AppColors.orangePrimary.withValues(
+                        alpha: 0.2,
+                      ),
                       child: Text(
                         (_user['login'] as String)
                             .substring(0, 1)
                             .toUpperCase(),
-                        style: const TextStyle(color: AppColors.orange),
+                        style: const TextStyle(color: AppColors.orangePrimary),
                       ),
                     );
                   },
                 ),
               )
             : CircleAvatar(
-                backgroundColor: AppColors.orange.withValues(alpha: 0.2),
+                backgroundColor: AppColors.orangePrimary.withValues(alpha: 0.2),
                 child: Text(
                   (_user['login'] as String).substring(0, 1).toUpperCase(),
-                  style: const TextStyle(color: AppColors.orange),
+                  style: const TextStyle(color: AppColors.orangePrimary),
                 ),
               ),
         title: Text(
@@ -284,7 +284,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       color: AppColors.cardBackground,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.logout, color: AppColors.orange),
+        leading: const Icon(Icons.logout, color: AppColors.orangePrimary),
         title: const Text('Logout', style: TextStyle(color: Colors.white)),
         trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _confirmLogout,
@@ -297,7 +297,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       color: AppColors.cardBackground,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.folder, color: AppColors.orange),
+        leading: const Icon(Icons.folder, color: AppColors.orangePrimary),
         title: const Text(
           'Default Repository',
           style: TextStyle(color: Colors.white),
@@ -343,7 +343,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       color: AppColors.cardBackground,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: SwitchListTile(
-        secondary: const Icon(Icons.wifi, color: AppColors.orange),
+        secondary: const Icon(Icons.wifi, color: AppColors.orangePrimary),
         title: const Text(
           'Auto-sync on WiFi',
           style: TextStyle(color: Colors.white),
@@ -356,7 +356,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         value: _autoSyncWifi,
-        activeColor: AppColors.orange,
+        activeThumbColor: AppColors.orangePrimary,
         onChanged: (value) {
           setState(() {
             _autoSyncWifi = value;
@@ -372,7 +372,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       color: AppColors.cardBackground,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: SwitchListTile(
-        secondary: const Icon(Icons.network_cell, color: AppColors.orange),
+        secondary: const Icon(
+          Icons.network_cell,
+          color: AppColors.orangePrimary,
+        ),
         title: const Text(
           'Auto-sync on any network',
           style: TextStyle(color: Colors.white),
@@ -385,7 +388,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         value: _autoSyncAny,
-        activeColor: AppColors.orange,
+        activeThumbColor: AppColors.orangePrimary,
         onChanged: (value) {
           setState(() {
             _autoSyncAny = value;
@@ -401,7 +404,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       color: AppColors.cardBackground,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.sync, color: AppColors.orange),
+        leading: const Icon(Icons.sync, color: AppColors.orangePrimary),
         title: const Text('Sync Now', style: TextStyle(color: Colors.white)),
         subtitle: Text(
           'Manually trigger sync',
@@ -636,7 +639,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Token reset. Please login again.'),
-          backgroundColor: AppColors.orange,
+          backgroundColor: AppColors.orangePrimary,
         ),
       );
     }
@@ -650,7 +653,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Icon(
             Icons.checklist_rounded,
             size: 48,
-            color: AppColors.orange.withValues(alpha: 0.5),
+            color: AppColors.orangePrimary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 8),
           Text(
@@ -735,7 +738,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Logged out successfully'),
-          backgroundColor: AppColors.orange,
+          backgroundColor: AppColors.orangePrimary,
         ),
       );
     }
@@ -765,9 +768,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: const TextStyle(color: Colors.white),
                 ),
                 selected: isSelected,
-                selectedTileColor: AppColors.orange.withValues(alpha: 0.2),
+                selectedTileColor: AppColors.orangePrimary.withValues(
+                  alpha: 0.2,
+                ),
                 trailing: isSelected
-                    ? const Icon(Icons.check, color: AppColors.orange)
+                    ? const Icon(Icons.check, color: AppColors.orangePrimary)
                     : null,
                 onTap: () {
                   setState(() {
@@ -781,7 +786,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       content: Text(
                         'Default repository set to ${repo.fullName}',
                       ),
-                      backgroundColor: AppColors.orange,
+                      backgroundColor: AppColors.orangePrimary,
                       duration: const Duration(seconds: 2),
                     ),
                   );
@@ -809,7 +814,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Syncing...'),
-        backgroundColor: AppColors.orange,
+        backgroundColor: AppColors.orangePrimary,
       ),
     );
   }
@@ -850,7 +855,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Cache cleared'),
-        backgroundColor: AppColors.orange,
+        backgroundColor: AppColors.orangePrimary,
       ),
     );
   }

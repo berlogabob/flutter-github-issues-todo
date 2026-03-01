@@ -1,18 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
 import '../widgets/braille_loader.dart';
 
-/// EditIssueScreen - Edit existing issue
-/// Allows editing title, body, and labels
+/// Screen for editing existing GitHub issues.
+///
+/// Allows editing:
+/// - Issue title
+/// - Issue body with Markdown preview
+/// - Labels (add/remove)
+/// - Supports both local-only and GitHub-synced issues
+///
+/// Usage:
+/// ```dart
+/// final result = await Navigator.push(
+///   context,
+///   MaterialPageRoute(
+///     builder: (context) => EditIssueScreen(
+///       issue: issueItem,
+///       owner: 'owner',
+///       repo: 'repo',
+///     ),
+///   ),
+/// );
+/// ```
 class EditIssueScreen extends StatefulWidget {
+  /// The issue to edit.
   final IssueItem issue;
+
+  /// Repository owner login.
   final String? owner;
+
+  /// Repository name.
   final String? repo;
 
+  /// Creates the edit issue screen.
+  ///
+  /// [issue] is the issue to be edited (required).
+  /// [owner] and [repo] specify the target repository for GitHub-synced issues.
   const EditIssueScreen({
     super.key,
     required this.issue,
@@ -61,7 +89,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
         title: const Text('Edit Issue', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.check, color: AppColors.orange),
+            icon: const Icon(Icons.check, color: AppColors.orangePrimary),
             onPressed: _isSaving ? null : _saveChanges,
             tooltip: 'Save Changes',
           ),
@@ -114,7 +142,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(
-                            color: AppColors.orange,
+                            color: AppColors.orangePrimary,
                             width: 2,
                           ),
                         ),
@@ -182,7 +210,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(
-                            color: AppColors.orange,
+                            color: AppColors.orangePrimary,
                             width: 2,
                           ),
                         ),
@@ -235,7 +263,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                           code: const TextStyle(
-                            color: AppColors.orange,
+                            color: AppColors.orangePrimary,
                             backgroundColor: Color(0xFF2D2D2D),
                             fontSize: 12,
                           ),
@@ -273,7 +301,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
         label,
         style: const TextStyle(fontSize: 12, color: Colors.white),
       ),
-      backgroundColor: AppColors.orange.withValues(alpha: 0.3),
+      backgroundColor: AppColors.orangePrimary.withValues(alpha: 0.3),
       deleteIcon: const Icon(Icons.close, size: 16, color: Colors.white),
       onDeleted: () => _removeLabel(label),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -288,16 +316,18 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
         decoration: BoxDecoration(
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.orange.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: AppColors.orangePrimary.withValues(alpha: 0.5),
+          ),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, size: 16, color: AppColors.orange),
+            Icon(Icons.add, size: 16, color: AppColors.orangePrimary),
             SizedBox(width: 4),
             Text(
               'Add Label',
-              style: TextStyle(color: AppColors.orange, fontSize: 12),
+              style: TextStyle(color: AppColors.orangePrimary, fontSize: 12),
             ),
           ],
         ),
@@ -348,7 +378,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
               foregroundColor: Colors.black,
             ),
             child: const Text('Add'),
@@ -413,7 +443,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                   Text('Changes saved locally'),
                 ],
               ),
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
             ),
           );
         }
@@ -448,7 +478,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                 const Text('Changes saved to GitHub'),
               ],
             ),
-            backgroundColor: AppColors.orange,
+            backgroundColor: AppColors.orangePrimary,
           ),
         );
       }

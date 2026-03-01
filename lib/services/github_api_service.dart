@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'secure_storage_service.dart';
+import 'cache_service.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
@@ -11,6 +12,14 @@ import '../models/item.dart';
 /// GitHub REST API Service
 class GitHubApiService {
   String? _token;
+  final CacheService _cache = CacheService();
+
+  GitHubApiService({GitHubApiService? githubApi}) {
+    // Allow passing instance for inheritance
+    if (githubApi != null) {
+      _token = githubApi._token;
+    }
+  }
 
   /// Retry configuration
   static const int _maxRetries = 3;
@@ -133,6 +142,16 @@ class GitHubApiService {
         'fetchMyRepositories() called - page: $page, perPage: $perPage',
       );
 
+      // Check cache first
+      final cacheKey = 'repos_page_${page}_perPage_${perPage}';
+      final cachedRepos = _cache.get<List>(cacheKey);
+      if (cachedRepos != null) {
+        debugPrint('Cache hit for repositories');
+        return cachedRepos
+            .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
+
       final headers = await _headers;
       debugPrint('Making API call to GitHub...');
 
@@ -154,7 +173,16 @@ class GitHubApiService {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         debugPrint('Parsed ${data.length} repositories');
-        return data.map((json) => _parseRepo(json)).toList();
+        final repos = data.map((json) => _parseRepo(json)).toList();
+
+        // Cache the result for 5 minutes
+        await _cache.set(
+          cacheKey,
+          repos.map((r) => r.toJson()).toList(),
+          ttl: const Duration(minutes: 5),
+        );
+
+        return repos;
       } else if (response.statusCode == 401) {
         debugPrint('401 Unauthorized - Token invalid or expired');
         throw Exception(
@@ -203,6 +231,16 @@ class GitHubApiService {
     String state = 'open',
   }) async {
     try {
+      // Check cache first
+      final cacheKey = 'issues_${owner}_${repo}_$state';
+      final cachedIssues = _cache.get<List>(cacheKey);
+      if (cachedIssues != null) {
+        debugPrint('Cache hit for issues: $owner/$repo');
+        return cachedIssues
+            .map((json) => IssueItem.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
+
       final headers = await _headers;
 
       final response = await _executeWithRetry(
@@ -219,7 +257,16 @@ class GitHubApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => _parseIssue(json)).toList();
+        final issues = data.map((json) => _parseIssue(json)).toList();
+
+        // Cache the result for 5 minutes
+        await _cache.set(
+          cacheKey,
+          issues.map((i) => i.toJson()).toList(),
+          ttl: const Duration(minutes: 5),
+        );
+
+        return issues;
       } else {
         throw Exception('Failed to fetch issues');
       }
@@ -346,7 +393,7 @@ class GitHubApiService {
     List<String>? assignees,
   }) async {
     try {
-      debugPrint('Updating issue #${number} in ${owner}/${repo}...');
+      debugPrint('Updating issue #$number in $owner/$repo...');
       final headers = await _headers;
 
       // Build request body with only provided fields
@@ -376,7 +423,7 @@ class GitHubApiService {
 
       if (response.statusCode == 200) {
         final updatedIssue = _parseIssue(json.decode(response.body));
-        debugPrint('✓ Issue #${number} updated successfully');
+        debugPrint('✓ Issue #$number updated successfully');
         return updatedIssue;
       } else {
         final errorBody = json.decode(response.body);
@@ -688,6 +735,14 @@ class GitHubApiService {
   /// Fetch user's Projects v2 using GraphQL
   Future<List<Map<String, dynamic>>> fetchProjects({int first = 30}) async {
     try {
+      // Check cache first
+      final cacheKey = 'projects_$first';
+      final cachedProjects = _cache.get<List>(cacheKey);
+      if (cachedProjects != null) {
+        debugPrint('Cache hit for projects');
+        return cachedProjects.cast<Map<String, dynamic>>();
+      }
+
       debugPrint('Fetching Projects v2...');
       final headers = await _headers;
 
@@ -734,6 +789,10 @@ class GitHubApiService {
         final projects =
             data['data']?['viewer']?['projectsV2']?['nodes'] as List? ?? [];
         debugPrint('Fetched ${projects.length} projects');
+
+        // Cache the result for 5 minutes
+        await _cache.set(cacheKey, projects, ttl: const Duration(minutes: 5));
+
         return projects.cast<Map<String, dynamic>>();
       } else {
         debugPrint('Failed to fetch projects: ${response.statusCode}');

@@ -11,7 +11,7 @@ abstract class Item {
   bool isExpanded;
   bool isLocalOnly;
   DateTime? localUpdatedAt;
-  
+
   Item({
     required this.id,
     required this.title,
@@ -24,9 +24,9 @@ abstract class Item {
     this.isLocalOnly = false,
     this.localUpdatedAt,
   });
-  
+
   Map<String, dynamic> toJson();
-  
+
   factory Item.fromJson(Map<String, dynamic> json) {
     // This is a factory that should never be called directly
     // Use specific item type factories instead
@@ -35,10 +35,7 @@ abstract class Item {
 }
 
 /// Item status enum
-enum ItemStatus {
-  open,
-  closed,
-}
+enum ItemStatus { open, closed }
 
 /// Extension for convenient status checks
 extension ItemStatusExtension on ItemStatus {

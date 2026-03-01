@@ -71,7 +71,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
       _projectId = project['id'] as String;
       final projectTitle = project['title'] as String;
 
-      debugPrint('Using project: $projectTitle (${_projectId})');
+      debugPrint('Using project: $projectTitle ($_projectId)');
 
       // Fetch project fields to find Status field
       final fields = await _githubApi.getProjectFields(_projectId!);
@@ -187,7 +187,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.orange),
+            icon: const Icon(Icons.refresh, color: AppColors.orangePrimary),
             onPressed: _isLoading ? null : _loadProjectData,
             tooltip: 'Refresh',
           ),
@@ -223,7 +223,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
             ElevatedButton(
               onPressed: _loadProjectData,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orange,
+                backgroundColor: AppColors.orangePrimary,
                 foregroundColor: Colors.black,
               ),
               child: const Text('Retry'),
@@ -344,7 +344,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
       case 'Todo':
         return Colors.grey;
       case 'In Progress':
-        return AppColors.orange;
+        return AppColors.orangePrimary;
       case 'Review':
         return AppColors.blue;
       case 'Done':
@@ -366,12 +366,12 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: candidateData.isNotEmpty
-                  ? AppColors.orange.withValues(alpha: 0.1)
+                  ? AppColors.orangePrimary.withValues(alpha: 0.1)
                   : AppColors.cardBackground.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: candidateData.isNotEmpty
-                    ? AppColors.orange
+                    ? AppColors.orangePrimary
                     : AppColors.cardBackground.withValues(alpha: 0.5),
                 width: 2,
               ),
@@ -392,7 +392,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
                     Text(
                       'Drop here',
                       style: TextStyle(
-                        color: AppColors.orange,
+                        color: AppColors.orangePrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -486,13 +486,13 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
                       vertical: 2.h,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.orange.withValues(alpha: 0.2),
+                      color: AppColors.orangePrimary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4.r),
                     ),
                     child: Text(
                       label,
                       style: TextStyle(
-                        color: AppColors.orange,
+                        color: AppColors.orangePrimary,
                         fontSize: 10.sp,
                       ),
                     ),
@@ -572,7 +572,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
                   Text('Issue #${item.number} moved to $newColumnName'),
                 ],
               ),
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.orangePrimary,
               duration: const Duration(seconds: 2),
             ),
           );
@@ -637,13 +637,13 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
                         vertical: 2.h,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.orange.withValues(alpha: 0.2),
+                        color: AppColors.orangePrimary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4.r),
                       ),
                       child: Text(
                         label,
                         style: TextStyle(
-                          color: AppColors.orange,
+                          color: AppColors.orangePrimary,
                           fontSize: 10.sp,
                         ),
                       ),
@@ -710,7 +710,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
             const Text('Create issues from the Dashboard'),
           ],
         ),
-        backgroundColor: AppColors.orange,
+        backgroundColor: AppColors.orangePrimary,
         duration: const Duration(seconds: 2),
         action: SnackBarAction(
           label: 'OK',

@@ -1,7 +1,7 @@
 # GitDoIt — Master Project Document
 
-**Version:** 0.5.0+1 MVP  
-**Last Updated:** 26 February 2026  
+**Version:** 0.5.0+66 MVP
+**Last Updated:** 26 February 2026
 **Status:** ✅ READY FOR RELEASE
 
 ---
@@ -707,9 +707,9 @@ dev_dependencies:
 
 ## 📞 Support & Contact
 
-**Repository:** github.com/berlogabob/gitdoit  
-**License:** MIT  
-**Version:** 1.0.0 MVP  
+**Repository:** github.com/berlogabob/gitdoit
+**License:** MIT
+**Version:** 0.5.0+66
 **Release Date:** 26 February 2026
 
 ---

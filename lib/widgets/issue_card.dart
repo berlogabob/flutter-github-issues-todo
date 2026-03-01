@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
-import '../models/item.dart';
+import 'status_badge.dart';
+import 'label_chip.dart';
 
 /// IssueCard - Modular, reusable widget for displaying a single issue
 class IssueCard extends StatelessWidget {
@@ -22,8 +23,6 @@ class IssueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOpen = issue.status == ItemStatus.open;
-
     return Dismissible(
       key: Key('issue-${issue.id}'),
       direction: DismissDirection.horizontal,
@@ -63,19 +62,7 @@ class IssueCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Status Indicator
-              Container(
-                width: 12,
-                height: 12,
-                margin: const EdgeInsets.only(top: 4),
-                decoration: BoxDecoration(
-                  color: isOpen ? Colors.green : Colors.red,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-              ),
+              StatusBadge(status: issue.status),
               const SizedBox(width: 12),
               // Issue Content
               Expanded(
@@ -105,27 +92,7 @@ class IssueCard extends StatelessWidget {
                         if (issue.labels.isNotEmpty)
                           ...issue.labels
                               .take(3)
-                              .map(
-                                (label) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.orange.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    label,
-                                    style: const TextStyle(
-                                      color: AppColors.orange,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              .map((label) => LabelChipWidget(label: label)),
                         // Assignee
                         if (issue.assigneeLogin != null)
                           Row(
@@ -154,13 +121,13 @@ class IssueCard extends StatelessWidget {
                               const Icon(
                                 Icons.cloud_off,
                                 size: 12,
-                                color: AppColors.orange,
+                                color: AppColors.orangePrimary,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Local',
                                 style: const TextStyle(
-                                  color: AppColors.orange,
+                                  color: AppColors.orangePrimary,
                                   fontSize: 11,
                                 ),
                               ),

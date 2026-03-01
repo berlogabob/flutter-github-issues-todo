@@ -1290,22 +1290,51 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       return;
     }
 
-    // Load default repo from settings
-    final defaultRepoName = await _localStorage.getDefaultRepo();
+    // Priority 1: Use currently expanded repo if one is open
+    String? selectedRepo;
+    if (_expandedRepoId != null) {
+      // Find the expanded repo (skip vault)
+      try {
+        final expandedRepo = _repositories.firstWhere(
+          (r) => r.id == _expandedRepoId && r.id != 'vault',
+        );
+        selectedRepo = expandedRepo.fullName;
+        debugPrint('Creating issue in expanded repo: $selectedRepo');
+      } catch (e) {
+        // Expanded repo not found or is vault, will use default
+        debugPrint('Expanded repo not available, will use default');
+      }
+    }
 
-    // Use default repo if available and exists in loaded repos, otherwise use first repo (skip vault)
-    String? selectedRepo =
-        defaultRepoName != null &&
-            _repositories.any(
-              (r) => r.fullName == defaultRepoName && r.id != 'vault',
-            )
-        ? defaultRepoName
-        : _repositories
-              .firstWhere(
-                (r) => r.id != 'vault',
-                orElse: () => _repositories.first,
-              )
-              .fullName;
+    // Priority 2: Use default repo from settings if no repo is expanded
+    if (selectedRepo == null) {
+      final defaultRepoName = await _localStorage.getDefaultRepo();
+      if (defaultRepoName != null &&
+          _repositories.any(
+            (r) => r.fullName == defaultRepoName && r.id != 'vault',
+          )) {
+        selectedRepo = defaultRepoName;
+        debugPrint('Creating issue in default repo: $selectedRepo');
+      }
+    }
+
+    // Priority 3: Use first available repo (skip vault)
+    if (selectedRepo == null) {
+      try {
+        selectedRepo = _repositories
+            .firstWhere((r) => r.id != 'vault')
+            .fullName;
+        debugPrint('Creating issue in first available repo: $selectedRepo');
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No valid repository found'),
+            backgroundColor: AppColors.red,
+          ),
+        );
+        return;
+      }
+    }
 
     // Get owner and repo parts
     final parts = selectedRepo.split('/');

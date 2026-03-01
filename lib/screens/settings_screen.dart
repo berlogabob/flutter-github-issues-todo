@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../constants/app_colors.dart';
 import '../models/repo_item.dart';
 import '../services/github_api_service.dart';
@@ -25,10 +26,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _autoSyncWifi = true;
   bool _autoSyncAny = false;
   bool _isLoadingUser = true;
+  String _appVersion = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+    _loadUserData();
+    _loadDefaultRepo();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading app version: $e');
+      if (mounted) {
+        setState(() {
+          _appVersion = 'Unknown';
+        });
+      }
+    }
+  }
 
   String _getAppVersion() {
-    // Version from pubspec.yaml: 0.5.0+55
-    return '0.5.0+55';
+    // Version from pubspec.yaml: 0.5.0+62
+    return '0.5.0+62';
   }
 
   // User data - will be fetched from GitHub
@@ -42,13 +70,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _defaultRepo = 'user/gitdoit';
   String _defaultProject = 'Mobile Development';
   List<RepoItem> _userRepos = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-    _loadDefaultRepo();
-  }
 
   Future<void> _loadDefaultRepo() async {
     final savedRepo = await _localStorage.getDefaultRepo();

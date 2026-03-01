@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
+import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../screens/edit_issue_screen.dart';
 import 'braille_loader.dart';
@@ -143,10 +144,71 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
   }
 
   Future<void> _closeIssue(IssueItem issue) async {
-    // Close issue action
-    debugPrint('Close issue: ${issue.title}');
-    // Call API to close issue or update local state
-    // This can be customized based on app requirements
+    // Don't close if already closed
+    if (issue.status == ItemStatus.closed) {
+      return;
+    }
+
+    // Close the issue immediately (no confirmation dialog)
+    try {
+      final parts = widget.repo.fullName.split('/');
+      if (parts.length != 2) {
+        throw Exception('Invalid repo name');
+      }
+
+      final owner = parts[0];
+      final repo = parts[1];
+
+      if (issue.isLocalOnly || issue.number == null) {
+        // Local issue - remove from list immediately
+        setState(() {
+          _issues.removeWhere((i) => i.id == issue.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Issue closed'),
+            backgroundColor: AppColors.orange,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      } else {
+        // GitHub issue - call API
+        final updatedIssue = await widget.githubApi.updateIssue(
+          owner,
+          repo,
+          issue.number!,
+          state: 'closed',
+        );
+
+        setState(() {
+          // Remove closed issue from the list
+          _issues.removeWhere((i) => i.id == issue.id);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Issue closed'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to close issue: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to close issue: ${e.toString()}'),
+          backgroundColor: AppColors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _toggleExpand() {

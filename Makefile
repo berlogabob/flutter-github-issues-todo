@@ -61,7 +61,10 @@ version-increment:
 	@echo "New version: $(NEW_VERSION)"
 	@# Use awk for reliable version replacement on macOS
 	@awk '{if (/^version:/) print "version: $(NEW_VERSION)"; else print $$0}' pubspec.yaml > pubspec.yaml.tmp && mv pubspec.yaml.tmp pubspec.yaml
+	@# Update version in settings_screen.dart
+	@awk -v ver="$(NEW_VERSION)" '/^  String _getAppVersion/ {print; getline; print "    // Version from pubspec.yaml: " ver; print "    return '\''" ver "'\'';"; next} {print}' lib/screens/settings_screen.dart > lib/screens/settings_screen.dart.tmp && mv lib/screens/settings_screen.dart.tmp lib/screens/settings_screen.dart
 	@echo "✅ Build number incremented to $(NEW_VERSION)"
+	@echo "✅ Settings screen version updated to $(NEW_VERSION)"
 
 # Build Android APK
 build-android: init version-increment

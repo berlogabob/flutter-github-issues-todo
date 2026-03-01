@@ -45,7 +45,13 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     _titleController = TextEditingController();
     _bodyController = TextEditingController();
     _selectedRepoFullName = widget.repo;
-    _loadRepoData();
+
+    // Load repo data after build is complete
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_selectedRepoFullName != null) {
+        _loadRepoData();
+      }
+    });
   }
 
   Future<void> _loadRepoData() async {
@@ -58,6 +64,8 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     final owner = parts[0];
     final repo = parts[1];
 
+    debugPrint('Loading repo data for: $owner/$repo');
+
     setState(() {
       _isLoadingLabels = true;
       _isLoadingAssignees = true;
@@ -65,24 +73,39 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
 
     try {
       // Fetch labels
+      debugPrint('Fetching labels...');
       final labels = await _githubApi.fetchRepoLabels(owner, repo);
+      debugPrint('Loaded ${labels.length} labels');
       setState(() {
         _availableLabels = labels;
         _isLoadingLabels = false;
       });
 
       // Fetch collaborators for assignee
+      debugPrint('Fetching collaborators...');
       final assignees = await _githubApi.fetchRepoCollaborators(owner, repo);
+      debugPrint('Loaded ${assignees.length} collaborators');
       setState(() {
         _availableAssignees = assignees;
         _isLoadingAssignees = false;
       });
     } catch (e) {
       debugPrint('Error loading repo data: $e');
-      setState(() {
-        _isLoadingLabels = false;
-        _isLoadingAssignees = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingLabels = false;
+          _isLoadingAssignees = false;
+          _availableLabels = [];
+          _availableAssignees = [];
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not load labels/assignees: ${e.toString()}'),
+            backgroundColor: AppColors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -147,72 +170,61 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Repository info
+                  // Repository selector (always shown as dropdown)
+                  const Text(
+                    'Repository',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       color: AppColors.cardBackground,
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.orange.withValues(alpha: 0.3),
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.folder,
-                          color: AppColors.orange,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _selectedRepoFullName ??
-                              '${widget.owner}/${widget.repo}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                    child: DropdownButton<String>(
+                      value: _selectedRepoFullName ?? widget.repo,
+                      isExpanded: true,
+                      dropdownColor: AppColors.cardBackground,
+                      underline: const SizedBox(),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: AppColors.orange,
+                      ),
+                      items:
+                          widget.availableRepos != null &&
+                              widget.availableRepos!.isNotEmpty
+                          ? widget.availableRepos!.map((repo) {
+                              return DropdownMenuItem(
+                                value: repo.fullName,
+                                child: Text(
+                                  repo.fullName,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              );
+                            }).toList()
+                          : [
+                              DropdownMenuItem(
+                                value: widget.repo,
+                                child: Text(
+                                  '${widget.owner}/${widget.repo}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                      onChanged: (value) {
+                        _onRepoChanged(value);
+                      },
                     ),
                   ),
-                  // Repository dropdown (if available repos provided)
-                  if (widget.availableRepos != null &&
-                      widget.availableRepos!.length > 1) ...[
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Repository',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardBackground,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _selectedRepoFullName ?? widget.repo,
-                        isExpanded: true,
-                        dropdownColor: AppColors.cardBackground,
-                        underline: const SizedBox(),
-                        items: widget.availableRepos!.map((repo) {
-                          return DropdownMenuItem(
-                            value: repo.fullName,
-                            child: Text(
-                              repo.fullName,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          _onRepoChanged(value);
-                        },
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 24),
 
                   // Title

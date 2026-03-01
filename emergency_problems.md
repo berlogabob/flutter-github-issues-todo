@@ -384,6 +384,15 @@ Column(
 | Library swipe actual linking | ✅ DONE | Post-Sprint | v0.5.0+55 |
 | App repo visible again | ✅ DONE | Post-Sprint | v0.5.0+56 |
 | App version in settings | ✅ DONE | Post-Sprint | v0.5.0+57 |
+| Swipe left to close issue | ✅ DONE | Post-Sprint | v0.5.0+58 |
+| Remove close confirmation | ✅ DONE | Post-Sprint | v0.5.0+59 |
+| Remove closed from list | ✅ DONE | Post-Sprint | v0.5.0+60 |
+| Version sync (pubspec + settings) | ✅ DONE | Post-Sprint | v0.5.0+61 |
+| Create issue in expanded repo | ✅ DONE | Post-Sprint | v0.5.0+62 |
+| Labels & assignees loading | ✅ DONE | Post-Sprint | v0.5.0+63 |
+| Unified repo selector dropdown | ✅ DONE | Post-Sprint | v0.5.0+64 |
+| Labels load timing fix | ✅ DONE | Post-Sprint | v0.5.0+65 |
+| Dynamic version from package_info | ✅ DONE | Post-Sprint | v0.5.0+66 |
 | GitHub Issue #15 | ⏳ Pending | - | - |
 | GitHub Issue #16 | ⏳ Pending | - | - |
 | GitHub Issue #17 | ⏳ Pending | - | - |
@@ -401,5 +410,5 @@ Column(
 ---
 
 **Last Build:** v0.5.0+46  
-**Current Build:** v0.5.0+57 ✅ (all fixes + correct version)  
-**Next Build:** v0.5.0+58 (pending GitHub issues)
+**Current Build:** v0.5.0+66 ✅ (all fixes + dynamic version)  
+**Next Build:** v0.5.0+67 (pending GitHub issues)

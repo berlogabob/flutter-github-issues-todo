@@ -1,5 +1,5 @@
 name: gitdoit
-description: "A new Flutter project."
+description: "Minimalist GitHub Issues & Projects TODO Manager with offline-first support"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.5.0+62
+version: 0.5.0+63
 
 environment:
   sdk: ^3.11.0
@@ -32,8 +32,9 @@ dependencies:
     sdk: flutter
 
   # State management
-  flutter_riverpod: ^3.0.3
-  riverpod_annotation: ^3.0.3
+  flutter_riverpod: ^3.2.1
+  riverpod_annotation: ^4.0.2
+  riverpod: ^3.2.1
 
   # Local storage
   hive: ^2.2.3
@@ -48,7 +49,7 @@ dependencies:
   flutter_secure_storage: ^10.0.0
 
   # Markdown rendering
-  flutter_markdown: ^0.7.6
+  flutter_markdown_plus: ^1.0.6
 
   # Drag & drop
   reorderables: ^0.6.0
@@ -60,10 +61,11 @@ dependencies:
   connectivity_plus: ^6.1.3
 
   # File picker for folder selection
-  file_picker: ^8.0.0
+  file_picker: ^10.3.10
 
   # Permission handler
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.1
+  permission_handler_android: 13.0.1
 
   # Screen utilities for responsive design
   flutter_screenutil: ^5.9.3
@@ -75,7 +77,11 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Package info for dynamic version reading
-  package_info_plus: ^8.0.0
+  package_info_plus: ^9.0.0
+
+  # GraphQL
+  gql_dedupe_link: 2.0.4-alpha+1715521079596
+  normalize: 0.9.1
 
 dev_dependencies:
   flutter_test:
@@ -83,10 +89,19 @@ dev_dependencies:
 
   # Code generation
   build_runner: ^2.11.1
-  riverpod_generator: ^3.0.0
+  riverpod_generator: ^4.0.3
 
   # Linting
   flutter_lints: ^6.0.0
+
+  # Testing
+  test: 1.29.0
+  test_api: 0.7.9
+  test_core: 0.6.15
+  matcher: 0.12.18
+
+  # Build tools
+  build_config: 1.2.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

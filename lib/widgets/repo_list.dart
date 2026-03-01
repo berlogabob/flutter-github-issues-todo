@@ -89,6 +89,7 @@ class RepoList extends StatelessWidget {
 
   Widget _buildRepoItem(RepoItem repo, bool isPinned) {
     return ExpandableRepo(
+      key: ValueKey('repo-${repo.id}'),
       repo: repo,
       githubApi: githubApi,
       onIssueTap: onIssueTap,

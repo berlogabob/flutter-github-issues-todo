@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../utils/app_error_handler.dart';
+
+part 'oauth_service.g.dart';
 
 /// OAuth Device Flow Service
 /// Implements GitHub OAuth Device Flow for authentication
@@ -15,9 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// 4. Poll for access token
 /// 5. Store access token
 class OAuthService {
-  static final OAuthService _instance = OAuthService._internal();
-  factory OAuthService() => _instance;
-  OAuthService._internal();
+  OAuthService();
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -90,8 +92,8 @@ class OAuthService {
         );
       }
     } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('OAuthService: Error requesting device code: $e');
-      debugPrint('Stack trace: $stackTrace');
       return null;
     }
   }
@@ -114,7 +116,8 @@ class OAuthService {
         debugPrint('Cannot launch URL');
         return false;
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('OAuthService: Error opening URL: $e');
       return false;
     }
@@ -224,7 +227,8 @@ class OAuthService {
       }
 
       return null;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('OAuthService: Error polling for token: $e');
       return null;
     }
@@ -235,7 +239,8 @@ class OAuthService {
     try {
       await _storage.write(key: 'github_token', value: token);
       debugPrint('OAuthService: Token saved to secure storage');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('OAuthService: Error saving token: $e');
     }
   }
@@ -285,4 +290,9 @@ class DeviceCodeResponse {
   String toString() {
     return 'DeviceCodeResponse(userCode: $userCode, expiresIn: $expiresIn)';
   }
+}
+
+@Riverpod(keepAlive: true)
+OAuthService oauthService(Ref ref) {
+  return OAuthService();
 }

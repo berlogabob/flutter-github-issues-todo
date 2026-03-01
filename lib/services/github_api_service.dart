@@ -3,11 +3,15 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'secure_storage_service.dart';
 import 'cache_service.dart';
+import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
+
+part 'github_api_service.g.dart';
 
 /// GitHub REST API Service
 class GitHubApiService {
@@ -143,7 +147,7 @@ class GitHubApiService {
       );
 
       // Check cache first
-      final cacheKey = 'repos_page_${page}_perPage_${perPage}';
+      final cacheKey = 'repos_page_${page}_perPage_$perPage';
       final cachedRepos = _cache.get<List>(cacheKey);
       if (cachedRepos != null) {
         debugPrint('Cache hit for repositories');
@@ -211,8 +215,7 @@ class GitHubApiService {
         'No internet connection. Please check your network settings.\n\nDetails: ${e.message}',
       );
     } catch (e, stackTrace) {
-      debugPrint('fetchMyRepositories error: $e');
-      debugPrint('Stack trace: $stackTrace');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       if (e.toString().contains('SocketException') ||
           e.toString().contains('Network') ||
           e.toString().contains('failed host lookup')) {
@@ -270,7 +273,8 @@ class GitHubApiService {
       } else {
         throw Exception('Failed to fetch issues');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       if (e.toString().contains('SocketException') ||
           e.toString().contains('Network')) {
         throw Exception('No internet connection. Working offline.');
@@ -302,7 +306,8 @@ class GitHubApiService {
       } else {
         throw Exception('Failed to fetch issue: HTTP ${response.statusCode}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       if (e.toString().contains('SocketException') ||
           e.toString().contains('Network')) {
         throw Exception('No internet connection. Working offline.');
@@ -370,8 +375,7 @@ class GitHubApiService {
         );
       }
     } catch (e, stackTrace) {
-      debugPrint('Create issue error: $e');
-      debugPrint('Stack: $stackTrace');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       if (e.toString().contains('SocketException') ||
           e.toString().contains('Network')) {
         throw Exception('No internet connection. Issue saved locally.');
@@ -432,8 +436,7 @@ class GitHubApiService {
         );
       }
     } catch (e, stackTrace) {
-      debugPrint('✗ Error updating issue: $e');
-      debugPrint('Stack trace: $stackTrace');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
 
       if (e.toString().contains('SocketException') ||
           e.toString().contains('Network')) {
@@ -476,8 +479,8 @@ class GitHubApiService {
           'Failed to fetch comments: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
-    } catch (e) {
-      debugPrint('Error fetching comments: $e');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -513,8 +516,8 @@ class GitHubApiService {
           'Failed to add comment: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
-    } catch (e) {
-      debugPrint('Error adding comment: $e');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -570,8 +573,8 @@ class GitHubApiService {
           'Failed to remove label: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
-    } catch (e) {
-      debugPrint('Error removing label: $e');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -625,8 +628,8 @@ class GitHubApiService {
           'Failed to add label: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
-    } catch (e) {
-      debugPrint('Error adding label: $e');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -659,8 +662,8 @@ class GitHubApiService {
           'Failed to fetch labels: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
-    } catch (e) {
-      debugPrint('Error fetching labels: $e');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -695,8 +698,8 @@ class GitHubApiService {
           'Failed to fetch collaborators: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
-    } catch (e) {
-      debugPrint('Error fetching collaborators: $e');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -726,8 +729,7 @@ class GitHubApiService {
       }
       return null;
     } catch (e, stackTrace) {
-      debugPrint('Error fetching user: $e');
-      debugPrint('Stack trace: $stackTrace');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       return null;
     }
   }
@@ -799,8 +801,7 @@ class GitHubApiService {
         return [];
       }
     } catch (e, stackTrace) {
-      debugPrint('Error fetching projects: $e');
-      debugPrint('Stack trace: $stackTrace');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       return [];
     }
   }
@@ -881,8 +882,7 @@ class GitHubApiService {
         throw Exception('Failed to move item: HTTP ${response.statusCode}');
       }
     } catch (e, stackTrace) {
-      debugPrint('✗ Error moving project item: $e');
-      debugPrint('Stack trace: $stackTrace');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       return false;
     }
   }
@@ -946,8 +946,8 @@ class GitHubApiService {
       } else {
         return null;
       }
-    } catch (e) {
-      debugPrint('Error fetching project fields: $e');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       return null;
     }
   }
@@ -1026,8 +1026,7 @@ class GitHubApiService {
         return null;
       }
     } catch (e, stackTrace) {
-      debugPrint('✗ Error adding project item: $e');
-      debugPrint('Stack trace: $stackTrace');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       return null;
     }
   }
@@ -1157,8 +1156,7 @@ class GitHubApiService {
         return {};
       }
     } catch (e, stackTrace) {
-      debugPrint('✗ Error fetching project items: $e');
-      debugPrint('Stack trace: $stackTrace');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       return {};
     }
   }
@@ -1192,4 +1190,9 @@ class GitHubApiService {
       isLocalOnly: false,
     );
   }
+}
+
+@Riverpod(keepAlive: true)
+GitHubApiService githubApiService(Ref ref) {
+  return GitHubApiService();
 }

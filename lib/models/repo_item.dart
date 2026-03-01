@@ -13,29 +13,24 @@ class RepoItem extends Item {
   String? description;
 
   RepoItem({
-    required String id,
-    required String title,
+    required super.id,
+    required super.title,
     required this.fullName,
     this.description,
     ItemStatus? status,
-    DateTime? updatedAt,
-    String? assigneeLogin,
+    super.updatedAt,
+    super.assigneeLogin,
     List<String>? labels,
     List<Item>? children,
     bool? isExpanded,
     bool? isLocalOnly,
-    DateTime? localUpdatedAt,
+    super.localUpdatedAt,
   }) : super(
-         id: id,
-         title: title,
          status: status ?? ItemStatus.open,
-         updatedAt: updatedAt,
-         assigneeLogin: assigneeLogin,
          labels: labels ?? const [],
          children: children ?? const [],
          isExpanded: isExpanded ?? false,
          isLocalOnly: isLocalOnly ?? false,
-         localUpdatedAt: localUpdatedAt,
        );
 
   @override

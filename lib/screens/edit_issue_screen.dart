@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../constants/app_colors.dart';
+import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
@@ -430,6 +431,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
 
         // Update in local storage
         await _localStorage.removeLocalIssue(widget.issue.id);
+        if (!mounted) return;
         await _localStorage.saveLocalIssue(updatedIssue);
 
         if (mounted) {
@@ -482,10 +484,11 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('Failed to save changes: $e');
 
       if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

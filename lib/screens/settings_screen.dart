@@ -2,10 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
+import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/secure_storage_service.dart';
+import '../services/cache_service.dart';
 import '../widgets/braille_loader.dart';
 import 'onboarding_screen.dart';
 import 'debug_screen.dart';
@@ -52,9 +54,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   String _getAppVersion() {
-    // Version from pubspec.yaml: 0.5.0+63
-    return '0.5.0+63';
-    return '0.5.0+62';
+    // Version from pubspec.yaml: 0.5.0+68
+    return '0.5.0+68';
+    return '0.5.0+67';
+    return '0.5.0+66';
+    return '0.5.0+65';
+    return '0.5.0+64';
   }
 
   // User data - will be fetched from GitHub
@@ -66,7 +71,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   };
 
   String _defaultRepo = 'user/gitdoit';
-  String _defaultProject = 'Mobile Development';
+  final String _defaultProject = 'Mobile Development';
   List<RepoItem> _userRepos = [];
 
   Future<void> _loadDefaultRepo() async {
@@ -123,9 +128,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         // Load user repositories
         await _loadUserRepos();
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('Error fetching user data: $e');
-      if (mounted) setState(() => _isLoadingUser = false);
+      if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        setState(() => _isLoadingUser = false);
+      }
     }
   }
 
@@ -137,8 +145,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _userRepos = repos;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('Error loading repos: $e');
+      if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      }
     }
   }
 
@@ -471,10 +482,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       if (!hasToken) {
         if (mounted) Navigator.pop(context);
-        _showTestResult(
-          false,
-          'No token found. Please login with GitHub token.',
-        );
+        if (mounted) {
+          _showTestResult(
+            false,
+            'No token found. Please login with GitHub token.',
+          );
+        }
         return;
       }
 
@@ -485,10 +498,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         debugPrint('Network check: ${result.isNotEmpty ? "OK" : "FAILED"}');
       } on SocketException catch (e) {
         if (mounted) Navigator.pop(context);
-        _showTestResult(
-          false,
-          'No internet connection.\n\nDetails: ${e.message}',
-        );
+        if (mounted) {
+          _showTestResult(
+            false,
+            'No internet connection.\n\nDetails: ${e.message}',
+          );
+        }
         return;
       }
 
@@ -498,20 +513,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       if (mounted) Navigator.pop(context);
 
-      if (user != null) {
-        _showTestResult(
-          true,
-          '✓ Connected to GitHub!\n\nUser: ${user['login']}\nToken is valid and working.',
-        );
-      } else {
-        _showTestResult(
-          false,
-          'Failed to connect to GitHub.\n\nToken may be invalid or expired.',
-        );
+      if (mounted) {
+        if (user != null) {
+          _showTestResult(
+            true,
+            '✓ Connected to GitHub!\n\nUser: ${user['login']}\nToken is valid and working.',
+          );
+        } else {
+          _showTestResult(
+            false,
+            'Failed to connect to GitHub.\n\nToken may be invalid or expired.',
+          );
+        }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Connection test error: $e');
       if (mounted) Navigator.pop(context);
-      _showTestResult(false, 'Error: ${e.toString()}');
+      if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        _showTestResult(false, 'Error: ${e.toString()}');
+      }
     }
   }
 
@@ -850,13 +871,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _clearCache() {
-    // TODO: Implement clear cache
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Cache cleared'),
-        backgroundColor: AppColors.orangePrimary,
-      ),
-    );
+  void _clearCache() async {
+    await CacheService().clear();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cache cleared'),
+          backgroundColor: AppColors.orangePrimary,
+        ),
+      );
+    }
   }
 }

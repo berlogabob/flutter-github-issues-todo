@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../constants/app_colors.dart';
+import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../services/secure_storage_service.dart';
 import '../services/local_storage_service.dart';
@@ -447,7 +448,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         // Failed or cancelled
         setDialogState(() => _isLoading = false);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       debugPrint('Polling error: $e');
       setDialogState(() => _isLoading = false);
     }
@@ -562,9 +564,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } catch (e, stackTrace) {
       debugPrint('PAT login ERROR: $e');
       debugPrint('Stack trace: $stackTrace');
-      setState(() {
-        _errorMessage = 'Login failed: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Login failed: ${e.toString()}';
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -620,9 +624,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } catch (e, stackTrace) {
       debugPrint('Offline mode error: $e');
       debugPrint('Stack trace: $stackTrace');
-      setState(() {
-        _errorMessage = 'Failed to start offline mode: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to start offline mode: ${e.toString()}';
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -674,8 +680,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             SizedBox(height: 8),
             Text(
               '1. Open Settings → Apps → GitDoIt\n'
-                      '2. Tap "Permissions"\n' +
-                  '3. Enable "Files and media" or "All files access"',
+              '2. Tap "Permissions"\n'
+              '3. Enable "Files and media" or "All files access"',
               style: TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ],
@@ -715,6 +721,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       barrierDismissible: false,
       builder: (context) => _RepoPickerDialog(githubApi: githubApi),
     );
+
+    if (!mounted) return;
 
     // Save selected repository
     if (selectedRepo != null && mounted) {
@@ -772,7 +780,8 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
       debugPrint('Fetching repositories for repo picker...');
       repos = await widget.githubApi.fetchMyRepositories(perPage: 50);
       debugPrint('Fetched ${repos.length} repositories');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       debugPrint('Error fetching repositories: $e');
       error = e.toString();
     } finally {

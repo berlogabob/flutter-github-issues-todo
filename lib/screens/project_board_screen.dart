@@ -28,7 +28,7 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
   // Project data
   String? _projectId;
   String? _statusFieldId;
-  Map<String, String> _columnOptionIds = {}; // columnName -> optionId
+  final Map<String, String> _columnOptionIds = {}; // columnName -> optionId
 
   // Issues grouped by column
   Map<String, List<IssueItem>> _columnItems = {};

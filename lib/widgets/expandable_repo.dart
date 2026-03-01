@@ -411,6 +411,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
           children: _issues
               .map(
                 (issue) => IssueCard(
+                  key: ValueKey('issue-${issue.id}'),
                   issue: issue,
                   onTap: widget.onIssueTap,
                   onSwipeRight: () => _openIssueForEdit(issue),
@@ -436,6 +437,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
               .whereType<IssueItem>()
               .map(
                 (issue) => IssueCard(
+                  key: ValueKey('issue-${issue.id}'),
                   issue: issue,
                   onTap: widget.onIssueTap,
                   onSwipeRight: () => _openIssueForEdit(issue),

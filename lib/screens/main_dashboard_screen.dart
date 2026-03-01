@@ -1,10 +1,10 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
+import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
@@ -12,6 +12,7 @@ import '../services/dashboard_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/secure_storage_service.dart';
+import '../services/cache_service.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/dashboard_filters.dart';
 import '../widgets/dashboard_empty_state.dart';
@@ -39,10 +40,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   final DashboardService _dashboardService = DashboardService();
   final LocalStorageService _localStorage = LocalStorageService();
   final SyncService _syncService = SyncService();
+  final CacheService _cache = CacheService();
 
   String _filterStatus = 'open';
   bool _hideUsernameInRepo = true;
-  bool _isLoading = false;
   bool _isOfflineMode = false;
   bool _isFetchingRepos = false;
   bool _isFetchingProjects = false;
@@ -53,7 +54,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   Set<String> _pinnedRepos = {};
   String? _expandedRepoId;
   List<Map<String, dynamic>> _projects = [];
-  Timer? _cloudIconRefreshTimer;
+  // Cloud icon now updates via SyncService listener only (no timer)
   late VoidCallback _syncListener;
 
   @override
@@ -76,17 +77,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
     };
     _syncService.addListener(_syncListener);
-
-    // Update cloud icon every 2 seconds to reflect sync state
-    _cloudIconRefreshTimer = Timer.periodic(const Duration(seconds: 2), (
-      timer,
-    ) {
-      if (mounted) {
-        setState(() {
-          // Force rebuild to update cloud icon
-        });
-      }
-    });
 
     // Check immediately if there are local issues to sync
     _checkLocalIssuesToSync();
@@ -253,7 +243,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   @override
   void dispose() {
-    _cloudIconRefreshTimer?.cancel();
     _syncService.removeListener(_syncListener);
     super.dispose();
   }
@@ -300,7 +289,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           'Loaded saved filters: $_filterStatus, pinned: $_pinnedRepos',
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       debugPrint('Error loading filters: $e');
     }
   }
@@ -352,7 +342,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           }
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       debugPrint('Error loading local issues: $e');
     }
   }
@@ -364,6 +355,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     });
 
     try {
+      // Clear cache on manual refresh
+      await _cache.clear();
+
       debugPrint('=== Fetching Repositories ===');
 
       // Check network connectivity first
@@ -380,8 +374,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         throw Exception(
           'No internet connection. Please check your network settings.\n\nCannot reach api.github.com\n\nDetails: ${e.message}',
         );
-      } catch (e) {
+      } catch (e, stackTrace) {
         debugPrint('✗ Network check error: $e');
+        if (mounted) {
+          AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        }
         throw Exception('Network error: $e');
       }
 
@@ -451,6 +448,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       debugPrint('Stack: $stackTrace');
 
       if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() {
           // In offline mode, don't show error - just show local issues if any
           if (!_isOfflineMode) {
@@ -485,7 +483,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             debugPrint('✓ Loaded ${issues.length} issues for ${repo.fullName}');
           }
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         debugPrint('✗ Failed to fetch issues for ${repo.fullName}: $e');
         // Don't fail the entire operation if one repo fails
       }
@@ -513,9 +512,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           _isFetchingProjects = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('Error fetching projects: $e');
       if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isFetchingProjects = false);
       }
     }
@@ -646,7 +646,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             if (_isFetchingRepos) _buildFetchingIndicator(),
             // Task List
             Expanded(
-              child: _isLoading
+              child: _isFetchingRepos
                   ? const Center(child: BrailleLoader(size: 32))
                   : RefreshIndicator(
                       onRefresh: _fetchRepositories,
@@ -869,7 +869,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         );
         selectedRepo = expandedRepo.fullName;
         debugPrint('Creating issue in expanded repo: $selectedRepo');
-      } catch (e) {
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         // Expanded repo not found or is vault, will use default
         debugPrint('Expanded repo not available, will use default');
       }
@@ -894,7 +895,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             .firstWhere((r) => r.id != 'vault')
             .fullName;
         debugPrint('Creating issue in first available repo: $selectedRepo');
-      } catch (e) {
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No valid repository found'),

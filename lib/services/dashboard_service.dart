@@ -10,13 +10,16 @@ class DashboardService extends GitHubApiService {
   final LocalStorageService _localStorage;
   final SyncService _syncService;
 
+  // Cache for getDisplayedRepos
+  List<RepoItem>? _cachedRepos;
+  String? _cacheKey;
+
   DashboardService({
-    GitHubApiService? githubApi,
+    super.githubApi,
     LocalStorageService? localStorage,
     SyncService? syncService,
   }) : _localStorage = localStorage ?? LocalStorageService(),
-       _syncService = syncService ?? SyncService(),
-       super(githubApi: githubApi);
+       _syncService = syncService ?? SyncService();
 
   /// Get sync cloud state
   SyncCloudState getSyncCloudState({required bool isOfflineMode}) {
@@ -34,6 +37,35 @@ class DashboardService extends GitHubApiService {
 
   /// Get list of repos to display on main screen
   List<RepoItem> getDisplayedRepos({
+    required List<RepoItem> repositories,
+    required bool isOfflineMode,
+    required Set<String> pinnedRepos,
+  }) {
+    // Create cache key from parameters
+    final cacheKey =
+        '${repositories.length}_${isOfflineMode}_${pinnedRepos.length}';
+
+    // Return cached result if available
+    if (_cachedRepos != null && _cacheKey == cacheKey) {
+      return _cachedRepos!;
+    }
+
+    // Calculate result
+    final repos = _calculateDisplayedRepos(
+      repositories: repositories,
+      isOfflineMode: isOfflineMode,
+      pinnedRepos: pinnedRepos,
+    );
+
+    // Cache it
+    _cachedRepos = repos;
+    _cacheKey = cacheKey;
+
+    return repos;
+  }
+
+  /// Internal method to calculate displayed repos (business logic)
+  List<RepoItem> _calculateDisplayedRepos({
     required List<RepoItem> repositories,
     required bool isOfflineMode,
     required Set<String> pinnedRepos,

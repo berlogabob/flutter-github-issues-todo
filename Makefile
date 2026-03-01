@@ -212,3 +212,9 @@ git-push-tag:
 version:
 	@echo "Current version: $(CURRENT_VERSION)"
 	@echo "Next build number: $(NEXT_BUILD)"
+
+# Run build_runner for code generation
+generate:
+	@echo "🔄 Running build_runner..."
+	@dart run build_runner build --delete-conflicting-outputs
+	@echo "✅ Code generation complete"

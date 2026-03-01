@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
 import 'braille_loader.dart';
 
@@ -7,7 +8,7 @@ import 'braille_loader.dart';
 /// - Last sync time when not syncing
 ///
 /// Square widget (1:1 ratio) with consistent size
-class SyncStatusWidget extends StatelessWidget {
+class SyncStatusWidget extends ConsumerWidget {
   final bool isSyncing;
   final DateTime? lastSyncTime;
   final double size;
@@ -20,7 +21,7 @@ class SyncStatusWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SizedBox(width: size, height: size, child: _buildContent());
   }
 

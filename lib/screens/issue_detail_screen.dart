@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../constants/app_colors.dart';
+import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
@@ -96,7 +97,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           _isLoadingComments = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       debugPrint('Failed to load comments: $e');
       if (mounted) {
         setState(() => _isLoadingComments = false);
@@ -772,6 +774,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         _effectiveRepo,
       );
 
+      if (!mounted) return;
+
       setState(() {
         _currentIssue = updatedIssue;
         _isUpdating = false;
@@ -782,10 +786,13 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             ? 'Issue reopened'
             : 'Issue closed',
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('Failed to update issue status: $e');
-      setState(() => _isUpdating = false);
-      _showErrorSnackBar('Failed to update: ${e.toString()}');
+      if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        setState(() => _isUpdating = false);
+        _showErrorSnackBar('Failed to update: ${e.toString()}');
+      }
     }
   }
 
@@ -989,13 +996,18 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         _currentIssue.number!,
         assignees: [],
       );
+      if (!mounted) return;
       setState(() {
         _currentIssue = updatedIssue;
         _isUpdating = false;
       });
-    } catch (e) {
-      setState(() => _isUpdating = false);
-      _showErrorSnackBar('Failed to remove assignee');
+    } catch (e, stackTrace) {
+      debugPrint('Failed to remove assignee: $e');
+      if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        setState(() => _isUpdating = false);
+        _showErrorSnackBar('Failed to remove assignee');
+      }
     }
   }
 
@@ -1031,13 +1043,18 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         _currentIssue.number!,
         label,
       );
+      if (!mounted) return;
       setState(() {
         _currentIssue = updatedIssue;
         _isUpdating = false;
       });
-    } catch (e) {
-      setState(() => _isUpdating = false);
-      _showErrorSnackBar('Failed to remove label');
+    } catch (e, stackTrace) {
+      debugPrint('Failed to remove label: $e');
+      if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        setState(() => _isUpdating = false);
+        _showErrorSnackBar('Failed to remove label');
+      }
     }
   }
 
@@ -1132,7 +1149,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       await _loadComments();
       setState(() => _isUpdating = false);
       _showSnackBar('Comment added');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       setState(() => _isUpdating = false);
       _showErrorSnackBar('Failed to add comment');
     }
@@ -1151,7 +1169,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         _isUpdating = false;
       });
       await _loadComments();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       setState(() => _isUpdating = false);
       _showErrorSnackBar('Failed to refresh');
     }

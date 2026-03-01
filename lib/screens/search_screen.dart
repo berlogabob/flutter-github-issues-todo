@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
+import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
+import '../services/search_history_service.dart';
 import '../widgets/braille_loader.dart';
-import '../widgets/status_badge.dart';
-import '../widgets/label_chip.dart';
+import '../widgets/search_filters_panel.dart';
+import '../widgets/search_result_item.dart';
 import 'issue_detail_screen.dart';
 
 /// Screen for global search across all GitHub issues.
@@ -30,15 +31,24 @@ import 'issue_detail_screen.dart';
 ///   MaterialPageRoute(builder: (context) => const SearchScreen()),
 /// );
 /// ```
-class SearchScreen extends ConsumerStatefulWidget {
+class SearchScreen extends StatefulWidget {
   /// Creates the search screen.
   const SearchScreen({super.key});
 
   @override
-  ConsumerState<SearchScreen> createState() => _SearchScreenState();
+  State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends ConsumerState<SearchScreen> {
+class _SearchScreenState extends State<SearchScreen> {
+  // Search constants
+  static const Duration _debounceDuration = Duration(milliseconds: 500);
+  static const int _maxRepos = 100;
+  static const String _sortByCreated = 'created';
+  static const String _sortByUpdated = 'updated';
+  static const String _sortByTitle = 'title';
+  static const String _sortOrderAsc = 'asc';
+  static const String _sortOrderDesc = 'desc';
+
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
   Timer? _debounceTimer;
@@ -53,6 +63,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _filterTitle = true;
   bool _filterBody = true;
   bool _filterLabels = true;
+
+  // Date filter states
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
+
+  // Sort states
+  String _sortBy = _sortByCreated; // 'created', 'updated', 'title'
+  String _sortOrder = _sortOrderDesc; // 'asc' or 'desc'
+
+  // Author filter state
+  String _authorQuery = '';
+
+  // Quick filter states
+  bool _filterMyIssues = false;
+  bool _filterOpen = false;
+  bool _filterClosed = false;
 
   @override
   void initState() {
@@ -71,6 +97,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  bool get _hasActiveFilters {
+    return _filterMyIssues ||
+        _filterOpen ||
+        _filterClosed ||
+        _dateFrom != null ||
+        _dateTo != null ||
+        _authorQuery.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -80,26 +119,98 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         title: TextField(
           controller: _searchController,
           focusNode: _focusNode,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-          decoration: const InputDecoration(
+          style: const TextStyle(color: AppColors.white, fontSize: 16),
+          decoration: InputDecoration(
             hintText: 'Search issues...',
-            hintStyle: TextStyle(color: Colors.white54),
+            hintStyle: TextStyle(
+              color: AppColors.white.withValues(alpha: 0.54),
+            ),
             border: InputBorder.none,
-            suffixIcon: Icon(Icons.search, color: AppColors.orangePrimary),
+            suffixIcon: const Icon(
+              Icons.search,
+              color: AppColors.orangePrimary,
+            ),
           ),
           onChanged: _onSearchChanged,
           textInputAction: TextInputAction.search,
           onSubmitted: _performSearch,
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: Column(
         children: [
           // Search filters
-          if (_lastQuery.isNotEmpty) _buildSearchFilters(),
+          if (_lastQuery.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SearchFiltersPanel(
+                searchQuery: _searchController.text,
+                sortBy: _sortBy,
+                sortOrder: _sortOrder,
+                dateFrom: _dateFrom,
+                dateTo: _dateTo,
+                authorQuery: _authorQuery,
+                filterMyIssues: _filterMyIssues,
+                filterOpen: _filterOpen,
+                filterClosed: _filterClosed,
+                onSortChanged: (value) {
+                  setState(() => _sortBy = value);
+                  _performSearch(_lastQuery);
+                },
+                onSortOrderChanged: (value) {
+                  setState(() => _sortOrder = value);
+                  _performSearch(_lastQuery);
+                },
+                onDateFromChanged: (value) {
+                  setState(() => _dateFrom = value);
+                  _performSearch(_lastQuery);
+                },
+                onDateToChanged: (value) {
+                  setState(() => _dateTo = value);
+                  _performSearch(_lastQuery);
+                },
+                onAuthorChanged: (value) {
+                  setState(() => _authorQuery = value);
+                  _debounceTimer?.cancel();
+                  _debounceTimer = Timer(_debounceDuration, () {
+                    _performSearch(_lastQuery);
+                  });
+                },
+                onFilterMyIssuesChanged: (value) {
+                  setState(() => _filterMyIssues = value);
+                  _performSearch(_lastQuery);
+                },
+                onFilterOpenChanged: (value) {
+                  setState(() => _filterOpen = value);
+                  if (value) {
+                    setState(() => _filterClosed = false);
+                  }
+                  _performSearch(_lastQuery);
+                },
+                onFilterClosedChanged: (value) {
+                  setState(() => _filterClosed = value);
+                  if (value) {
+                    setState(() => _filterOpen = false);
+                  }
+                  _performSearch(_lastQuery);
+                },
+                onClearAll: () {
+                  setState(() {
+                    _filterMyIssues = false;
+                    _filterOpen = false;
+                    _filterClosed = false;
+                    _dateFrom = null;
+                    _dateTo = null;
+                    _authorQuery = '';
+                  });
+                  _performSearch(_lastQuery);
+                },
+                hasActiveFilters: _hasActiveFilters,
+              ),
+            ),
           // Results
           Expanded(child: _buildResults()),
         ],
@@ -107,143 +218,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildSearchFilters() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Text(
-            'Filters:',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
-          ),
-          const SizedBox(width: 8),
-          _buildFilterChip('Title', true),
-          const SizedBox(width: 4),
-          _buildFilterChip('Body', true),
-          const SizedBox(width: 4),
-          _buildFilterChip('Labels', true),
-          const SizedBox(width: 12),
-          // Status filter dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: AppColors.orangePrimary.withValues(alpha: 0.5),
-              ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: DropdownButton<String>(
-              value: _filterStatus,
-              underline: const SizedBox(),
-              dropdownColor: AppColors.cardBackground,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-              items: const [
-                DropdownMenuItem(value: 'all', child: Text('All')),
-                DropdownMenuItem(value: 'open', child: Text('Open')),
-                DropdownMenuItem(value: 'closed', child: Text('Closed')),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _filterStatus = value;
-                  });
-                  if (_lastQuery.isNotEmpty) {
-                    _performSearch(_lastQuery);
-                  }
-                }
-              },
-            ),
-          ),
-          const Spacer(),
-          TextButton(
-            onPressed: _clearFilters,
-            child: const Text(
-              'Clear',
-              style: TextStyle(color: AppColors.orangePrimary, fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, bool isActive) {
-    bool isSelected;
-    String filterType;
-
-    switch (label) {
-      case 'Title':
-        isSelected = _filterTitle;
-        filterType = 'title';
-        break;
-      case 'Body':
-        isSelected = _filterBody;
-        filterType = 'body';
-        break;
-      case 'Labels':
-        isSelected = _filterLabels;
-        filterType = 'labels';
-        break;
-      default:
-        isSelected = isActive;
-        filterType = label.toLowerCase();
-    }
-
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      backgroundColor: AppColors.background,
-      selectedColor: AppColors.orangePrimary.withValues(alpha: 0.3),
-      checkmarkColor: AppColors.orangePrimary,
-      labelStyle: TextStyle(
-        color: isSelected
-            ? AppColors.orangePrimary
-            : Colors.white.withValues(alpha: 0.7),
-        fontSize: 11,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      onSelected: (selected) {
-        setState(() {
-          switch (filterType) {
-            case 'title':
-              _filterTitle = selected;
-              break;
-            case 'body':
-              _filterBody = selected;
-              break;
-            case 'labels':
-              _filterLabels = selected;
-              break;
-          }
-        });
-        if (_lastQuery.isNotEmpty) {
-          _performSearch(_lastQuery);
-        }
-      },
-    );
-  }
-
   Widget _buildResults() {
     if (_isSearching) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            BrailleLoader(size: 32),
-            SizedBox(height: 16),
+            const BrailleLoader(size: 32),
+            const SizedBox(height: 16),
             Text(
               'Searching...',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(
+                color: AppColors.white.withValues(alpha: 0.54),
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -264,7 +252,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Text(
               'Search Error',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
+                color: AppColors.white.withValues(alpha: 0.5),
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -275,7 +263,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: Text(
                 _searchError!,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: AppColors.white.withValues(alpha: 0.3),
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -292,7 +280,77 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
 
     if (_lastQuery.isEmpty) {
-      return _buildEmptyState();
+      return Column(
+        children: [
+          // Show search history when query is empty
+          FutureBuilder<List<String>>(
+            future: SearchHistoryService().getHistory(),
+            builder: (context, snapshot) {
+              final history = snapshot.data ?? [];
+              if (history.isEmpty) return const SizedBox.shrink();
+
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Recent Searches',
+                          style: TextStyle(
+                            color: AppColors.white.withValues(alpha: 0.7),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            await SearchHistoryService().clearHistory();
+                            if (!mounted) return;
+                            setState(() {}); // Refresh
+                          },
+                          child: const Text(
+                            'Clear',
+                            style: TextStyle(color: AppColors.orangePrimary),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: history.map((query) {
+                        return InkWell(
+                          onTap: () {
+                            setState(() => _searchController.text = query);
+                            _performSearch(query);
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Chip(
+                            label: Text(
+                              query,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            deleteIcon: const Icon(Icons.close, size: 18),
+                            onDeleted: () {
+                              SearchHistoryService().removeFromHistory(query);
+                              setState(() {}); // Refresh
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          Expanded(child: _buildEmptyState()),
+        ],
+      );
     }
 
     if (_searchResults.isEmpty) {
@@ -304,7 +362,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final issue = _searchResults[index];
-        return _buildSearchResult(issue);
+        return SearchResultItem(issue: issue, onTap: () => _openIssue(issue));
       },
     );
   }
@@ -317,13 +375,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           Icon(
             Icons.search,
             size: 80,
-            color: Colors.white.withValues(alpha: 0.2),
+            color: AppColors.white.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 24),
           Text(
             'Search Issues',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: AppColors.white.withValues(alpha: 0.5),
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -332,7 +390,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           Text(
             'Search by title, labels, or body',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.3),
+              color: AppColors.white.withValues(alpha: 0.3),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -350,13 +408,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           Icon(
             Icons.search_off,
             size: 80,
-            color: Colors.white.withValues(alpha: 0.2),
+            color: AppColors.white.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 24),
           Text(
             'No results found',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: AppColors.white.withValues(alpha: 0.5),
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -365,7 +423,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           Text(
             'Try different keywords or filters',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.3),
+              color: AppColors.white.withValues(alpha: 0.3),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -375,77 +433,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildSearchResult(IssueItem issue) {
-    return Card(
-      color: AppColors.cardBackground,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: StatusBadge(status: issue.status),
-        title: Text(
-          '#${issue.number} ${issue.title}',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (issue.bodyMarkdown != null &&
-                issue.bodyMarkdown!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                issue.bodyMarkdown!,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            if (issue.labels.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 4,
-                children: issue.labels
-                    .take(3)
-                    .map((label) => LabelChipWidget(label: label))
-                    .toList(),
-              ),
-            ],
-            if (issue.assigneeLogin != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.person, size: 12, color: AppColors.blue),
-                  const SizedBox(width: 4),
-                  Text(
-                    issue.assigneeLogin!,
-                    style: const TextStyle(color: AppColors.blue, fontSize: 11),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
-        onTap: () => _openIssue(issue),
-      ),
-    );
-  }
-
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+    _debounceTimer = Timer(_debounceDuration, () {
       _performSearch(query);
     });
   }
 
   Future<void> _performSearch(String query) async {
+    // Save to history if query is not empty
+    if (query.trim().isNotEmpty) {
+      SearchHistoryService().addToHistory(query);
+    }
+
     if (query.trim().isEmpty) {
       setState(() {
         _searchResults = [];
@@ -464,7 +464,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     try {
       // Search issues across all user repositories
       final allIssues = <IssueItem>[];
-      final repos = await _githubApi.fetchMyRepositories(perPage: 100);
+      final repos = await _githubApi.fetchMyRepositories(perPage: _maxRepos);
 
       for (final repo in repos) {
         try {
@@ -498,29 +498,121 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
             allIssues.addAll(matchingIssues);
           }
-        } catch (e) {
+        } catch (e, stackTrace) {
           debugPrint('Error searching ${repo.fullName}: $e');
+          if (mounted) {
+            AppErrorHandler.handle(
+              e,
+              stackTrace: stackTrace,
+              context: context,
+              showSnackBar: false,
+            );
+          }
           // Continue with next repo
         }
       }
 
       // Apply status filter
-      final filteredIssues = allIssues.where((issue) {
+      final statusFiltered = allIssues.where((issue) {
         if (_filterStatus == 'all') return true;
         if (_filterStatus == 'open') return issue.status == ItemStatus.open;
         if (_filterStatus == 'closed') return issue.status == ItemStatus.closed;
         return true;
       }).toList();
 
+      // Apply date filtering
+      final dateFiltered = statusFiltered.where((issue) {
+        if (_dateFrom == null && _dateTo == null) return true;
+
+        final createdAt = issue.createdAt ?? issue.updatedAt;
+        if (createdAt == null) return true;
+
+        if (_dateFrom != null && createdAt.isBefore(_dateFrom!)) return false;
+        if (_dateTo != null && createdAt.isAfter(_dateTo!)) return false;
+
+        return true;
+      }).toList();
+
+      // Apply author filtering
+      final authorFiltered = dateFiltered.where((issue) {
+        if (_authorQuery.isEmpty) return true;
+        final assignee = issue.assigneeLogin?.toLowerCase() ?? '';
+        return assignee.contains(_authorQuery.toLowerCase());
+      }).toList();
+
+      // Apply quick filters
+      final quickFiltered = authorFiltered.where((issue) {
+        // My Issues filter
+        if (_filterMyIssues) {
+          // You'll need to get current user login - for now use placeholder
+          // In production, fetch from auth service
+          final currentLogin = 'current_user'; // TODO: Get from auth
+          if (issue.assigneeLogin != currentLogin) return false;
+        }
+
+        // Open/Closed filter
+        if (_filterOpen && issue.status != ItemStatus.open) return false;
+        if (_filterClosed && issue.status != ItemStatus.closed) return false;
+
+        return true;
+      }).toList();
+
+      // Sort results
+      quickFiltered.sort((a, b) {
+        int comparison = 0;
+
+        switch (_sortBy) {
+          case _sortByCreated:
+            final aDate = a.createdAt ?? a.updatedAt;
+            final bDate = b.createdAt ?? b.updatedAt;
+            if (aDate == null && bDate == null) {
+              comparison = 0;
+            } else if (aDate == null) {
+              comparison = 1;
+            } else if (bDate == null) {
+              comparison = -1;
+            } else {
+              comparison = aDate.compareTo(bDate);
+            }
+            break;
+
+          case _sortByUpdated:
+            final aDate = a.updatedAt;
+            final bDate = b.updatedAt;
+            if (aDate == null && bDate == null) {
+              comparison = 0;
+            } else if (aDate == null) {
+              comparison = 1;
+            } else if (bDate == null) {
+              comparison = -1;
+            } else {
+              comparison = aDate.compareTo(bDate);
+            }
+            break;
+
+          case _sortByTitle:
+            comparison = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+            break;
+        }
+
+        return _sortOrder == _sortOrderDesc ? -comparison : comparison;
+      });
+
       if (mounted) {
         setState(() {
-          _searchResults = filteredIssues;
+          _searchResults = quickFiltered; // Use the sorted and filtered list
           _isSearching = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('Search error: $e');
       if (mounted) {
+        AppErrorHandler.handle(
+          e,
+          stackTrace: stackTrace,
+          context: context,
+          showSnackBar: true,
+        );
         setState(() {
           _searchError = e.toString();
           _isSearching = false;
@@ -535,6 +627,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _filterBody = true;
       _filterLabels = true;
       _filterStatus = 'all';
+      _filterMyIssues = false;
+      _filterOpen = false;
+      _filterClosed = false;
+      _dateFrom = null;
+      _dateTo = null;
+      _authorQuery = '';
     });
     if (_lastQuery.isNotEmpty) {
       _performSearch(_lastQuery);

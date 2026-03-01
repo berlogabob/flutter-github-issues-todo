@@ -18,32 +18,31 @@ class IssueItem extends Item {
   @HiveField(23)
   String? projectItemNodeId;
 
+  @HiveField(24)
+  DateTime? createdAt;
+
   IssueItem({
-    required String id,
-    required String title,
+    required super.id,
+    required super.title,
     this.number,
     this.bodyMarkdown,
     this.projectColumnName,
     this.projectItemNodeId,
+    this.createdAt,
     ItemStatus? status,
-    DateTime? updatedAt,
-    String? assigneeLogin,
+    super.updatedAt,
+    super.assigneeLogin,
     List<String>? labels,
     List<Item>? children,
     bool? isExpanded,
     bool? isLocalOnly,
-    DateTime? localUpdatedAt,
+    super.localUpdatedAt,
   }) : super(
-         id: id,
-         title: title,
          status: status ?? ItemStatus.open,
-         updatedAt: updatedAt,
-         assigneeLogin: assigneeLogin,
          labels: labels ?? const [],
          children: children ?? const [],
          isExpanded: isExpanded ?? false,
          isLocalOnly: isLocalOnly ?? false,
-         localUpdatedAt: localUpdatedAt,
        );
 
   @override
@@ -55,6 +54,7 @@ class IssueItem extends Item {
       'bodyMarkdown': bodyMarkdown,
       'projectColumnName': projectColumnName,
       'projectItemNodeId': projectItemNodeId,
+      'createdAt': createdAt?.toIso8601String(),
       'status': status.toString().split('.').last,
       'updatedAt': updatedAt?.toIso8601String(),
       'assigneeLogin': assigneeLogin,
@@ -74,6 +74,9 @@ class IssueItem extends Item {
       bodyMarkdown: json['bodyMarkdown'] as String?,
       projectColumnName: json['projectColumnName'] as String?,
       projectItemNodeId: json['projectItemNodeId'] as String?,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : null,
       status: ItemStatus.values.firstWhere(
         (e) => e.toString().split('.').last == json['status'],
         orElse: () => ItemStatus.open,
@@ -105,6 +108,7 @@ class IssueItem extends Item {
     String? bodyMarkdown,
     String? projectColumnName,
     String? projectItemNodeId,
+    DateTime? createdAt,
     ItemStatus? status,
     DateTime? updatedAt,
     String? assigneeLogin,
@@ -121,6 +125,7 @@ class IssueItem extends Item {
       bodyMarkdown: bodyMarkdown ?? this.bodyMarkdown,
       projectColumnName: projectColumnName ?? this.projectColumnName,
       projectItemNodeId: projectItemNodeId ?? this.projectItemNodeId,
+      createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
       updatedAt: updatedAt ?? this.updatedAt,
       assigneeLogin: assigneeLogin ?? this.assigneeLogin,

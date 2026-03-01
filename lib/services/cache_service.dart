@@ -17,9 +17,13 @@ class CacheService {
     _isInitialized = true;
   }
 
-  /// Get cached value if not expired
+  /// Get cached value if not expired (auto-initializes if needed)
   T? get<T>(String key) {
-    if (!_isInitialized) return null;
+    if (!_isInitialized) {
+      // Auto-initialize on first get
+      init();
+      return null;
+    }
 
     final data = _cache.get(key);
     if (data == null) return null;

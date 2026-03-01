@@ -72,7 +72,7 @@ class IssueCard extends StatelessWidget {
                     // Title - show issue number for GitHub issues, nothing for local
                     Text(
                       issue.isLocalOnly
-                          ? '${issue.title}'
+                          ? issue.title
                           : '#${issue.number} ${issue.title}',
                       style: const TextStyle(
                         color: Colors.white,

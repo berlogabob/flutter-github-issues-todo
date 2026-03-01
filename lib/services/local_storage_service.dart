@@ -2,8 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
+
+part 'local_storage_service.g.dart';
 
 /// Local Storage Service - Persists data between app sessions
 class LocalStorageService {
@@ -27,7 +31,8 @@ class LocalStorageService {
     try {
       await _saveIssueToVaultFile(issue);
       debugPrint('Saved local issue to vault: ${issue.title}');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving local issue: $e');
     }
   }
@@ -61,7 +66,8 @@ class LocalStorageService {
       final file = File(filePath);
       await file.writeAsString(content);
       debugPrint('Saved markdown file: $filePath');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving issue to vault: $e');
     }
   }
@@ -122,12 +128,14 @@ class LocalStorageService {
             if (issue != null) {
               issues.add(issue);
             }
-          } catch (e) {
+          } catch (e, stackTrace) {
+            AppErrorHandler.handle(e, stackTrace: stackTrace);
             debugPrint('Error reading vault file ${entity.path}: $e');
           }
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error loading issues from vault: $e');
     }
 
@@ -221,7 +229,8 @@ class LocalStorageService {
         updatedAt: updatedAt ?? DateTime.now(),
         isLocalOnly: true,
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error parsing markdown file: $e');
       return null;
     }
@@ -242,7 +251,8 @@ class LocalStorageService {
           debugPrint('Deleted vault file: ${entity.path}');
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error removing local issue: $e');
     }
   }
@@ -252,7 +262,8 @@ class LocalStorageService {
     try {
       await _storage.write(key: _userKey, value: json.encode(userData));
       debugPrint('Saved user data: ${userData['login']}');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving user data: $e');
     }
   }
@@ -263,7 +274,8 @@ class LocalStorageService {
       final userJson = await _storage.read(key: _userKey);
       if (userJson == null) return null;
       return json.decode(userJson);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting user data: $e');
       return null;
     }
@@ -276,7 +288,8 @@ class LocalStorageService {
       await _storage.delete(key: _reposKey);
       await _storage.delete(key: _userKey);
       debugPrint('Cleared all local data');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error clearing data: $e');
     }
   }
@@ -302,7 +315,8 @@ class LocalStorageService {
       };
       await _storage.write(key: _filtersKey, value: json.encode(filters));
       debugPrint('Saved filters: $filters');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving filters: $e');
     }
   }
@@ -322,7 +336,8 @@ class LocalStorageService {
       final filters = json.decode(filtersJson);
       debugPrint('Loaded filters: $filters');
       return filters;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting filters: $e');
       return {'filterStatus': 'open', 'selectedProject': null};
     }
@@ -336,7 +351,8 @@ class LocalStorageService {
         value: json.encode(projects.map((p) => p).toList()),
       );
       debugPrint('Saved ${projects.length} projects');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving projects: $e');
     }
   }
@@ -351,7 +367,8 @@ class LocalStorageService {
 
       final List<dynamic> projects = json.decode(projectsJson);
       return projects.map((p) => p as Map<String, dynamic>).toList();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting projects: $e');
       return [];
     }
@@ -376,7 +393,8 @@ class LocalStorageService {
       );
 
       debugPrint('Saved ${issues.length} synced issues for $repoFullName');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving synced issues: $e');
     }
   }
@@ -393,7 +411,8 @@ class LocalStorageService {
 
       final List<dynamic> issues = json.decode(issuesJson);
       return issues.map((i) => IssueItem.fromJson(i)).toList();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting synced issues: $e');
       return [];
     }
@@ -407,7 +426,8 @@ class LocalStorageService {
 
       if (timestamp == null) return null;
       return DateTime.parse(timestamp);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting sync time: $e');
       return null;
     }
@@ -426,7 +446,8 @@ class LocalStorageService {
       );
 
       debugPrint('Removed synced issue: $issueId');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error removing synced issue: $e');
     }
   }
@@ -443,7 +464,8 @@ class LocalStorageService {
         value: DateTime.now().toIso8601String(),
       );
       debugPrint('Saved ${projects.length} synced projects');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving synced projects: $e');
     }
   }
@@ -458,7 +480,8 @@ class LocalStorageService {
 
       final List<dynamic> projects = json.decode(projectsJson);
       return projects.map((p) => p as Map<String, dynamic>).toList();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting synced projects: $e');
       return [];
     }
@@ -470,7 +493,8 @@ class LocalStorageService {
       final timestamp = await _storage.read(key: 'synced_projects_timestamp');
       if (timestamp == null) return null;
       return DateTime.parse(timestamp);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting projects sync time: $e');
       return null;
     }
@@ -481,7 +505,8 @@ class LocalStorageService {
     try {
       await _storage.write(key: 'default_repo', value: repoFullName);
       debugPrint('Saved default repo: $repoFullName');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving default repo: $e');
     }
   }
@@ -491,7 +516,8 @@ class LocalStorageService {
     try {
       final repo = await _storage.read(key: 'default_repo');
       return repo;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting default repo: $e');
       return null;
     }
@@ -502,7 +528,8 @@ class LocalStorageService {
     try {
       await _storage.write(key: 'default_project', value: projectName);
       debugPrint('Saved default project: $projectName');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving default project: $e');
     }
   }
@@ -512,7 +539,8 @@ class LocalStorageService {
     try {
       final project = await _storage.read(key: 'default_project');
       return project;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting default project: $e');
       return null;
     }
@@ -523,7 +551,8 @@ class LocalStorageService {
     try {
       await _storage.write(key: 'hide_username', value: hide.toString());
       debugPrint('Saved hide username setting: $hide');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving hide username setting: $e');
     }
   }
@@ -535,9 +564,15 @@ class LocalStorageService {
       // Default to true (hide username, show just repo name)
       if (value == null) return true;
       return value == 'true';
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting hide username setting: $e');
       return true;
     }
   }
+}
+
+@Riverpod(keepAlive: true)
+LocalStorageService localStorageService(Ref ref) {
+  return LocalStorageService();
 }

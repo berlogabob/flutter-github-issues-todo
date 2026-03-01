@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../utils/app_error_handler.dart';
 import '../services/github_api_service.dart';
 import '../models/repo_item.dart';
 import '../widgets/braille_loader.dart';
@@ -64,7 +65,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
 
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
-  List<String> _labels = [];
+  final List<String> _labels = [];
   String? _assignee;
   String? _selectedRepoFullName;
   bool _isSaving = false;
@@ -110,6 +111,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
       // Fetch labels
       debugPrint('Fetching labels...');
       final labels = await _githubApi.fetchRepoLabels(owner, repo);
+      if (!mounted) return;
       debugPrint('Loaded ${labels.length} labels');
       setState(() {
         _availableLabels = labels;
@@ -119,12 +121,14 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
       // Fetch collaborators for assignee
       debugPrint('Fetching collaborators...');
       final assignees = await _githubApi.fetchRepoCollaborators(owner, repo);
+      if (!mounted) return;
       debugPrint('Loaded ${assignees.length} collaborators');
       setState(() {
         _availableAssignees = assignees;
         _isLoadingAssignees = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       debugPrint('Error loading repo data: $e');
       if (mounted) {
         setState(() {
@@ -558,11 +562,11 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         );
         Navigator.pop(context, createdIssue);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       debugPrint('Error creating issue: $e');
-      setState(() => _isSaving = false);
-
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to create issue: ${e.toString()}'),

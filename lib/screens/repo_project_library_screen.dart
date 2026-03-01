@@ -640,7 +640,7 @@ class _RepoProjectLibraryScreenState
   }
 
   void _addByUri() {
-    final _controller = TextEditingController();
+    final controller = TextEditingController();
 
     showDialog(
       context: context,
@@ -660,7 +660,7 @@ class _RepoProjectLibraryScreenState
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: _controller,
+              controller: controller,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'berlogabob/gitdoit',
@@ -683,7 +683,7 @@ class _RepoProjectLibraryScreenState
         actions: [
           TextButton(
             onPressed: () {
-              _controller.dispose();
+              controller.dispose();
               Navigator.pop(context);
             },
             child: const Text(
@@ -693,8 +693,8 @@ class _RepoProjectLibraryScreenState
           ),
           ElevatedButton(
             onPressed: () {
-              final value = _controller.text.trim();
-              _controller.dispose();
+              final value = controller.text.trim();
+              controller.dispose();
               Navigator.pop(context);
               if (value.isNotEmpty) {
                 _handleRepoInput(value);

@@ -10,28 +10,23 @@ class ProjectItem extends Item {
   String? projectNodeId;
 
   ProjectItem({
-    required String id,
-    required String title,
+    required super.id,
+    required super.title,
     this.projectNodeId,
     ItemStatus? status,
-    DateTime? updatedAt,
-    String? assigneeLogin,
+    super.updatedAt,
+    super.assigneeLogin,
     List<String>? labels,
     List<Item>? children,
     bool? isExpanded,
     bool? isLocalOnly,
-    DateTime? localUpdatedAt,
+    super.localUpdatedAt,
   }) : super(
-         id: id,
-         title: title,
          status: status ?? ItemStatus.open,
-         updatedAt: updatedAt,
-         assigneeLogin: assigneeLogin,
          labels: labels ?? const [],
          children: children ?? const [],
          isExpanded: isExpanded ?? false,
          isLocalOnly: isLocalOnly ?? false,
-         localUpdatedAt: localUpdatedAt,
        );
 
   @override

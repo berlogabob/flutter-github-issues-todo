@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'constants/app_colors.dart';
+import 'utils/app_error_handler.dart';
 import 'services/secure_storage_service.dart';
+import 'providers/app_providers.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/main_dashboard_screen.dart';
 
@@ -29,33 +32,28 @@ final authStateProvider = FutureProvider<AuthState>((ref) async {
   }
 });
 
-class AuthState {
-  final bool isAuthenticated;
-  final String authType;
-  final String? token;
-
-  AuthState({
-    required this.isAuthenticated,
-    required this.authType,
-    required this.token,
-  });
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Hive for caching
+  await Hive.initFlutter();
+
   // Add Flutter error handlers
   FlutterError.onError = (FlutterErrorDetails details) {
-    debugPrint('Flutter Error: ${details.exception}');
-    debugPrint('Stack: ${details.stack}');
-    // In production: log to analytics/crash reporting
+    AppErrorHandler.handle(
+      details.exception,
+      stackTrace: details.stack,
+      showSnackBar: false, // Don't show SnackBar for Flutter errors
+    );
   };
 
   WidgetsBinding.instance.platformDispatcher.onError =
       (Object error, StackTrace stack) {
-        debugPrint('Platform Error: $error');
-        debugPrint('Stack: $stack');
-        // In production: log to analytics/crash reporting
+        AppErrorHandler.handle(
+          error,
+          stackTrace: stack,
+          showSnackBar: false, // Don't show SnackBar for platform errors
+        );
         return true;
       };
 

@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'local_storage_service.dart';
 import 'github_api_service.dart';
+import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
+
+part 'sync_service.g.dart';
 
 /// Sync Service - Handles synchronization between local storage and GitHub
 ///
@@ -14,9 +18,7 @@ import '../models/issue_item.dart';
 /// - Sync status tracking
 /// - Background sync support
 class SyncService {
-  static final SyncService _instance = SyncService._internal();
-  factory SyncService() => _instance;
-  SyncService._internal();
+  SyncService();
 
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
@@ -123,7 +125,8 @@ class SyncService {
         debugPrint('SyncService: Found $localOnlyCount local issues to sync');
         onSyncNeeded!();
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('SyncService: Error checking local issues: $e');
     }
   }
@@ -152,7 +155,8 @@ class SyncService {
       _syncStatus = 'success';
       _notifyListeners();
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('SyncService: Failed to sync local issues: $e');
       _syncStatus = 'error';
       _syncErrorMessage = e.toString();
@@ -168,7 +172,8 @@ class SyncService {
     try {
       final results = await Connectivity().checkConnectivity();
       _updateNetworkStatus(results);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('SyncService: Failed to check network status: $e');
       _isNetworkAvailable = false;
     }
@@ -228,7 +233,8 @@ class SyncService {
 
       _notifyListeners();
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('SyncService: Sync failed: $e');
       _syncStatus = 'error';
       _syncErrorMessage = e.toString();
@@ -303,7 +309,8 @@ class SyncService {
 
           // Remove synced local-only issues
           await _syncLocalIssuesToGitHub(owner, repoName, localIssues);
-        } catch (e) {
+        } catch (e, stackTrace) {
+          AppErrorHandler.handle(e, stackTrace: stackTrace);
           debugPrint('SyncService: Failed to sync ${repo.fullName}: $e');
           // Continue with next repo
         }
@@ -311,7 +318,8 @@ class SyncService {
 
       _syncedIssuesCount = totalSynced;
       debugPrint('SyncService: Issues sync completed ($totalSynced issues)');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('SyncService: Issues sync failed: $e');
       rethrow;
     }
@@ -343,7 +351,8 @@ class SyncService {
 
       _syncedProjectsCount = projects.length;
       debugPrint('SyncService: Projects sync completed');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('SyncService: Projects sync failed: $e');
       rethrow;
     }
@@ -437,7 +446,8 @@ class SyncService {
         await _localStorage.removeLocalIssue(issue.id);
 
         debugPrint('SyncService: Removed local issue ${issue.id}');
-      } catch (e) {
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace);
         debugPrint(
           'SyncService: Failed to sync local issue "${issue.title}": $e',
         );
@@ -474,4 +484,12 @@ class SyncService {
       listener();
     }
   }
+}
+
+@Riverpod(keepAlive: true)
+SyncService syncService(Ref ref) {
+  final service = SyncService();
+  service.init();
+  ref.onDispose(() => service.dispose());
+  return service;
 }

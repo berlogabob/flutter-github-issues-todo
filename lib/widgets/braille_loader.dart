@@ -23,7 +23,7 @@ class BrailleLoader extends StatefulWidget {
 class _BrailleLoaderState extends State<BrailleLoader>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _animation;
+  late Animation<int> _frameAnimation;
 
   // Braille characters for loading animation (increasing dot count)
   static const List<String> _brailleFrames = [
@@ -41,25 +41,18 @@ class _BrailleLoaderState extends State<BrailleLoader>
     super.initState();
 
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    _animation = Tween<double>(
+    // Create discrete frame animation (no interpolation)
+    _frameAnimation = StepTween(
       begin: 0,
-      end: (_brailleFrames.length - 1).toDouble(),
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+      end: _brailleFrames.length,
+    ).animate(_controller);
 
-    // Auto-reverse animation for smooth looping
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _controller.reverse();
-      } else if (status == AnimationStatus.dismissed) {
-        _controller.forward();
-      }
-    });
-
-    _controller.forward();
+    // Loop continuously
+    _controller.repeat();
   }
 
   @override
@@ -70,30 +63,27 @@ class _BrailleLoaderState extends State<BrailleLoader>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        // Get current frame index (rounded for discrete frames)
-        final frameIndex = _animation.value.round();
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: AnimatedBuilder(
+        animation: _frameAnimation,
+        builder: (context, child) {
+          final frameIndex = _frameAnimation.value % _brailleFrames.length;
 
-        return SizedBox(
-          width: widget.size,
-          height: widget.size,
-          child: Center(
-            child: Text(
-              _brailleFrames[frameIndex],
-              style: TextStyle(
-                fontSize: widget.size * 0.9, // Slightly smaller to fit
-                color: widget.color ?? AppColors.orange,
-                fontWeight: FontWeight.bold,
-                height: 1, // Ensure square aspect ratio
-                fontFamily: 'monospace', // Monospace for consistent width
-              ),
-              textAlign: TextAlign.center,
+          return Text(
+            _brailleFrames[frameIndex],
+            style: TextStyle(
+              fontSize: widget.size * 0.9,
+              color: widget.color ?? AppColors.orange,
+              fontWeight: FontWeight.bold,
+              height: 1,
+              fontFamily: 'monospace',
             ),
-          ),
-        );
-      },
+            textAlign: TextAlign.center,
+          );
+        },
+      ),
     );
   }
 }

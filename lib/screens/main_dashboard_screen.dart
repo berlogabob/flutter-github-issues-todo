@@ -15,6 +15,7 @@ import '../services/secure_storage_service.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/expandable_repo.dart';
 import '../widgets/sync_cloud_icon.dart';
+import '../widgets/sync_status_widget.dart';
 import 'create_issue_screen.dart';
 import '../utils/responsive_utils.dart';
 import 'issue_detail_screen.dart';
@@ -36,10 +37,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
   final SyncService _syncService = SyncService();
-
-  // App repository to filter from display
-  static const String _appRepoFullName =
-      'berlogabob/flutter-github-issues-todo';
 
   String _filterStatus = 'open';
   bool _hideUsernameInRepo =
@@ -427,17 +424,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         // Always reload local issues
         final localIssues = await _localStorage.getLocalIssues();
 
-        // Filter out the app's own repository
-        final filteredRepos = repos.where((repo) {
-          final isAppRepo = repo.fullName == _appRepoFullName;
-          if (isAppRepo) {
-            debugPrint('Filtering out app repository: $_appRepoFullName');
-          }
-          return !isAppRepo;
-        }).toList();
-
         setState(() {
-          _repositories = filteredRepos;
+          _repositories = repos; // Don't filter, show all repos
 
           // Add vault repo back with updated local issues
           if (existingVaultRepo != null ||
@@ -455,9 +443,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           }
 
           _isFetchingRepos = false;
-          debugPrint(
-            '✓ UI updated with ${_repositories.length} repos (app repo filtered)',
-          );
+          debugPrint('✓ UI updated with ${_repositories.length} repos');
         });
 
         // Auto-pin default repo if no pinned repos exist
@@ -665,33 +651,21 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           ),
         ),
         actions: [
-          // Sync cloud icon with states + Last sync time
+          // Sync cloud icon with sync status widget
           Padding(
-            padding: EdgeInsets.only(right: 4.w),
-            child: Column(
+            padding: EdgeInsets.only(right: 8.w),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SyncCloudIcon(state: _getSyncCloudState(), size: 24.w),
-                    // Add BrailleLoader next to icon when syncing
-                    if (_syncService.isSyncing) ...[
-                      SizedBox(width: 4.w),
-                      BrailleLoader(size: 16.w),
-                    ],
-                  ],
+                // Cloud icon (static)
+                SyncCloudIcon(state: _getSyncCloudState(), size: 24.w),
+                // Sync status widget (BrailleLoader or time)
+                SizedBox(width: 4.w),
+                SyncStatusWidget(
+                  isSyncing: _syncService.isSyncing,
+                  lastSyncTime: _syncService.lastSyncTime,
+                  size: 24.w,
                 ),
-                if (_syncService.lastSyncTime != null)
-                  Text(
-                    _getLastSyncText(),
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 7.sp, // Slightly smaller for readability
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
               ],
             ),
           ),
@@ -1208,7 +1182,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   /// Get list of repos to display on main screen
   /// - Offline mode: show only vault
-  /// - Online mode: show only default repo
+  /// - Online mode: show pinned repos (or first repo if none pinned)
   List<RepoItem> _getDisplayedRepos() {
     if (_repositories.isEmpty) return [];
 
@@ -1217,26 +1191,24 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       return _repositories.where((r) => r.id == 'vault').toList();
     }
 
-    // Online mode: show only default repo
-    if (_defaultRepoSetting != null && _defaultRepoSetting!.isNotEmpty) {
-      try {
-        final defaultRepo = _repositories.firstWhere(
-          (r) => r.fullName == _defaultRepoSetting && r.id != 'vault',
-        );
-        debugPrint('Displaying default repo: $_defaultRepoSetting');
-        return [defaultRepo];
-      } catch (e) {
-        debugPrint('Default repo not found in list: $_defaultRepoSetting');
+    // Online mode: show pinned repos
+    if (_pinnedRepos.isNotEmpty) {
+      final pinned = _repositories
+          .where((r) => _pinnedRepos.contains(r.fullName) && r.id != 'vault')
+          .toList();
+      if (pinned.isNotEmpty) {
+        debugPrint('Displaying ${pinned.length} pinned repo(s): $_pinnedRepos');
+        return pinned;
       }
     }
 
-    // Fallback: if no default set, show first non-vault repo
+    // Fallback: if no pinned repos, show first non-vault repo
     try {
       final firstRepo = _repositories.firstWhere(
         (r) => r.id != 'vault',
         orElse: () => _repositories.first,
       );
-      debugPrint('No default repo set, showing: ${firstRepo.fullName}');
+      debugPrint('No pinned repos, showing: ${firstRepo.fullName}');
       return [firstRepo];
     } catch (e) {
       return _repositories;

@@ -371,13 +371,19 @@ Column(
 
 | Task | Status | Sprint | Fixed In |
 |------|--------|--------|----------|
-| Filter app repository | ✅ DONE | Post-Sprint | v0.5.0+47 |
+| Filter app repository | ✅ REMOVED | Post-Sprint | v0.5.0+56 |
 | Show only default repo | ✅ DONE | Post-Sprint | v0.5.0+47 |
 | Static cloud icon + BrailleLoader | ✅ DONE | Post-Sprint | v0.5.0+47 |
 | Cloud icon state updates | ✅ DONE | Post-Sprint | v0.5.0+48 |
 | Remove "Showing repo" notification | ✅ DONE | Post-Sprint | v0.5.0+49 |
 | Swipe right to edit issue | ✅ DONE | Post-Sprint | v0.5.0+50 |
 | Library swipe links to main screen | ✅ DONE | Post-Sprint | v0.5.0+51 |
+| BrailleLoader smooth rotation | ✅ DONE | Post-Sprint | v0.5.0+52 |
+| BrailleLoader overlay flash fix | ✅ DONE | Post-Sprint | v0.5.0+53 |
+| Unified sync status widget | ✅ DONE | Post-Sprint | v0.5.0+54 |
+| Library swipe actual linking | ✅ DONE | Post-Sprint | v0.5.0+55 |
+| App repo visible again | ✅ DONE | Post-Sprint | v0.5.0+56 |
+| App version in settings | ✅ DONE | Post-Sprint | v0.5.0+57 |
 | GitHub Issue #15 | ⏳ Pending | - | - |
 | GitHub Issue #16 | ⏳ Pending | - | - |
 | GitHub Issue #17 | ⏳ Pending | - | - |
@@ -395,5 +401,5 @@ Column(
 ---
 
 **Last Build:** v0.5.0+46  
-**Current Build:** v0.5.0+51 ✅ (all fixes + swipe sync)  
-**Next Build:** v0.5.0+52 (pending GitHub issues)
+**Current Build:** v0.5.0+57 ✅ (all fixes + correct version)  
+**Next Build:** v0.5.0+58 (pending GitHub issues)

@@ -27,8 +27,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isLoadingUser = true;
 
   String _getAppVersion() {
-    // Version is read from pubspec.yaml - update here when version changes
-    return '0.5.0+40';
+    // Version from pubspec.yaml: 0.5.0+55
+    return '0.5.0+55';
   }
 
   // User data - will be fetched from GitHub

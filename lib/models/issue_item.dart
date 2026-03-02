@@ -1,24 +1,11 @@
-import 'package:hive/hive.dart';
 import 'item.dart';
 
-part 'issue_item.g.dart';
-
 /// Issue item representing a GitHub issue
-@HiveType(typeId: 2)
 class IssueItem extends Item {
-  @HiveField(20)
   int? number;
-
-  @HiveField(21)
   String? bodyMarkdown;
-
-  @HiveField(22)
   String? projectColumnName;
-
-  @HiveField(23)
   String? projectItemNodeId;
-
-  @HiveField(24)
   DateTime? createdAt;
 
   IssueItem({

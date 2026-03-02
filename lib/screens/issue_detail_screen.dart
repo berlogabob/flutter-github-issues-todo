@@ -6,8 +6,11 @@ import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
+import '../models/pending_operation.dart';
 import '../services/github_api_service.dart';
 import '../services/issue_service.dart';
+import '../services/network_service.dart';
+import '../services/pending_operations_service.dart';
 import '../utils/relative_time.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/label_chip.dart';
@@ -66,6 +69,8 @@ class IssueDetailScreen extends ConsumerStatefulWidget {
 class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
   final IssueService _issueService = IssueService();
+  final PendingOperationsService _pendingOps = PendingOperationsService();
+  final NetworkService _networkService = NetworkService();
   late IssueItem _currentIssue;
   bool _isUpdating = false;
   bool _isDescExpanded = false;
@@ -741,6 +746,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
 
   Future<void> _toggleStatus() async {
     if (_currentIssue.isLocalOnly) {
+      // Local issue - just update state
       setState(() {
         _currentIssue = IssueItem(
           id: _currentIssue.id,
@@ -765,30 +771,77 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       return;
     }
 
-    setState(() => _isUpdating = true);
+    // CHECK NETWORK
+    final isOnline = await _networkService.checkConnectivity();
 
-    try {
-      final updatedIssue = await _issueService.toggleIssueStatus(
-        _currentIssue,
-        _effectiveOwner,
-        _effectiveRepo,
-      );
+    if (!isOnline) {
+      // Queue operation
+      try {
+        final operationId =
+            'toggle_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
+        final operation = PendingOperation(
+          id: operationId,
+          type: _currentIssue.status == ItemStatus.open
+              ? OperationType.closeIssue
+              : OperationType.reopenIssue,
+          issueId: _currentIssue.id,
+          issueNumber: _currentIssue.number,
+          owner: widget.owner,
+          repo: widget.repo,
+          data: {},
+          createdAt: DateTime.now(),
+        );
 
-      if (!mounted) return;
+        await _pendingOps.addOperation(operation);
 
-      setState(() {
-        _currentIssue = updatedIssue;
-        _isUpdating = false;
-      });
+        // Update UI optimistically
+        setState(() {
+          _currentIssue = IssueItem(
+            id: _currentIssue.id,
+            title: _currentIssue.title,
+            number: _currentIssue.number,
+            status: _currentIssue.status == ItemStatus.open
+                ? ItemStatus.closed
+                : ItemStatus.open,
+            updatedAt: DateTime.now(),
+            bodyMarkdown: _currentIssue.bodyMarkdown,
+            assigneeLogin: _currentIssue.assigneeLogin,
+            labels: _currentIssue.labels,
+            projectColumnName: _currentIssue.projectColumnName,
+            isLocalOnly: _currentIssue.isLocalOnly,
+          );
+        });
 
-      _showSnackBar(
-        updatedIssue.status == ItemStatus.open
-            ? 'Issue reopened'
-            : 'Issue closed',
-      );
-    } catch (e, stackTrace) {
-      debugPrint('Failed to update issue status: $e');
-      if (mounted) {
+        _showSnackBar('Issue queued for sync');
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      }
+    } else {
+      // Online - update immediately
+      setState(() => _isUpdating = true);
+
+      try {
+        final newStatus = _currentIssue.status == ItemStatus.open
+            ? 'closed'
+            : 'open';
+        final updatedIssue = await _githubApi.updateIssue(
+          _effectiveOwner,
+          _effectiveRepo,
+          _currentIssue.number!,
+          state: newStatus,
+        );
+
+        setState(() {
+          _currentIssue = updatedIssue;
+          _isUpdating = false;
+        });
+
+        _showSnackBar(
+          updatedIssue.status == ItemStatus.open
+              ? 'Issue reopened'
+              : 'Issue closed',
+        );
+      } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isUpdating = false);
         _showErrorSnackBar('Failed to update: ${e.toString()}');

@@ -1,12 +1,7 @@
-import 'package:hive/hive.dart';
 import 'item.dart';
 
-part 'project_item.g.dart';
-
 /// Project item representing a GitHub Project v2
-@HiveType(typeId: 3)
 class ProjectItem extends Item {
-  @HiveField(30)
   String? projectNodeId;
 
   ProjectItem({

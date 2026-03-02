@@ -3,8 +3,11 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
+import '../models/pending_operation.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
+import '../services/pending_operations_service.dart';
+import '../services/network_service.dart';
 import '../widgets/braille_loader.dart';
 
 /// Screen for editing existing GitHub issues.
@@ -56,6 +59,8 @@ class EditIssueScreen extends StatefulWidget {
 class _EditIssueScreenState extends State<EditIssueScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
+  final PendingOperationsService _pendingOps = PendingOperationsService();
+  final NetworkService _networkService = NetworkService();
 
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
@@ -399,8 +404,6 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
 
   Future<void> _saveChanges() async {
     final title = _titleController.text.trim();
-    final body = _bodyController.text.trim();
-
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -411,103 +414,123 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       return;
     }
 
+    final body = _bodyController.text.trim();
+    final repoFullName = widget.repo;
+    if (repoFullName == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No repository selected'),
+          backgroundColor: AppColors.red,
+        ),
+      );
+      return;
+    }
+
+    final parts = repoFullName.split('/');
+    if (parts.length != 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid repository name'),
+          backgroundColor: AppColors.red,
+        ),
+      );
+      return;
+    }
+
+    final owner = parts[0];
+    final repo = parts[1];
+
     setState(() => _isSaving = true);
 
-    try {
-      // For local-only issues, update locally
-      if (widget.issue.isLocalOnly) {
+    // CHECK NETWORK
+    final isOnline = await _networkService.checkConnectivity();
+
+    if (!isOnline || widget.issue.isLocalOnly) {
+      // OFFLINE or LOCAL: Update locally and queue for sync
+      try {
+        // Update local issue
         final updatedIssue = IssueItem(
           id: widget.issue.id,
           title: title,
           number: widget.issue.number,
-          bodyMarkdown: body.isNotEmpty ? body : null,
           status: widget.issue.status,
           updatedAt: DateTime.now(),
+          bodyMarkdown: body,
           assigneeLogin: widget.issue.assigneeLogin,
           labels: _labels,
-          projectColumnName: widget.issue.projectColumnName,
-          isLocalOnly: true,
+          isLocalOnly: widget.issue.isLocalOnly,
         );
 
-        // Update in local storage
-        await _localStorage.removeLocalIssue(widget.issue.id);
-        if (!mounted) return;
         await _localStorage.saveLocalIssue(updatedIssue);
 
+        // Queue sync operation if not local-only
+        if (!widget.issue.isLocalOnly && widget.issue.number != null) {
+          final operationId =
+              'update_${widget.issue.id}_${DateTime.now().millisecondsSinceEpoch}';
+          final operation = PendingOperation.updateIssue(
+            id: operationId,
+            issueNumber: widget.issue.number!,
+            owner: owner,
+            repo: repo,
+            data: {'title': title, 'body': body, 'labels': _labels},
+          );
+
+          await _pendingOps.addOperation(operation);
+        }
+
         if (mounted) {
-          Navigator.pop(context, updatedIssue);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text('Changes saved locally'),
-                ],
+            SnackBar(
+              content: isOnline
+                  ? const Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text('Issue updated'),
+                      ],
+                    )
+                  : const Row(
+                      children: [
+                        Icon(Icons.cloud_off, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text('Issue queued for sync'),
+                      ],
+                    ),
+              backgroundColor: AppColors.orangePrimary,
+            ),
+          );
+          Navigator.pop(context, updatedIssue);
+        }
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        setState(() => _isSaving = false);
+      }
+    } else {
+      // ONLINE: Update on GitHub
+      try {
+        final updatedIssue = await _githubApi.updateIssue(
+          owner,
+          repo,
+          widget.issue.number!,
+          title: title,
+          body: body.isNotEmpty ? body : null,
+          labels: _labels.isNotEmpty ? _labels : null,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Issue #${updatedIssue.number} updated successfully',
               ),
               backgroundColor: AppColors.orangePrimary,
             ),
           );
+          Navigator.pop(context, updatedIssue);
         }
-        return;
-      }
-
-      // For GitHub issues, update via API
-      final effectiveOwner = widget.owner ?? 'berlogabob';
-      final effectiveRepo = widget.repo ?? 'gitdoit';
-
-      debugPrint(
-        'Updating issue #${widget.issue.number} in $effectiveOwner/$effectiveRepo...',
-      );
-
-      final updatedIssue = await _githubApi.updateIssue(
-        effectiveOwner,
-        effectiveRepo,
-        widget.issue.number!,
-        title: title,
-        body: body.isNotEmpty ? body : null,
-        labels: _labels.isNotEmpty ? _labels : null,
-      );
-
-      if (mounted) {
-        Navigator.pop(context, updatedIssue);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                const Text('Changes saved to GitHub'),
-              ],
-            ),
-            backgroundColor: AppColors.orangePrimary,
-          ),
-        );
-      }
-    } catch (e, stackTrace) {
-      debugPrint('Failed to save changes: $e');
-
-      if (mounted) {
+      } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Failed to save: ${e.toString()}')),
-              ],
-            ),
-            backgroundColor: AppColors.red,
-            duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: 'RETRY',
-              textColor: Colors.white,
-              onPressed: _saveChanges,
-            ),
-          ),
-        );
       }
     }
   }

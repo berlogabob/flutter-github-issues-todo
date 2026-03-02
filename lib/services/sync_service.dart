@@ -4,8 +4,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'local_storage_service.dart';
 import 'github_api_service.dart';
+import 'pending_operations_service.dart';
 import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
+import '../models/pending_operation.dart';
 
 part 'sync_service.g.dart';
 
@@ -22,6 +24,7 @@ class SyncService {
 
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
+  final PendingOperationsService _pendingOps = PendingOperationsService();
 
   // Sync status
   bool _isSyncing = false;
@@ -218,6 +221,9 @@ class SyncService {
     _notifyListeners();
 
     try {
+      // PROCESS PENDING OPERATIONS FIRST
+      await _processPendingOperations();
+
       // Sync repositories and issues
       await syncIssues(forceRefresh: forceRefresh);
 
@@ -483,6 +489,133 @@ class SyncService {
     for (final listener in _listeners) {
       listener();
     }
+  }
+
+  /// Process pending operations queue
+  Future<void> _processPendingOperations() async {
+    debugPrint('SyncService: Processing pending operations...');
+
+    await _pendingOps.init();
+    final operations = _pendingOps.getAllOperations();
+
+    if (operations.isEmpty) {
+      debugPrint('SyncService: No pending operations');
+      return;
+    }
+
+    debugPrint('SyncService: Found ${operations.length} pending operations');
+
+    for (final operation in operations) {
+      if (operation.isSyncing && operation.retryCount > 3) {
+        debugPrint(
+          'SyncService: Skipping operation ${operation.id} (max retries exceeded)',
+        );
+        continue;
+      }
+
+      try {
+        await _pendingOps.markAsSyncing(operation.id);
+        await _executeOperation(operation);
+        await _pendingOps.removeOperation(operation.id);
+        debugPrint('SyncService: Completed operation ${operation.id}');
+      } catch (e) {
+        debugPrint('SyncService: Failed operation ${operation.id}: $e');
+        // Keep in queue for next sync
+      }
+    }
+  }
+
+  /// Execute a single pending operation
+  Future<void> _executeOperation(PendingOperation operation) async {
+    switch (operation.type) {
+      case OperationType.createIssue:
+        await _executeCreateIssue(operation);
+        break;
+      case OperationType.updateIssue:
+        await _executeUpdateIssue(operation);
+        break;
+      case OperationType.closeIssue:
+        await _executeCloseIssue(operation);
+        break;
+      case OperationType.reopenIssue:
+        await _executeReopenIssue(operation);
+        break;
+      default:
+        debugPrint('SyncService: Unknown operation type: ${operation.type}');
+    }
+  }
+
+  Future<void> _executeCreateIssue(PendingOperation operation) async {
+    if (operation.owner == null || operation.repo == null) return;
+
+    final createdIssue = await _githubApi.createIssue(
+      operation.owner!,
+      operation.repo!,
+      title: operation.data['title'] as String,
+      body: operation.data['body'] as String?,
+      labels: operation.data['labels'] as List<String>?,
+      assignee: operation.data['assignee'] as String?,
+    );
+
+    debugPrint(
+      'SyncService: Created issue #${createdIssue.number} from queued operation',
+    );
+  }
+
+  Future<void> _executeUpdateIssue(PendingOperation operation) async {
+    if (operation.owner == null ||
+        operation.repo == null ||
+        operation.issueNumber == null)
+      return;
+
+    await _githubApi.updateIssue(
+      operation.owner!,
+      operation.repo!,
+      operation.issueNumber!,
+      title: operation.data['title'] as String?,
+      body: operation.data['body'] as String?,
+      labels: operation.data['labels'] as List<String>?,
+    );
+
+    debugPrint(
+      'SyncService: Updated issue #${operation.issueNumber} from queued operation',
+    );
+  }
+
+  Future<void> _executeCloseIssue(PendingOperation operation) async {
+    if (operation.owner == null ||
+        operation.repo == null ||
+        operation.issueNumber == null)
+      return;
+
+    await _githubApi.updateIssue(
+      operation.owner!,
+      operation.repo!,
+      operation.issueNumber!,
+      state: 'closed',
+    );
+
+    debugPrint(
+      'SyncService: Closed issue #${operation.issueNumber} from queued operation',
+    );
+  }
+
+  Future<void> _executeReopenIssue(PendingOperation operation) async {
+    if (operation.owner == null ||
+        operation.repo == null ||
+        operation.issueNumber == null)
+      return;
+
+    await _githubApi.updateIssue(
+      operation.owner!,
+      operation.repo!,
+      operation.issueNumber!,
+      state: 'open',
+    );
+
+    debugPrint(
+      'SyncService: Reopened issue #${operation.issueNumber} from queued operation',
+    );
   }
 }
 

@@ -1,15 +1,8 @@
-import 'package:hive/hive.dart';
 import 'item.dart';
 
-part 'repo_item.g.dart';
-
 /// Repository item representing a GitHub repository
-@HiveType(typeId: 1)
 class RepoItem extends Item {
-  @HiveField(10)
   String fullName;
-
-  @HiveField(11)
   String? description;
 
   RepoItem({

@@ -26,6 +26,17 @@ class LocalStorageService {
     return await _storage.read(key: 'vault_folder');
   }
 
+  /// Save vault folder permission/path
+  Future<void> saveVaultFolderPermission(String folderPath) async {
+    try {
+      await _storage.write(key: 'vault_folder', value: folderPath);
+      debugPrint('Saved vault folder permission: $folderPath');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error saving vault folder permission: $e');
+    }
+  }
+
   /// Save a locally created issue (only to vault folder - for Syncthing/Nextcloud sync)
   Future<void> saveLocalIssue(IssueItem issue) async {
     try {

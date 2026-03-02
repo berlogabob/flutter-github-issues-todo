@@ -11,6 +11,7 @@ import '../models/item.dart';
 import '../services/dashboard_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sync_service.dart';
+import '../services/pending_operations_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/cache_service.dart';
 import '../widgets/braille_loader.dart';
@@ -40,6 +41,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   final DashboardService _dashboardService = DashboardService();
   final LocalStorageService _localStorage = LocalStorageService();
   final SyncService _syncService = SyncService();
+  final PendingOperationsService _pendingOps = PendingOperationsService();
   final CacheService _cache = CacheService();
 
   String _filterStatus = 'open';
@@ -275,6 +277,18 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // Fetch projects for issue creation
     await _fetchProjects();
+
+    // Show pending operations count
+    final pendingCount = _pendingOps.getPendingCount();
+    if (pendingCount > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$pendingCount changes pending sync'),
+          backgroundColor: AppColors.orangePrimary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _loadSavedFilters() async {
@@ -455,11 +469,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             _errorMessage = e.toString();
           }
           _isFetchingRepos = false;
-          // Add demo data only if NOT in offline mode
-          if (_repositories.isEmpty && !_isOfflineMode) {
-            debugPrint('Showing demo data as fallback');
-            _addDemoData();
-          }
         });
       }
     }
@@ -521,45 +530,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     }
   }
 
-  void _addDemoData() {
-    _repositories.add(
-      RepoItem(
-        id: 'demo1',
-        title: 'gitdoit',
-        fullName: 'user/gitdoit',
-        description: 'Minimalist GitHub Issues & Projects TODO Manager (Demo)',
-        children: [
-          IssueItem(
-            id: 'issue1',
-            title: 'Implement authentication',
-            number: 1,
-            status: ItemStatus.closed,
-            labels: ['feature', 'priority'],
-            assigneeLogin: 'user',
-            isLocalOnly: true,
-          ),
-          IssueItem(
-            id: 'issue2',
-            title: 'Create main dashboard',
-            number: 2,
-            status: ItemStatus.open,
-            labels: ['ui'],
-            assigneeLogin: 'user',
-            isLocalOnly: true,
-          ),
-          IssueItem(
-            id: 'issue3',
-            title: 'Add offline support',
-            number: 3,
-            status: ItemStatus.open,
-            labels: ['feature', 'offline'],
-            isLocalOnly: true,
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -578,17 +548,45 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           // Sync cloud icon with sync status widget
           Padding(
             padding: EdgeInsets.only(right: 8.w),
-            child: Row(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Cloud icon (static)
-                SyncCloudIcon(state: _getSyncCloudState(), size: 24.w),
-                // Sync status widget (BrailleLoader or time)
-                SizedBox(width: 4.w),
-                SyncStatusWidget(
-                  isSyncing: _syncService.isSyncing,
-                  lastSyncTime: _syncService.lastSyncTime,
-                  size: 24.w,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Cloud icon (static)
+                    SyncCloudIcon(state: _getSyncCloudState(), size: 24.w),
+                    // Sync status widget (BrailleLoader or time)
+                    SizedBox(width: 4.w),
+                    SyncStatusWidget(
+                      isSyncing: _syncService.isSyncing,
+                      lastSyncTime: _syncService.lastSyncTime,
+                      size: 24.w,
+                    ),
+                    // Show pending count badge
+                    if (_pendingOps.getPendingCount() > 0) ...[
+                      SizedBox(width: 4.w),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.orangePrimary,
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Text(
+                          '${_pendingOps.getPendingCount()}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),

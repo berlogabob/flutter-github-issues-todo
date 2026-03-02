@@ -27,6 +27,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _patController = TextEditingController();
   final OAuthService _oauthService = OAuthService();
+  final LocalStorageService _localStorage = LocalStorageService();
   bool _usePat = false;
   bool _isLoading = false;
   String? _errorMessage;
@@ -608,6 +609,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         key: 'vault_folder',
         value: folderPath,
       );
+
+      // PERSIST PERMISSION
+      await _localStorage.saveVaultFolderPermission(folderPath);
 
       debugPrint('Offline mode saved with vault folder: $folderPath');
 

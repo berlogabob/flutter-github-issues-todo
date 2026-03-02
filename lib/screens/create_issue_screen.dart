@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../services/github_api_service.dart';
+import '../services/pending_operations_service.dart';
+import '../services/network_service.dart';
 import '../models/repo_item.dart';
+import '../models/pending_operation.dart';
 import '../widgets/braille_loader.dart';
 
 /// Screen for creating new GitHub issues.
@@ -62,6 +65,8 @@ class CreateIssueScreen extends StatefulWidget {
 
 class _CreateIssueScreenState extends State<CreateIssueScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
+  final PendingOperationsService _pendingOps = PendingOperationsService();
+  final NetworkService _networkService = NetworkService();
 
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
@@ -541,38 +546,75 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
 
     setState(() => _isSaving = true);
 
-    try {
-      final body = _bodyController.text.trim();
+    // CHECK NETWORK
+    final isOnline = await _networkService.checkConnectivity();
 
-      final createdIssue = await _githubApi.createIssue(
-        owner,
-        repo,
-        title: title,
-        body: body.isNotEmpty ? body : null,
-        labels: _labels.isNotEmpty ? _labels : null,
-        assignee: _assignee,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Issue #${createdIssue.number} created successfully'),
-            backgroundColor: AppColors.orangePrimary,
-          ),
+    if (!isOnline) {
+      // OFFLINE: Queue operation
+      try {
+        final operationId = 'create_${DateTime.now().millisecondsSinceEpoch}';
+        final body = _bodyController.text.trim();
+        final operation = PendingOperation.createIssue(
+          id: operationId,
+          owner: owner,
+          repo: repo,
+          data: {
+            'title': title,
+            'body': body.isNotEmpty ? body : null,
+            'labels': _labels.isNotEmpty ? _labels : null,
+            'assignee': _assignee,
+          },
         );
-        Navigator.pop(context, createdIssue);
-      }
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-      debugPrint('Error creating issue: $e');
-      if (mounted) {
+
+        await _pendingOps.addOperation(operation);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.cloud_off, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Issue queued for sync'),
+                ],
+              ),
+              backgroundColor: AppColors.orangePrimary,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create issue: ${e.toString()}'),
-            backgroundColor: AppColors.red,
-          ),
+      }
+    } else {
+      // ONLINE: Create immediately
+      try {
+        final body = _bodyController.text.trim();
+
+        final createdIssue = await _githubApi.createIssue(
+          owner,
+          repo,
+          title: title,
+          body: body.isNotEmpty ? body : null,
+          labels: _labels.isNotEmpty ? _labels : null,
+          assignee: _assignee,
         );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Issue #${createdIssue.number} created successfully',
+              ),
+              backgroundColor: AppColors.orangePrimary,
+            ),
+          );
+          Navigator.pop(context, createdIssue);
+        }
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        setState(() => _isSaving = false);
       }
     }
   }

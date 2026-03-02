@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'constants/app_colors.dart';
 import 'utils/app_error_handler.dart';
 import 'services/secure_storage_service.dart';
+import 'services/network_service.dart';
 import 'providers/app_providers.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/main_dashboard_screen.dart';
@@ -37,6 +38,9 @@ void main() async {
 
   // Initialize Hive for caching
   await Hive.initFlutter();
+
+  // Initialize NetworkService
+  await NetworkService().init();
 
   // Add Flutter error handlers
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -77,6 +81,11 @@ void main() async {
       child: GitDoItApp(initialToken: token, initialAuthType: authType),
     ),
   );
+
+  // Cleanup on app exit
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    NetworkService().dispose();
+  });
 }
 
 class GitDoItApp extends StatelessWidget {

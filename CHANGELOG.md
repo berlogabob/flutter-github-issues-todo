@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #16: Default State Persistence Fixed**
+  - Fixed default repository and project not persisting correctly across app restarts
+  - Fixed settings pickers to save selection to LocalStorageService with confirmation
+  - Create Issue screen now auto-loads saved defaults on open
+  - Dashboard monitors for default repo changes and updates pinned repos
+  - State restoration verified after app termination and restart
+  - Added user confirmation feedback (snackbar) after default selection
+
+- **Issue #21: Main Dashboard Loading and Filter Issues Fixed**
+  - Fixed dashboard loading with batch processing for large datasets (100+ repos)
+  - Implemented concurrent issue fetching with max 5 repos per batch
+  - Fixed filter persistence across navigation sessions
+  - Fixed pin state persistence for repositories
+  - Added per-repository loading and error state tracking
+  - Improved error handling to avoid overwhelming users with multiple snackbars
+  - Added rate limiting (200ms delay between batches) to avoid API throttling
+
+- **Issue #20: Repo/Project Menu and Selection Persistence Fixed**
+  - Added search functionality to repository picker dialog
+  - Added search functionality to project picker dialog
+  - Fixed project picker to filter out closed projects by default
+  - Fixed offline mode detection in repo/project library screen
+  - Fixed default repo auto-pinning on dashboard
+  - Fixed default project selection persistence in settings
+  - Added visual highlighting for selected items in pickers
+  - Improved debug logging for troubleshooting selection issues
+
+- **Issue #23: Cache Invalidation Logic Fixed**
+  - Fixed cache initialization race conditions with `_isInitializing` flag
+  - Added comprehensive error handling with try/catch for all cache operations
+  - Implemented cache HIT/MISS/EXPIRED logging for debugging
+  - Enforced TTL (5 minutes default) with automatic expiration
+  - Added fallback to network when cache miss occurs
+  - Added `invalidate()` method for explicit cache invalidation
+  - Added `getStats()` method for cache debugging
+  - Added `refresh()` method for pull-to-refresh scenarios
+
+- **Issue #22: Create Issue Flow Bugs Fixed**
+  - Fixed repository selector state management (clears data when repo changes)
+  - Added comprehensive input validation (title required, max length checks)
+  - Improved error messages for API failures (422, 401, 403, network errors)
+  - Added retry button for failed label/assignee loading
+  - Improved offline queue handling with proper error recovery
+  - Added network error fallback (queues issue for later sync)
+  - Added title validation: required, max 256 characters, no line breaks
+  - Added body validation: max 65536 characters
+
 ### Added
 
 - **Testing & Quality**

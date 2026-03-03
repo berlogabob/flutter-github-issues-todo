@@ -19,13 +19,25 @@ import '../constants/app_colors.dart';
 /// )
 /// ```
 class ErrorBoundary extends StatefulWidget {
+  /// The child widget to protect with error handling.
   final Widget child;
+
+  /// Custom error message to display.
   final String? errorMessage;
+
+  /// Callback function to retry the failed operation.
   final VoidCallback? onRetry;
+
+  /// Whether to show the retry button.
   final bool showRetryButton;
+
+  /// Whether to show the go back button.
   final bool showGoBackButton;
+
+  /// Whether to allow expanding error details.
   final bool allowExpandDetails;
 
+  /// Creates an error boundary widget.
   const ErrorBoundary({
     super.key,
     required this.child,
@@ -41,9 +53,16 @@ class ErrorBoundary extends StatefulWidget {
 }
 
 class _ErrorBoundaryState extends State<ErrorBoundary> {
+  /// Error state flag.
   bool _hasError = false;
+
+  /// Detailed error message.
   String? _errorDetails;
+
+  /// Stack trace for debugging.
   StackTrace? _stackTrace;
+
+  /// Expanded state for error details.
   bool _isDetailsExpanded = false;
 
   @override
@@ -340,8 +359,15 @@ class _ErrorBoundaryScope extends InheritedWidget {
   bool updateShouldNotify(_ErrorBoundaryScope oldWidget) => false;
 }
 
-/// Extension to report errors from within widgets
+/// Extension to report errors from within widgets.
+///
+/// Provides convenient error reporting from any widget context.
+/// Errors are propagated to the nearest ErrorBoundary ancestor.
 extension ErrorBoundaryExtension on BuildContext {
+  /// Reports an error to the nearest ErrorBoundary.
+  ///
+  /// [error] is the error object or message.
+  /// [stackTrace] is optional and defaults to current stack trace.
   void reportError(Object error, [StackTrace? stackTrace]) {
     final scope = _ErrorBoundaryScope.of(this);
     if (scope != null) {
@@ -350,13 +376,24 @@ extension ErrorBoundaryExtension on BuildContext {
   }
 }
 
-/// Widget for displaying inline errors
+/// Widget for displaying inline errors within a UI.
+///
+/// Shows error message with optional details and dismiss button.
+/// Can be displayed as full-screen or inline.
 class InlineError extends StatelessWidget {
+  /// The error message to display.
   final String message;
+
+  /// Optional error details for debugging.
   final String? details;
+
+  /// Callback when user dismisses the error.
   final VoidCallback? onDismiss;
+
+  /// Whether to display as full-screen error.
   final bool fullScreen;
 
+  /// Creates an inline error widget.
   const InlineError({
     super.key,
     required this.message,

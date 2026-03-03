@@ -76,9 +76,9 @@ void main() {
 
         // User name should be displayed
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).data != null &&
-                      (widget as Text).data!.isNotEmpty,
+          (widget) => widget is Text &&
+                      widget.data != null &&
+                      widget.data!.isNotEmpty,
         ), findsWidgets);
       });
 
@@ -126,8 +126,8 @@ void main() {
 
         // Default repo should be displayed
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).data?.contains('/') == true,
+          (widget) => widget is Text &&
+                      widget.data?.contains('/') == true,
         ), findsWidgets);
       });
 
@@ -268,8 +268,8 @@ void main() {
 
         // Danger zone items should use red color
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).style?.color == AppColors.red,
+          (widget) => widget is Text &&
+                      widget.style?.color == AppColors.red,
         ), findsWidgets);
       });
     });
@@ -518,8 +518,8 @@ void main() {
 
         // Section headers should be styled differently
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).style?.fontSize == 12,
+          (widget) => widget is Text &&
+                      widget.style?.fontSize == 12,
         ), findsWidgets);
       });
     });

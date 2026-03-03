@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
+import '../services/secure_storage_service.dart';
 import '../models/repo_item.dart';
 import '../widgets/braille_loader.dart';
 import 'repo_detail_screen.dart';
@@ -25,6 +27,7 @@ class _RepoProjectLibraryScreenState
   bool _isLoading = false;
   String _filter = 'all'; // all, repos, projects
   List<String> _pinnedRepos = []; // Repos shown on main page
+  bool _isOfflineMode = false;
 
   // Real data from GitHub
   List<RepoItem> _repositories = [];
@@ -33,9 +36,23 @@ class _RepoProjectLibraryScreenState
   @override
   void initState() {
     super.initState();
+    _checkOfflineMode();
     _loadPinnedRepos();
-    debugPrint('RepoLibrary: initState - calling _fetchRepositories');
+    debugPrint('[RepoLibrary] initState - calling _fetchRepositories');
     _fetchRepositories();
+  }
+
+  /// Check if app is in offline mode.
+  ///
+  /// FIX (Task 20.7): Detect offline mode for proper UI behavior.
+  Future<void> _checkOfflineMode() async {
+    final authType = await SecureStorageService.instance.read(key: 'auth_type');
+    if (mounted) {
+      setState(() {
+        _isOfflineMode = authType == 'offline';
+        debugPrint('[RepoLibrary] Offline mode: $_isOfflineMode');
+      });
+    }
   }
 
   Future<void> _loadPinnedRepos() async {
@@ -43,18 +60,33 @@ class _RepoProjectLibraryScreenState
     if (mounted) {
       setState(() {
         _pinnedRepos = List<String>.from(filters['pinnedRepos'] ?? []);
+        debugPrint(
+          '[RepoLibrary] Loaded ${_pinnedRepos.length} pinned repos',
+        );
       });
     }
   }
 
+  /// Fetch repositories with improved error handling and offline mode support.
+  ///
+  /// FIX (Task 20.7): Better offline mode handling and debug logging.
   Future<void> _fetchRepositories() async {
+    // In offline mode, just load from cache/local storage
+    if (_isOfflineMode) {
+      debugPrint('[RepoLibrary] Offline mode - skipping network fetch');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _repositories = []; // Clear old data
     });
 
     try {
-      debugPrint('Repo Library: Fetching repositories...');
+      debugPrint('[RepoLibrary] Fetching repositories...');
 
       // Check token first
       final hasToken = await _githubApi.getToken();
@@ -63,7 +95,7 @@ class _RepoProjectLibraryScreenState
       }
 
       final repos = await _githubApi.fetchMyRepositories(perPage: 30);
-      debugPrint('Repo Library: Fetched ${repos.length} repositories');
+      debugPrint('[RepoLibrary] ✓ Fetched ${repos.length} repositories');
 
       if (mounted) {
         setState(() {
@@ -82,12 +114,36 @@ class _RepoProjectLibraryScreenState
           );
         }
       }
-    } catch (e) {
-      debugPrint('Repo Library Error: $e');
+    } on SocketException catch (e) {
+      debugPrint('[RepoLibrary] ✗ Network error: $e');
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'No internet connection',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Showing cached repositories if available',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.orangePrimary,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[RepoLibrary] ✗ Error: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
         // Show error to user
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -484,18 +540,27 @@ class _RepoProjectLibraryScreenState
     );
   }
 
+  /// Pin a repository to show on main dashboard.
+  ///
+  /// FIX (Task 20.7): Improved pin functionality with debug logging.
   Future<void> _pinRepo(String fullName) async {
+    debugPrint('[RepoLibrary] Pinning repo: $fullName');
     setState(() {
       _pinnedRepos.add(fullName);
     });
 
-    // Save to local storage
-    final filters = await _localStorage.getFilters();
-    final filterStatus = filters['filterStatus'] ?? 'open';
-    await _localStorage.saveFilters(
-      filterStatus: filterStatus,
-      pinnedRepos: _pinnedRepos.toList(),
-    );
+    // Save to local storage with error handling
+    try {
+      final filters = await _localStorage.getFilters();
+      final filterStatus = filters['filterStatus'] ?? 'open';
+      await _localStorage.saveFilters(
+        filterStatus: filterStatus,
+        pinnedRepos: _pinnedRepos.toList(),
+      );
+      debugPrint('[RepoLibrary] ✓ Pinned repo saved: $fullName');
+    } catch (e) {
+      debugPrint('[RepoLibrary] ✗ Failed to save pinned repo: $e');
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -514,18 +579,27 @@ class _RepoProjectLibraryScreenState
     }
   }
 
+  /// Unpin a repository from main dashboard.
+  ///
+  /// FIX (Task 20.7): Improved unpin functionality with debug logging.
   Future<void> _unpinRepo(String fullName) async {
+    debugPrint('[RepoLibrary] Unpinning repo: $fullName');
     setState(() {
       _pinnedRepos.remove(fullName);
     });
 
-    // Save to local storage
-    final filters = await _localStorage.getFilters();
-    final filterStatus = filters['filterStatus'] ?? 'open';
-    await _localStorage.saveFilters(
-      filterStatus: filterStatus,
-      pinnedRepos: _pinnedRepos.toList(),
-    );
+    // Save to local storage with error handling
+    try {
+      final filters = await _localStorage.getFilters();
+      final filterStatus = filters['filterStatus'] ?? 'open';
+      await _localStorage.saveFilters(
+        filterStatus: filterStatus,
+        pinnedRepos: _pinnedRepos.toList(),
+      );
+      debugPrint('[RepoLibrary] ✓ Unpinned repo saved: $fullName');
+    } catch (e) {
+      debugPrint('[RepoLibrary] ✗ Failed to save unpinned repo: $e');
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

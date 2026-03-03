@@ -220,8 +220,8 @@ void main() {
 
         // Issue numbers should be displayed
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).data?.contains('#') == true,
+          (widget) => widget is Text &&
+                      widget.data?.contains('#') == true,
         ), findsWidgets);
       });
 
@@ -413,8 +413,8 @@ void main() {
 
         // Titles should be styled
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).style?.fontWeight == FontWeight.w600,
+          (widget) => widget is Text &&
+                      widget.style?.fontWeight == FontWeight.w600,
         ), findsWidgets);
       });
 
@@ -424,8 +424,8 @@ void main() {
 
         // Metadata should use secondary text style
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).style?.color == Colors.white54,
+          (widget) => widget is Text &&
+                      widget.style?.color == Colors.white54,
         ), findsWidgets);
       });
     });
@@ -545,8 +545,8 @@ void main() {
 
         // Status badges should have colors
         expect(find.byWidgetPredicate(
-          (widget) => widget is Container && 
-                      (widget as Container).decoration is BoxDecoration,
+          (widget) => widget is Container &&
+                      widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
     });

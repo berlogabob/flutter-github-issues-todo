@@ -57,6 +57,27 @@ Minimalist GitHub Issues & Projects TODO Manager with offline-first support.
 3. Enter your GitHub Personal Access Token
 4. Set default repository and project
 
+### Defaults
+
+#### Setting Default Repository
+
+1. Navigate to **Settings** (gear icon in bottom navigation)
+2. Under **Defaults** section, tap **Default Repository**
+3. Search and select your preferred repository
+4. Confirmation snackbar will appear
+5. This repository will:
+   - Auto-pin to dashboard
+   - Pre-select when creating new issues
+
+#### Setting Default Project
+
+1. Navigate to **Settings** → **Defaults**
+2. Tap **Default Project**
+3. Select from your GitHub Projects V2 (closed projects filtered)
+4. This project will:
+   - Pre-select when creating new issues
+   - Show in dashboard filters
+
 ## Project Structure
 
 ```
@@ -88,7 +109,7 @@ lib/
 
 ## Version
 
-Current version: 0.5.0+70
+Current version: 0.5.0+72
 
 ## License
 

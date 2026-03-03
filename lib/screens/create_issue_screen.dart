@@ -16,6 +16,16 @@ import '../widgets/braille_loader.dart';
 /// - Assignee selection from repository collaborators
 /// - Repository selection from user's repositories
 /// - Real-time loading of labels and assignees
+/// - Offline mode with operation queuing
+/// - Input validation for required fields
+///
+/// FIXES (Task 19.4-19.5):
+/// - Fixed repository selector state management
+/// - Improved loading state indicators
+/// - Added better error messages for API failures
+/// - Added input validation for title length and special characters
+/// - Proper error handling with user-friendly messages
+/// - Queue operations for offline mode with proper error recovery
 ///
 /// Usage:
 /// ```dart
@@ -76,9 +86,16 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
   bool _isSaving = false;
   bool _isLoadingLabels = false;
   bool _isLoadingAssignees = false;
+  String? _errorMessage;
 
   List<Map<String, dynamic>> _availableLabels = [];
   List<Map<String, dynamic>> _availableAssignees = [];
+
+  /// Maximum title length (GitHub limit is 256 characters)
+  static const int _maxTitleLength = 256;
+
+  /// Maximum body length (GitHub limit is 65536 characters)
+  static const int _maxBodyLength = 65536;
 
   @override
   void initState() {
@@ -95,12 +112,18 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     });
   }
 
+  /// Load repository labels and assignees with caching support.
+  ///
+  /// FIX (Task 19.4): Improved error handling and loading states
   Future<void> _loadRepoData() async {
     final repoFullName = _selectedRepoFullName ?? widget.repo;
     if (repoFullName == null) return;
 
     final parts = repoFullName.split('/');
-    if (parts.length != 2) return;
+    if (parts.length != 2) {
+      debugPrint('Invalid repository name: $repoFullName');
+      return;
+    }
 
     final owner = parts[0];
     final repo = parts[1];
@@ -110,10 +133,11 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     setState(() {
       _isLoadingLabels = true;
       _isLoadingAssignees = true;
+      _errorMessage = null;
     });
 
     try {
-      // Fetch labels
+      // Fetch labels (with caching from github_api_service)
       debugPrint('Fetching labels...');
       final labels = await _githubApi.fetchRepoLabels(owner, repo);
       if (!mounted) return;
@@ -123,7 +147,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         _isLoadingLabels = false;
       });
 
-      // Fetch collaborators for assignee
+      // Fetch collaborators for assignee (with caching from github_api_service)
       debugPrint('Fetching collaborators...');
       final assignees = await _githubApi.fetchRepoCollaborators(owner, repo);
       if (!mounted) return;
@@ -141,23 +165,142 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
           _isLoadingAssignees = false;
           _availableLabels = [];
           _availableAssignees = [];
+          _errorMessage = 'Could not load labels/assignees: ${e.toString()}';
         });
+        // Show error message but allow user to continue
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not load labels/assignees: ${e.toString()}'),
             backgroundColor: AppColors.orangePrimary,
             duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              onPressed: () => _loadRepoData(),
+            ),
           ),
         );
       }
     }
   }
 
+  /// Handle repository selection change.
+  ///
+  /// FIX (Task 19.4): Properly update state and reload data
   void _onRepoChanged(String? newRepoFullName) {
     setState(() {
       _selectedRepoFullName = newRepoFullName;
+      // Clear previous data when repo changes
+      _availableLabels = [];
+      _availableAssignees = [];
+      _labels.clear();
+      _assignee = null;
     });
+    // Reload data for new repository
     _loadRepoData();
+  }
+
+  /// Validate title input.
+  ///
+  /// FIX (Task 19.5): Added comprehensive validation
+  String? _validateTitle(String title) {
+    if (title.isEmpty) {
+      return 'Title is required';
+    }
+    if (title.trim().isEmpty) {
+      return 'Title cannot be only whitespace';
+    }
+    if (title.length > _maxTitleLength) {
+      return 'Title must be less than $_maxTitleLength characters';
+    }
+    // Check for potentially problematic characters
+    if (title.contains('\n')) {
+      return 'Title cannot contain line breaks';
+    }
+    return null;
+  }
+
+  /// Validate body input.
+  ///
+  /// FIX (Task 19.5): Added body validation
+  String? _validateBody(String body) {
+    if (body.length > _maxBodyLength) {
+      return 'Description must be less than $_maxBodyLength characters';
+    }
+    return null;
+  }
+
+  /// Show validation error.
+  void _showValidationError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.warning_amber, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.orangePrimary,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Show success message.
+  void _showSuccessMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green.shade700,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Show error message.
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.red,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'DISMISS',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -214,6 +357,53 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Error message display
+                  if (_errorMessage != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.red.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.red.withOpacity(0.5),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: AppColors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(
+                                color: AppColors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                              color: AppColors.red,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _errorMessage = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // Repository selector (always shown as dropdown)
                   const Text(
                     'Repository',
@@ -285,7 +475,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                     controller: _titleController,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Issue title',
+                      hintText: 'Issue title (required)',
                       hintStyle: const TextStyle(color: Colors.white38),
                       filled: true,
                       fillColor: AppColors.cardBackground,
@@ -299,8 +489,15 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                           color: AppColors.orangePrimary,
                         ),
                       ),
+                      errorText: _validateTitle(_titleController.text),
+                      counterText: '${_titleController.text.length}/$_maxTitleLength',
                     ),
                     autofocus: true,
+                    maxLength: _maxTitleLength,
+                    onChanged: (_) {
+                      // Trigger validation update
+                      setState(() {});
+                    },
                   ),
                   const SizedBox(height: 24),
 
@@ -332,8 +529,10 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                           color: AppColors.orangePrimary,
                         ),
                       ),
+                      counterText: '${_bodyController.text.length}/$_maxBodyLength',
                     ),
                     maxLines: 8,
+                    maxLength: _maxBodyLength,
                   ),
                   const SizedBox(height: 24),
 
@@ -377,11 +576,33 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: _availableLabels.isEmpty
-              ? Text(
-                  _isLoadingLabels
-                      ? 'Loading labels...'
-                      : 'No labels available',
-                  style: const TextStyle(color: Colors.white38),
+              ? Row(
+                  children: [
+                    if (_isLoadingLabels)
+                      const Expanded(
+                        child: Text(
+                          'Loading labels...',
+                          style: TextStyle(color: Colors.white38),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: Text(
+                          'No labels available',
+                          style: const TextStyle(color: Colors.white38),
+                        ),
+                      ),
+                    if (!_isLoadingLabels)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: AppColors.orangePrimary,
+                          size: 20,
+                        ),
+                        onPressed: _loadRepoData,
+                        tooltip: 'Refresh labels',
+                      ),
+                  ],
                 )
               : Wrap(
                   spacing: 8,
@@ -507,37 +728,39 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     );
   }
 
+  /// Create issue with validation and offline support.
+  ///
+  /// FIX (Task 19.5):
+  /// - Added comprehensive input validation
+  /// - Better error messages for API failures
+  /// - Proper offline queue handling
+  /// - State management fixes
   Future<void> _createIssue() async {
+    // Validate title
     final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Title is required'),
-          backgroundColor: AppColors.red,
-        ),
-      );
+    final titleError = _validateTitle(title);
+    if (titleError != null) {
+      _showValidationError(titleError);
+      return;
+    }
+
+    // Validate body
+    final body = _bodyController.text.trim();
+    final bodyError = _validateBody(body);
+    if (bodyError != null) {
+      _showValidationError(bodyError);
       return;
     }
 
     final repoFullName = _selectedRepoFullName ?? widget.repo;
     if (repoFullName == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No repository selected'),
-          backgroundColor: AppColors.red,
-        ),
-      );
+      _showValidationError('No repository selected');
       return;
     }
 
     final parts = repoFullName.split('/');
     if (parts.length != 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid repository name'),
-          backgroundColor: AppColors.red,
-        ),
-      );
+      _showValidationError('Invalid repository name');
       return;
     }
 
@@ -553,7 +776,6 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
       // OFFLINE: Queue operation
       try {
         final operationId = 'create_${DateTime.now().millisecondsSinceEpoch}';
-        final body = _bodyController.text.trim();
         final operation = PendingOperation.createIssue(
           id: operationId,
           owner: owner,
@@ -569,29 +791,17 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         await _pendingOps.addOperation(operation);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.cloud_off, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text('Issue queued for sync'),
-                ],
-              ),
-              backgroundColor: AppColors.orangePrimary,
-            ),
-          );
+          _showSuccessMessage('Issue queued for sync when online');
           Navigator.pop(context);
         }
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isSaving = false);
+        _showErrorMessage('Failed to queue issue: ${e.toString()}');
       }
     } else {
       // ONLINE: Create immediately
       try {
-        final body = _bodyController.text.trim();
-
         final createdIssue = await _githubApi.createIssue(
           owner,
           repo,
@@ -602,20 +812,71 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         );
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Issue #${createdIssue.number} created successfully',
-              ),
-              backgroundColor: AppColors.orangePrimary,
-            ),
+          _showSuccessMessage(
+            'Issue #${createdIssue.number} created successfully',
           );
           Navigator.pop(context, createdIssue);
         }
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isSaving = false);
+        
+        // Provide specific error messages based on error type
+        final errorMessage = e.toString();
+        if (errorMessage.contains('422')) {
+          _showErrorMessage(
+            'Invalid issue data. Please check your input and try again.',
+          );
+        } else if (errorMessage.contains('401') || 
+                   errorMessage.contains('unauthorized')) {
+          _showErrorMessage(
+            'Authentication failed. Please login again.',
+          );
+        } else if (errorMessage.contains('403') || 
+                   errorMessage.contains('forbidden')) {
+          _showErrorMessage(
+            'You do not have permission to create issues in this repository.',
+          );
+        } else if (errorMessage.contains('Network') || 
+                   errorMessage.contains('SocketException')) {
+          // Network error during online attempt - queue for later
+          _showErrorMessage(
+            'Network error. Issue saved locally and will be synced when online.',
+          );
+          // Optionally queue the operation
+          await _queueIssueForLater(owner, repo, title, body);
+        } else {
+          _showErrorMessage('Failed to create issue: ${e.toString()}');
+        }
       }
+    }
+  }
+
+  /// Queue issue for later sync when network fails during online attempt.
+  Future<void> _queueIssueForLater(
+    String owner,
+    String repo,
+    String title,
+    String body,
+  ) async {
+    try {
+      final operationId = 'create_${DateTime.now().millisecondsSinceEpoch}';
+      final operation = PendingOperation.createIssue(
+        id: operationId,
+        owner: owner,
+        repo: repo,
+        data: {
+          'title': title,
+          'body': body.isNotEmpty ? body : null,
+          'labels': _labels.isNotEmpty ? _labels : null,
+          'assignee': _assignee,
+        },
+      );
+
+      await _pendingOps.addOperation(operation);
+      debugPrint('Issue queued for later sync: $operationId');
+    } catch (e) {
+      debugPrint('Failed to queue issue: $e');
     }
   }
 }

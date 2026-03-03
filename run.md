@@ -1,4 +1,4 @@
-fetch all issues from GitHub https://github.com/berlogabob/flutter-github-issues-todo with labels "ToDO" and "Open". add them to scope of work.
+fetch all issues from GitHub https://github.com/berlogabob/flutter-github-issues-todo with labels "ToDO" and "Open". add them to scope of work. with full representation with title, desctiption and other fields for each issue "as it is", then convert them to detailde discription to work with.
 
 start deep exploration of this project. read all md files. create summarize roport from them as run_report.md file. after creating the report delete all md files that was used to create the report. 
 

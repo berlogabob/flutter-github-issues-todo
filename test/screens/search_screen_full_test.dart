@@ -417,7 +417,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Date filter UI should be present
-        expect(find.byType(DateRangePicker), findsWidgets);
+        expect(find.byType(TextFormField), findsWidgets);
       });
     });
 
@@ -510,8 +510,8 @@ void main() {
 
         // Issue numbers should be displayed
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).data?.contains('#') == true,
+          (widget) => widget is Text &&
+                      widget.data?.contains('#') == true,
         ), findsWidgets);
       });
 

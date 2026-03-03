@@ -97,7 +97,7 @@ void main() {
         // Color indicators should be present
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
     });
@@ -220,7 +220,7 @@ void main() {
         expect(
           find.byWidgetPredicate(
             (widget) => widget is Text &&
-                (widget as Text).data?.contains('#') == true,
+                widget.data?.contains('#') == true,
           ),
           findsWidgets,
         );
@@ -379,7 +379,7 @@ void main() {
         // Column color indicators
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
 
@@ -566,7 +566,7 @@ void main() {
         expect(
           find.byWidgetPredicate(
             (widget) => widget is Text &&
-                (widget as Text).data?.contains('#') == true,
+                widget.data?.contains('#') == true,
           ),
           findsWidgets,
         );

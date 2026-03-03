@@ -73,10 +73,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// Returns the current app version from pubspec.yaml.
   String _getAppVersion() {
     // Version from pubspec.yaml: 0.5.0+72
     return '0.5.0+72';
-    return '0.5.0+71';
   }
 
   // User data - will be fetched from GitHub
@@ -971,159 +971,361 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// Shows repository picker dialog with search functionality.
+  ///
+  /// FIX (Task 20.6): Improved default repo selection dialog.
+  /// - Adds search functionality for large repo lists
+  /// - Shows current selection highlighted
+  /// - Includes debug logging for troubleshooting
+  /// - Persists selection to LocalStorageService
   void _changeDefaultRepo() {
-    // Show dialog with list of available repos
+    final searchController = TextEditingController();
+    String searchQuery = '';
+
+    // FIX (Task 20.7): Ensure repos are loaded before showing dialog
+    if (_userRepos.isEmpty) {
+      _loadUserRepos().then((_) {
+        if (mounted) {
+          _showRepoPickerDialog(searchController, searchQuery);
+        }
+      });
+    } else {
+      _showRepoPickerDialog(searchController, searchQuery);
+    }
+  }
+
+  /// Shows the repository picker dialog with search.
+  void _showRepoPickerDialog(TextEditingController searchController, String searchQuery) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
-        title: const Text(
-          'Select Default Repository',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: _userRepos.length,
-            itemBuilder: (context, index) {
-              final repo = _userRepos[index];
-              final isSelected = _defaultRepo == repo.fullName;
-              return ListTile(
-                title: Text(
-                  repo.fullName,
-                  style: const TextStyle(color: Colors.white),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.cardBackground,
+          title: const Text(
+            'Select Default Repository',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Search field for large datasets
+              TextField(
+                controller: searchController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Search repositories...',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.orangePrimary,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
-                selected: isSelected,
-                selectedTileColor: AppColors.orangePrimary.withValues(
-                  alpha: 0.2,
-                ),
-                trailing: isSelected
-                    ? const Icon(Icons.check, color: AppColors.orangePrimary)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _defaultRepo = repo.fullName;
-                  });
-                  _localStorage.saveDefaultRepo(repo.fullName);
-                  Navigator.pop(context);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Default repository set to ${repo.fullName}',
-                      ),
-                      backgroundColor: AppColors.orangePrimary,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
+                onChanged: (value) {
+                  setDialogState(() => searchQuery = value.toLowerCase());
                 },
-              );
-            },
+              ),
+              const SizedBox(height: 16),
+              // Repo list with filtering
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: SizedBox(
+                  width: double.maxFinite,
+                  child: _userRepos.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text(
+                            'No repositories available',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _userRepos
+                            .where(
+                              (repo) =>
+                                  searchQuery.isEmpty ||
+                                  repo.fullName.toLowerCase().contains(
+                                    searchQuery,
+                                  ),
+                            )
+                            .length,
+                        itemBuilder: (context, index) {
+                          final filteredRepos = _userRepos
+                              .where(
+                                (repo) =>
+                                    searchQuery.isEmpty ||
+                                    repo.fullName.toLowerCase().contains(
+                                      searchQuery,
+                                    ),
+                              )
+                              .toList();
+                          final repo = filteredRepos[index];
+                          final isSelected = _defaultRepo == repo.fullName;
+                          return ListTile(
+                            leading: const Icon(
+                              Icons.folder,
+                              color: AppColors.orangePrimary,
+                            ),
+                            title: Text(
+                              repo.fullName,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? AppColors.orangePrimary
+                                    : Colors.white,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedTileColor: AppColors.orangePrimary.withValues(
+                              alpha: 0.2,
+                            ),
+                            trailing: isSelected
+                                ? const Icon(
+                                    Icons.check,
+                                    color: AppColors.orangePrimary,
+                                  )
+                                : null,
+                            onTap: () {
+                              debugPrint(
+                                '[Settings] Default repo selected: ${repo.fullName}',
+                              );
+                              setState(() {
+                                _defaultRepo = repo.fullName;
+                              });
+                              _localStorage.saveDefaultRepo(repo.fullName);
+                              Navigator.pop(context);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.check_circle,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Default: ${repo.fullName}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: AppColors.orangePrimary,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                ),
+              ),
+            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                searchController.dispose();
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
       ),
     );
   }
 
   /// Shows project picker dialog with user's GitHub projects.
   ///
-  /// Fetches projects from GitHub API and allows selection.
-  /// Saves selection to LocalStorageService.
+  /// FIX (Task 20.6): Improved default project selection dialog.
+  /// - Adds search functionality for large project lists
+  /// - Shows current selection highlighted
+  /// - Filters out closed projects by default
+  /// - Includes debug logging for troubleshooting
+  /// - Persists selection to LocalStorageService
   Future<void> _changeDefaultProject() async {
-    // Load projects
+    // Load projects first
     await _loadProjects();
-    
+
     if (!mounted) return;
-    
+
+    final searchController = TextEditingController();
+    String searchQuery = '';
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
-        title: const Text(
-          'Select Default Project',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: _isLoadingProjects
-              ? const Center(child: BrailleLoader(size: 24))
-              : _projects.isEmpty
-                  ? const Text(
-                      'No projects available',
-                      style: TextStyle(color: Colors.white54),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _projects.length,
-                      itemBuilder: (context, index) {
-                        final project = _projects[index];
-                        final title = project['title'] as String? ?? '';
-                        final isClosed = project['closed'] as bool? ?? false;
-                        final isSelected = _defaultProject == title;
-                        
-                        return ListTile(
-                          title: Text(
-                            title,
-                            style: TextStyle(
-                              color: isClosed ? Colors.white38 : Colors.white,
-                              decoration: isClosed
-                                  ? TextDecoration.lineThrough
-                                  : TextDecoration.none,
-                            ),
-                          ),
-                          subtitle: isClosed
-                              ? const Text(
-                                  'Closed',
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 12,
-                                  ),
-                                )
-                              : null,
-                          selected: isSelected,
-                          selectedTileColor: AppColors.orangePrimary.withValues(
-                            alpha: 0.2,
-                          ),
-                          trailing: isSelected
-                              ? const Icon(
-                                  Icons.check,
-                                  color: AppColors.orangePrimary,
-                                )
-                              : null,
-                          onTap: () {
-                            setState(() {
-                              _defaultProject = title;
-                            });
-                            _localStorage.saveDefaultProject(title);
-                            Navigator.pop(context);
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Default project set to $title',
-                                ),
-                                backgroundColor: AppColors.orangePrimary,
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.cardBackground,
+          title: const Text(
+            'Select Default Project',
+            style: TextStyle(color: Colors.white),
           ),
-        ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Search field for large datasets
+              TextField(
+                controller: searchController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Search projects...',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.blue,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                onChanged: (value) {
+                  setDialogState(() => searchQuery = value.toLowerCase());
+                },
+              ),
+              const SizedBox(height: 16),
+              // Project list with filtering
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: SizedBox(
+                  width: double.maxFinite,
+                  child: _isLoadingProjects
+                    ? const Center(child: BrailleLoader(size: 24))
+                    : _projects.isEmpty
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'No projects available',
+                                style: TextStyle(color: Colors.white54),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: _projects
+                                .where(
+                                  (project) =>
+                                      // Filter: show open projects or matching search
+                                      !(project['closed'] as bool? ?? false) &&
+                                      (searchQuery.isEmpty ||
+                                          (project['title'] as String? ?? '')
+                                              .toLowerCase()
+                                              .contains(searchQuery)),
+                                )
+                                .length,
+                            itemBuilder: (context, index) {
+                              final filteredProjects = _projects
+                                  .where(
+                                    (project) =>
+                                        !(project['closed'] as bool? ?? false) &&
+                                        (searchQuery.isEmpty ||
+                                            (project['title'] as String? ?? '')
+                                                .toLowerCase()
+                                                .contains(searchQuery)),
+                                  )
+                                  .toList();
+                              final project = filteredProjects[index];
+                              final title = project['title'] as String? ?? '';
+                              final isSelected = _defaultProject == title;
+
+                              return ListTile(
+                                leading: const Icon(
+                                  Icons.view_kanban,
+                                  color: AppColors.blue,
+                                ),
+                                title: Text(
+                                  title,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? AppColors.blue
+                                        : Colors.white,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                                selected: isSelected,
+                                selectedTileColor: AppColors.blue.withValues(
+                                  alpha: 0.2,
+                                ),
+                                trailing: isSelected
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: AppColors.blue,
+                                      )
+                                    : null,
+                                onTap: () {
+                                  debugPrint(
+                                    '[Settings] Default project selected: $title',
+                                  );
+                                  setState(() {
+                                    _defaultProject = title;
+                                  });
+                                  _localStorage.saveDefaultProject(title);
+                                  Navigator.pop(context);
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.check_circle,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Default: $title',
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                      backgroundColor: AppColors.blue,
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                searchController.dispose();
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
       ),
     );
   }

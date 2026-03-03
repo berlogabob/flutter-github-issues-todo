@@ -15,11 +15,12 @@ void main() {
       ItemStatus status = ItemStatus.open,
       List<String> labels = const ['bug'],
       String? assignee = 'testuser',
+      int number = 1,
     }) {
       return IssueItem(
         id: 'test-id-1',
         title: title,
-        number: 1,
+        number: number,
         bodyMarkdown: body,
         status: status,
         labels: labels,
@@ -379,8 +380,8 @@ void main() {
 
         // Status badge should use green color for open
         expect(find.byWidgetPredicate(
-          (widget) => widget is Container && 
-                      (widget as Container).decoration is BoxDecoration,
+          (widget) => widget is Container &&
+                      widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
     });
@@ -402,8 +403,8 @@ void main() {
 
         // Time should be displayed
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).data?.contains('ago') == true,
+          (widget) => widget is Text &&
+                      widget.data?.contains('ago') == true,
         ), findsWidgets);
       });
     });

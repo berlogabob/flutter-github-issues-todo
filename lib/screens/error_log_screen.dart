@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -6,7 +5,7 @@ import '../constants/app_colors.dart';
 import '../services/error_logging_service.dart';
 import '../widgets/braille_loader.dart';
 
-/// Screen for viewing and managing error logs
+/// Screen for viewing and managing error logs.
 ///
 /// Features:
 /// - View all logged errors
@@ -15,6 +14,7 @@ import '../widgets/braille_loader.dart';
 /// - Export error log
 /// - Copy error details to clipboard
 class ErrorLogScreen extends StatefulWidget {
+  /// Creates the error log screen.
   const ErrorLogScreen({super.key});
 
   @override

@@ -341,10 +341,8 @@ void main() {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 
-        final fab = tester.widget<FloatingActionButton>(
-          find.byType(FloatingActionButton),
-        );
-        expect(fab.icon, isNotNull);
+        // FAB should have an Icon widget as child
+        expect(find.byIcon(Icons.add), findsOneWidget);
       });
 
       testWidgets('FAB has extended label', (tester) async {

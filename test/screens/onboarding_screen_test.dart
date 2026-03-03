@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gitdoit/screens/onboarding_screen.dart';
-import 'package:gitdoit/constants/app_colors.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 void main() {
@@ -218,7 +217,7 @@ void main() {
         expect(
           find.byWidgetPredicate(
             (widget) => widget is Text &&
-                (widget as Text).style?.color != null,
+                widget.style?.color != null,
           ),
           findsWidgets,
         );

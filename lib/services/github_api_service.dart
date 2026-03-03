@@ -863,6 +863,11 @@ class GitHubApiService {
   ///
   /// Uses GitHub REST API: `GET /repos/{owner}/{repo}/labels`
   ///
+  /// CACHING (Task 19.2):
+  /// - Caches results for 5 minutes to improve performance
+  /// - Cache key: `labels_${owner}_${repo}`
+  /// - Falls back to network on cache miss or error
+  ///
   /// Example:
   /// ```dart
   /// final labels = await githubApi.fetchRepoLabels('flutter', 'flutter');
@@ -882,7 +887,17 @@ class GitHubApiService {
     String repo,
   ) async {
     try {
-      debugPrint('Fetching labels for $owner/$repo...');
+      // Check cache first (Task 19.2)
+      final cacheKey = 'labels_${owner}_${repo}';
+      final cachedLabels = _cache.get<List>(cacheKey);
+      if (cachedLabels != null) {
+        debugPrint('Cache HIT for labels: $owner/$repo');
+        return cachedLabels
+            .map((json) => json as Map<String, dynamic>)
+            .toList();
+      }
+      debugPrint('Cache MISS for labels: $owner/$repo - fetching from network');
+
       final headers = await _headers;
 
       final response = await http
@@ -897,6 +912,14 @@ class GitHubApiService {
       if (response.statusCode == 200) {
         final List<dynamic> labelsData = json.decode(response.body);
         debugPrint('✓ Fetched ${labelsData.length} labels');
+
+        // Cache the result for 5 minutes (Task 19.2)
+        await _cache.set(
+          cacheKey,
+          labelsData,
+          ttl: const Duration(minutes: 5),
+        );
+
         return labelsData.cast<Map<String, dynamic>>();
       } else {
         final errorBody = json.decode(response.body);
@@ -904,8 +927,28 @@ class GitHubApiService {
           'Failed to fetch labels: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
+    } on http.ClientException catch (e) {
+      debugPrint('HTTP ClientException fetching labels: $e');
+      throw Exception(
+        'Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}',
+      );
+    } on TimeoutException catch (e) {
+      debugPrint('Request timeout fetching labels: $e');
+      throw Exception('Request timeout. Check your internet connection.');
+    } on SocketException catch (e) {
+      debugPrint('SocketException fetching labels: $e');
+      throw Exception(
+        'No internet connection. Please check your network settings.\n\nDetails: ${e.message}',
+      );
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Network') ||
+          e.toString().contains('failed host lookup')) {
+        throw Exception(
+          'Cannot connect to GitHub. Check your internet connection.\n\nError: ${e.toString()}',
+        );
+      }
       rethrow;
     }
   }
@@ -920,6 +963,11 @@ class GitHubApiService {
   /// - `type`: User type (e.g., "User")
   ///
   /// Uses GitHub REST API: `GET /repos/{owner}/{repo}/collaborators`
+  ///
+  /// CACHING (Task 19.2):
+  /// - Caches results for 5 minutes to improve performance
+  /// - Cache key: `collaborators_${owner}_${repo}`
+  /// - Falls back to network on cache miss or error
   ///
   /// Example:
   /// ```dart
@@ -940,7 +988,17 @@ class GitHubApiService {
     String repo,
   ) async {
     try {
-      debugPrint('Fetching collaborators for $owner/$repo...');
+      // Check cache first (Task 19.2)
+      final cacheKey = 'collaborators_${owner}_${repo}';
+      final cachedCollaborators = _cache.get<List>(cacheKey);
+      if (cachedCollaborators != null) {
+        debugPrint('Cache HIT for collaborators: $owner/$repo');
+        return cachedCollaborators
+            .map((json) => json as Map<String, dynamic>)
+            .toList();
+      }
+      debugPrint('Cache MISS for collaborators: $owner/$repo - fetching from network');
+
       final headers = await _headers;
 
       final response = await http
@@ -957,6 +1015,14 @@ class GitHubApiService {
       if (response.statusCode == 200) {
         final List<dynamic> collaboratorsData = json.decode(response.body);
         debugPrint('✓ Fetched ${collaboratorsData.length} collaborators');
+
+        // Cache the result for 5 minutes (Task 19.2)
+        await _cache.set(
+          cacheKey,
+          collaboratorsData,
+          ttl: const Duration(minutes: 5),
+        );
+
         return collaboratorsData.cast<Map<String, dynamic>>();
       } else {
         final errorBody = json.decode(response.body);
@@ -964,8 +1030,28 @@ class GitHubApiService {
           'Failed to fetch collaborators: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
+    } on http.ClientException catch (e) {
+      debugPrint('HTTP ClientException fetching collaborators: $e');
+      throw Exception(
+        'Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}',
+      );
+    } on TimeoutException catch (e) {
+      debugPrint('Request timeout fetching collaborators: $e');
+      throw Exception('Request timeout. Check your internet connection.');
+    } on SocketException catch (e) {
+      debugPrint('SocketException fetching collaborators: $e');
+      throw Exception(
+        'No internet connection. Please check your network settings.\n\nDetails: ${e.message}',
+      );
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Network') ||
+          e.toString().contains('failed host lookup')) {
+        throw Exception(
+          'Cannot connect to GitHub. Check your internet connection.\n\nError: ${e.toString()}',
+        );
+      }
       rethrow;
     }
   }

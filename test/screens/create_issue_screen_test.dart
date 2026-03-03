@@ -411,8 +411,8 @@ void main() {
 
         // Create button should use orange primary color
         expect(find.byWidgetPredicate(
-          (widget) => widget is Text && 
-                      (widget as Text).style?.color == AppColors.orangePrimary,
+          (widget) => widget is Text &&
+                      widget.style?.color == AppColors.orangePrimary,
         ), findsWidgets);
       });
     });

@@ -28,29 +28,68 @@ import 'package:path_provider/path_provider.dart';
 /// // Clear errors
 /// await ErrorLoggingService.instance.clearErrors();
 ///
-/// // Export errors
-/// final path = await ErrorLoggingService.instance.exportErrors();
-/// ```
+/// Error severity levels for logging.
+///
+/// Used to categorize errors by severity for filtering and reporting.
 enum ErrorLevel {
+  /// Debug-level message for development troubleshooting.
   debug,
+
+  /// Informational message for general logging.
   info,
+
+  /// Warning-level message for potential issues.
   warning,
+
+  /// Error-level message for actual errors.
   error,
+
+  /// Critical-level message for severe failures.
   critical,
 }
 
+/// Error logging service for local debugging and diagnostics.
+///
+/// Persists errors to a local log file for offline debugging.
+/// Supports log rotation to prevent unbounded growth.
+///
+/// Usage:
+/// ```dart
+/// // Log an error
+/// await ErrorLoggingService.instance.logError('Something went wrong');
+///
+/// // Get errors
+/// final errors = await ErrorLoggingService.instance.getErrors();
+///
+/// // Export errors
+/// final path = await ErrorLoggingService.instance.exportErrors();
+/// ```
 class ErrorLoggingService {
+  /// Private constructor for singleton pattern.
   ErrorLoggingService._();
 
+  /// Singleton instance of the error logging service.
   static final ErrorLoggingService _instance = ErrorLoggingService._();
+
+  /// Gets the singleton instance.
   static ErrorLoggingService get instance => _instance;
 
+  /// Log file handle.
   File? _logFile;
+
+  /// Initialization state flag.
   bool _isInitialized = false;
+
+  /// Maximum log file size before rotation (10MB).
   static const int _maxLogSizeBytes = 10 * 1024 * 1024; // 10MB
+
+  /// Maximum number of lines to keep after rotation.
   static const int _maxLogLines = 1000;
 
-  /// Initialize the error logging service
+  /// Initialize the error logging service.
+  ///
+  /// Creates the log file in the application documents directory.
+  /// Performs log rotation if file exceeds maximum size.
   Future<void> init() async {
     if (_isInitialized) return;
 
@@ -87,7 +126,7 @@ class ErrorLoggingService {
             ? lines.length - _maxLogLines
             : 0;
         final recentLines = lines.sublist(startIdx);
-        await _logFile!.writeAsString(recentLines.join('\n') + '\n');
+        await _logFile!.writeAsString('${recentLines.join('\n')}\n');
         debugPrint('ErrorLoggingService: Log rotated, kept ${recentLines.length} lines');
       }
     } catch (e) {
@@ -339,21 +378,35 @@ class ErrorLoggingService {
     return errors.length;
   }
 
-  /// Check if there are any errors
+  /// Check if there are any errors.
+  ///
+  /// Returns true if at least one error has been logged.
   Future<bool> hasErrors() async {
     final count = await getErrorCount();
     return count > 0;
   }
 }
 
-/// Represents a single log entry
+/// Represents a single log entry in the error log.
+///
+/// Contains timestamp, severity level, message, and optional error details.
 class LogEntry {
+  /// Timestamp when the error was logged.
   final DateTime timestamp;
+
+  /// Severity level of the error.
   final ErrorLevel level;
+
+  /// Error message description.
   final String message;
+
+  /// Optional error object or exception message.
   final String? error;
+
+  /// Optional stack trace for debugging.
   final String? stackTrace;
 
+  /// Creates a new log entry.
   LogEntry({
     required this.timestamp,
     required this.level,
@@ -362,7 +415,7 @@ class LogEntry {
     this.stackTrace,
   });
 
-  /// Format the entry for display
+  /// Formats the timestamp as HH:MM:SS for display.
   String get formattedTimestamp {
     return '${timestamp.hour.toString().padLeft(2, '0')}:'
         '${timestamp.minute.toString().padLeft(2, '0')}:'

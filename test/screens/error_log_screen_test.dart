@@ -174,7 +174,7 @@ void main() {
         // Level indicator circle
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
 
@@ -187,7 +187,7 @@ void main() {
         // Timestamp should be displayed
         expect(find.byWidgetPredicate(
           (widget) => widget is Text &&
-              (widget as Text).data?.contains(':') == true,
+              widget.data?.contains(':') == true,
         ), findsWidgets);
       });
 
@@ -219,7 +219,7 @@ void main() {
         // Cards should have proper background
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
     });
@@ -428,7 +428,7 @@ void main() {
         // Error level should use red
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
 
@@ -701,7 +701,7 @@ void main() {
         // Summary bar should have card background
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).color == AppColors.cardBackground,
+              widget.color == AppColors.cardBackground,
         ), findsWidgets);
       });
 
@@ -714,7 +714,7 @@ void main() {
         // Cards should have border radius
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
 
@@ -727,7 +727,7 @@ void main() {
         // Cards should have border
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
 
@@ -744,7 +744,7 @@ void main() {
         // Expanded content should have background color
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
 
@@ -884,7 +884,7 @@ void main() {
         // Timestamp should be in HH:MM:SS format
         expect(find.byWidgetPredicate(
           (widget) => widget is Text &&
-              (widget as Text).data?.contains(':') == true,
+              widget.data?.contains(':') == true,
         ), findsWidgets);
       });
 
@@ -918,7 +918,7 @@ void main() {
         // Badge should have background
         expect(find.byWidgetPredicate(
           (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
+              widget.decoration is BoxDecoration,
         ), findsWidgets);
       });
 
@@ -931,7 +931,7 @@ void main() {
         // Badge text should be small
         expect(find.byWidgetPredicate(
           (widget) => widget is Text &&
-              (widget as Text).style?.fontSize == 10,
+              widget.style?.fontSize == 10,
         ), findsWidgets);
       });
     });

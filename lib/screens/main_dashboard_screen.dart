@@ -55,12 +55,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   String? _errorMessage;
   String? _vaultFolderName;
 
-  // PERFORMANCE OPTIMIZATION (Task 16.1): Pagination support
-  int _currentPage = 1;
-  static const int _perPage = 30;
-  bool _hasMoreRepos = true;
-  bool _isLoadingMore = false;
-
   // Large dataset optimization: Track issue loading per repo
   final Map<String, bool> _repoIssueLoadingState = {};
   final Map<String, String?> _repoErrorState = {};
@@ -429,18 +423,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   /// PERFORMANCE OPTIMIZATION:
   /// - Loads only first page initially (30 repos)
   /// - Caches each page for faster subsequent loads
-  /// - "Load More" button loads additional pages on demand
-  Future<void> _fetchRepositories({bool loadMore = false}) async {
-    if (loadMore) {
-      await _loadMoreRepos();
-      return;
-    }
-
+  /// Fetch repositories with improved error handling and offline mode support.
+  Future<void> _fetchRepositories() async {
     setState(() {
       _isFetchingRepos = true;
       _errorMessage = null;
-      _currentPage = 1;
-      _hasMoreRepos = true;
     });
 
     try {
@@ -483,19 +470,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
 
       debugPrint('Calling fetchMyRepositories()...');
-      final repos = await _dashboardService.fetchMyRepositories(
-        page: _currentPage,
-        perPage: _perPage,
-      );
+      final repos = await _dashboardService.fetchMyRepositories();
       debugPrint('✓ Fetched ${repos.length} repositories from GitHub');
-
-      // Check if more repos are available
-      final nextPage = _currentPage + 1;
-      _hasMoreRepos = await _dashboardService.hasMoreRepositories(
-        page: nextPage,
-        perPage: _perPage,
-      );
-      debugPrint('Has more repos: $_hasMoreRepos');
 
       if (!mounted) return;
       {
@@ -566,48 +542,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   /// - Appends new repos to existing list
   /// - Shows loading indicator while fetching
   /// - Updates hasMoreRepos flag
-  Future<void> _loadMoreRepos() async {
-    if (_isLoadingMore || !_hasMoreRepos) return;
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    try {
-      final nextPage = _currentPage + 1;
-      debugPrint('Loading more repos (page $nextPage)...');
-
-      final newRepos = await _dashboardService.fetchMyRepositories(
-        page: nextPage,
-        perPage: _perPage,
-      );
-
-      // Check if even more repos are available
-      final afterNextPage = nextPage + 1;
-      _hasMoreRepos = await _dashboardService.hasMoreRepositories(
-        page: afterNextPage,
-        perPage: _perPage,
-      );
-
-      if (mounted && newRepos.isNotEmpty) {
-        setState(() {
-          _currentPage = nextPage;
-          _repositories.addAll(newRepos);
-          _isLoadingMore = false;
-          debugPrint('✓ Loaded ${newRepos.length} more repos (total: ${_repositories.length})');
-        });
-      }
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-      debugPrint('Error loading more repos: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingMore = false;
-        });
-      }
-    }
-  }
-
   /// Fetch issues for all repositories with batching for large datasets.
   ///
   /// PERFORMANCE OPTIMIZATION (Task 20.2):
@@ -1000,31 +934,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             onPinToggle: _togglePinRepo,
           ),
         ),
-        // PERFORMANCE: "Load More" button for pagination
-        if (_hasMoreRepos || _isLoadingMore) _buildLoadMoreButton(),
       ],
-    );
-  }
-
-  /// Build the "Load More" button for pagination (Task 16.1)
-  Widget _buildLoadMoreButton() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: _isLoadingMore
-          ? const BrailleLoader(size: 24)
-          : ElevatedButton(
-              onPressed: _hasMoreRepos ? () => _fetchRepositories(loadMore: true) : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.cardBackground,
-                foregroundColor: AppColors.orangePrimary,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: AppColors.orangePrimary),
-                ),
-              ),
-              child: const Text('Load More Repositories'),
-            ),
     );
   }
 

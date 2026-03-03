@@ -75,7 +75,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   /// Returns the current app version from pubspec.yaml.
   String _getAppVersion() {
-    // Version from pubspec.yaml: 0.5.0+72
+    // Version from pubspec.yaml: 0.5.0+76
+    return '0.5.0+76';
+    return '0.5.0+75';
+    return '0.5.0+74';
+    return '0.5.0+73';
     return '0.5.0+72';
   }
 

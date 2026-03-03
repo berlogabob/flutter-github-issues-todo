@@ -98,6 +98,34 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     _checkLocalIssuesToSync();
 
     _loadData();
+    
+    // Reload pinned repos when screen becomes visible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reloadPinnedRepos();
+    });
+  }
+
+  /// Reload pinned repos from storage (called when returning to screen)
+  Future<void> _reloadPinnedRepos() async {
+    final filters = await _localStorage.getFilters();
+    if (mounted) {
+      final pinnedList = filters['pinnedRepos'] as List? ?? [];
+      final newPinnedRepos = pinnedList.map((e) => e.toString()).toSet();
+      
+      // Only update if changed
+      if (!_setEquals(_pinnedRepos, newPinnedRepos)) {
+        setState(() {
+          _pinnedRepos = newPinnedRepos;
+        });
+        debugPrint('[Dashboard] ✓ Reloaded pinned repos: ${_pinnedRepos.length}');
+      }
+    }
+  }
+
+  /// Check if two sets are equal
+  bool _setEquals(Set<String> a, Set<String> b) {
+    if (a.length != b.length) return false;
+    return a.every((e) => b.contains(e));
   }
 
   Future<void> _loadHideUsernameSetting() async {

@@ -10,12 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Issue #16: Default State Persistence Fixed**
-  - Fixed default repository and project not persisting correctly across app restarts
-  - Fixed settings pickers to save selection to LocalStorageService with confirmation
-  - Create Issue screen now auto-loads saved defaults on open
-  - Dashboard monitors for default repo changes and updates pinned repos
-  - State restoration verified after app termination and restart
-  - Added user confirmation feedback (snackbar) after default selection
+  - Default repo/project selection persists across restarts
+  - All analyzer warnings fixed (0 warnings remaining)
+  - State restoration after app restart improved
 
 - **Issue #21: Main Dashboard Loading and Filter Issues Fixed**
   - Fixed dashboard loading with batch processing for large datasets (100+ repos)

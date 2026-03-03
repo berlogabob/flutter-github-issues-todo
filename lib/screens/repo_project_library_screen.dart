@@ -446,15 +446,15 @@ class _RepoProjectLibraryScreenState
           ],
         ),
       ),
-      confirmDismiss: (direction) async {
+      onDismissed: (direction) async {
+        // Swipe right - pin
         if (direction == DismissDirection.startToEnd) {
-          // Swipe right - show on main page (pin)
           await _pinRepo(repo.fullName);
-        } else {
-          // Swipe left - hide from main page (unpin)
+        } 
+        // Swipe left - unpin
+        else {
           await _unpinRepo(repo.fullName);
         }
-        return false; // Don't dismiss, just trigger action
       },
       child: Card(
         color: AppColors.cardBackground,
@@ -545,9 +545,13 @@ class _RepoProjectLibraryScreenState
   /// FIX (Task 20.7): Improved pin functionality with debug logging.
   Future<void> _pinRepo(String fullName) async {
     debugPrint('[RepoLibrary] Pinning repo: $fullName');
-    setState(() {
-      _pinnedRepos.add(fullName);
-    });
+    
+    // Add to pinned list
+    if (!_pinnedRepos.contains(fullName)) {
+      setState(() {
+        _pinnedRepos.add(fullName);
+      });
+    }
 
     // Save to local storage with error handling
     try {
@@ -584,9 +588,13 @@ class _RepoProjectLibraryScreenState
   /// FIX (Task 20.7): Improved unpin functionality with debug logging.
   Future<void> _unpinRepo(String fullName) async {
     debugPrint('[RepoLibrary] Unpinning repo: $fullName');
-    setState(() {
-      _pinnedRepos.remove(fullName);
-    });
+    
+    // Remove from pinned list
+    if (_pinnedRepos.contains(fullName)) {
+      setState(() {
+        _pinnedRepos.remove(fullName);
+      });
+    }
 
     // Save to local storage with error handling
     try {

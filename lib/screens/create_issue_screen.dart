@@ -27,6 +27,11 @@ import '../widgets/braille_loader.dart';
 /// - Proper error handling with user-friendly messages
 /// - Queue operations for offline mode with proper error recovery
 ///
+/// ISSUE #22 FIX:
+/// - Auto-populates repo from expanded dashboard item
+/// - Shows visual indicator when repo is pre-selected
+/// - Clear indication of which repo will receive the issue
+///
 /// Usage:
 /// ```dart
 /// final result = await Navigator.push(
@@ -35,6 +40,7 @@ import '../widgets/braille_loader.dart';
 ///     builder: (context) => CreateIssueScreen(
 ///       owner: 'owner',
 ///       repo: 'repo',
+///       expandedRepoFullName: 'owner/repo', // Optional: indicates auto-selection
 ///     ),
 ///   ),
 /// );
@@ -45,6 +51,10 @@ class CreateIssueScreen extends StatefulWidget {
 
   /// Repository name.
   final String? repo;
+
+  /// Full name of expanded repo from dashboard (for visual indicator)
+  /// If provided, shows indicator that repo was auto-selected
+  final String? expandedRepoFullName;
 
   /// Default project name for assignment.
   final String? defaultProject;
@@ -60,10 +70,12 @@ class CreateIssueScreen extends StatefulWidget {
   /// [owner] and [repo] specify the target repository.
   /// [defaultProject] and [projects] are used for project assignment.
   /// [availableRepos] provides a list of repositories to choose from.
+  /// [expandedRepoFullName] indicates auto-selected repo from dashboard.
   const CreateIssueScreen({
     super.key,
     this.owner,
     this.repo,
+    this.expandedRepoFullName,
     this.defaultProject,
     this.projects,
     this.availableRepos,
@@ -405,6 +417,60 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                   ],
 
                   // Repository selector (always shown as dropdown)
+                  // ISSUE #22: Visual indicator for auto-selected repo
+                  if (widget.expandedRepoFullName != null &&
+                      widget.expandedRepoFullName == widget.repo) ...[
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.orangePrimary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.orangePrimary.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.folder_open,
+                            color: AppColors.orangePrimary,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Creating in expanded repository',
+                                  style: TextStyle(
+                                    color: AppColors.orangePrimary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  widget.expandedRepoFullName!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.check_circle,
+                            color: AppColors.orangePrimary.withValues(alpha: 0.7),
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   const Text(
                     'Repository',
                     style: TextStyle(
@@ -690,6 +756,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
               ),
               ..._availableAssignees.map((user) {
                 final login = user['login'] as String? ?? '';
+                final avatarUrl = user['avatar_url'] as String?;
                 return DropdownMenuItem(
                   value: login,
                   child: Row(
@@ -697,8 +764,8 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       CircleAvatar(
                         radius: 12,
                         backgroundColor: AppColors.orangePrimary,
-                        backgroundImage: user['avatar_url'] != null
-                            ? NetworkImage(user['avatar_url'] as String)
+                        backgroundImage: avatarUrl != null
+                            ? NetworkImage(avatarUrl)
                             : null,
                         child: user['avatar_url'] == null
                             ? Text(

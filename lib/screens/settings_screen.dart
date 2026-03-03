@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
@@ -51,6 +53,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _autoSyncWifi = true;
   bool _autoSyncAny = false;
   bool _isLoadingUser = true;
+  String _appVersion = '...';
 
   @override
   void initState() {
@@ -59,6 +62,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _loadDefaultRepo();
     _loadDefaultProject();
     _loadAutoSyncSettings();
+    _loadAppVersion();
+  }
+
+  /// Load app version from package info
+  Future<void> _loadAppVersion() async {
+    final version = await _getAppVersion();
+    if (mounted) {
+      setState(() {
+        _appVersion = version;
+      });
+    }
   }
 
   /// Load auto-sync settings from local storage (Task 16.3)
@@ -74,16 +88,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   /// Returns the current app version from pubspec.yaml.
-  String _getAppVersion() {
-    // Version from pubspec.yaml: 0.5.0+81
-    return '0.5.0+81';
-    return '0.5.0+78';
-    return '0.5.0+77';
-    return '0.5.0+76';
-    return '0.5.0+75';
-    return '0.5.0+74';
-    return '0.5.0+73';
-    return '0.5.0+72';
+  Future<String> _getAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      return '${packageInfo.version}+${packageInfo.buildNumber}';
+    } catch (e) {
+      debugPrint('Failed to get app version: $e');
+      return 'Unknown';
+    }
   }
 
   // User data - will be fetched from GitHub
@@ -308,12 +320,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ? BrailleLoader(size: 40)
             : _user['avatar'] != null
             ? ClipOval(
-                child: Image.network(
-                  _user['avatar'] as String,
+                child: CachedNetworkImage(
+                  imageUrl: _user['avatar'] as String,
                   width: 40,
                   height: 40,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
+                  fadeInDuration: Duration(milliseconds: 200),
+                  fadeOutDuration: Duration(milliseconds: 200),
+                  placeholder: (context, url) => CircleAvatar(
+                    backgroundColor: AppColors.orangePrimary.withValues(
+                      alpha: 0.2,
+                    ),
+                    child: const BrailleLoader(size: 20),
+                  ),
+                  errorWidget: (context, error, stackTrace) {
                     return CircleAvatar(
                       backgroundColor: AppColors.orangePrimary.withValues(
                         alpha: 0.2,
@@ -900,7 +920,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Version ${_getAppVersion()}',
+            'Version $_appVersion',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,

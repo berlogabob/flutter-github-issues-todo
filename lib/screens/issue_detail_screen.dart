@@ -1133,7 +1133,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                           radius: 16.r,
                           backgroundColor: AppColors.orangeSecondary,
                           backgroundImage: avatarUrl != null
-                              ? NetworkImage(avatarUrl)
+                              ? CachedNetworkImageProvider(avatarUrl)
                               : null,
                           child: avatarUrl == null
                               ? Text(

@@ -146,10 +146,11 @@ class IssueCard extends StatelessWidget {
   }
 
   /// Build assignee widget with cached avatar image (Task 16.2)
-  /// 
-  /// PERFORMANCE OPTIMIZATION:
+  ///
+  /// PERFORMANCE OPTIMIZATION (Sprint 29.3):
   /// - Uses CachedNetworkImage with disk cache
   /// - maxHeightDiskCache: 100 for memory efficiency
+  /// - memCacheWidth/Height: 100 for memory cache efficiency
   /// - CircularProgressIndicator as placeholder
   /// - Fallback to Icon(Icons.person) on error
   Widget _buildAssigneeWithAvatar() {
@@ -157,11 +158,13 @@ class IssueCard extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // PERFORMANCE: CachedNetworkImage with optimized settings
+          // PERFORMANCE: CachedNetworkImage with optimized settings (Sprint 29.3)
           CachedNetworkImage(
             imageUrl: issue.assigneeAvatarUrl!,
             width: 16,
             height: 16,
+            memCacheWidth: 100, // PERFORMANCE: Memory cache width
+            memCacheHeight: 100, // PERFORMANCE: Memory cache height
             maxHeightDiskCache: 100, // PERFORMANCE: Limit cache size
             placeholder: (context, url) => const SizedBox(
               width: 16,

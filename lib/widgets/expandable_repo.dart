@@ -9,6 +9,7 @@ import '../screens/edit_issue_screen.dart';
 import 'braille_loader.dart';
 import 'loading_skeleton.dart'; // PERFORMANCE: Loading skeletons (Task 16.5)
 import 'issue_card.dart';
+import 'package:flutter/services.dart';
 
 /// ExpandableRepo - Modular, reusable widget for displaying a repository with collapsible issues list
 /// 
@@ -240,6 +241,8 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
   @override
   Widget build(BuildContext context) {
     // Use fullName as unique key - more reliable than node_id
+    // NOTE: Swipe disabled for repo cards on main dashboard (Issue #20)
+    // Pin/Unpin only via repo_project_library_screen
     return Card(
       color: AppColors.cardBackground,
       margin: const EdgeInsets.only(bottom: 16),
@@ -348,7 +351,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                 ),
               ),
             ),
-          ),
+          ),  // RepaintBoundary
           // Issues List (collapsible)
           if (_isExpanded)
             AnimatedCrossFade(
@@ -362,9 +365,9 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                   : CrossFadeState.showFirst,
               duration: const Duration(milliseconds: 300),
             ),
-        ],
-      ),
-    );
+        ],  // Column children
+      ),  // Column
+    );  // Card
   }
 
   /// Build issues list with performance optimizations (Task 16.4)

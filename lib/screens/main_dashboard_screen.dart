@@ -25,6 +25,7 @@ import '../widgets/sync_status_widget.dart';
 import 'create_issue_screen.dart';
 import '../utils/responsive_utils.dart';
 import 'issue_detail_screen.dart';
+import 'project_board_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'repo_project_library_screen.dart';
@@ -643,8 +644,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   Future<void> _fetchProjects() async {
     if (_isFetchingProjects) return;
 
-    setState(() => _isFetchingProjects = true);
-
     try {
       debugPrint('Fetching projects...');
       final projects = await _dashboardService.fetchProjects();
@@ -660,7 +659,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       debugPrint('Error fetching projects: $e');
       if (mounted) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-        setState(() => _isFetchingProjects = false);
+        setState(() {
+          _isFetchingProjects = false;
+          _errorMessage = e.toString();
+        });
       }
     }
   }
@@ -739,6 +741,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             ),
             onPressed: _navigateToRepoLibrary,
             tooltip: 'Repositories & Projects',
+          ),
+          // Project Board icon
+          IconButton(
+            icon: Icon(Icons.view_kanban, color: Colors.white, size: 24.w),
+            onPressed: _navigateToProjectBoard,
+            tooltip: 'Project Board',
           ),
           IconButton(
             icon: Icon(Icons.search, color: Colors.white, size: 24.w),
@@ -959,6 +967,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
   }
 
+  void _navigateToProjectBoard() {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const ProjectBoardScreen()),
+    );
+  }
+
   /// Toggle pin status for a repository with improved error handling.
   ///
   /// FIX (Task 20.3): Ensures pin state persists correctly.
@@ -1133,6 +1148,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           builder: (context) => CreateIssueScreen(
             owner: owner,
             repo: repo,
+            expandedRepoFullName: selectedRepo, // ISSUE #22: Visual indicator
             defaultProject: _projects.isNotEmpty
                 ? _projects.first['title'] as String?
                 : null,

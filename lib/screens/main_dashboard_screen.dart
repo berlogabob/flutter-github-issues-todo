@@ -923,7 +923,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       children: [
         Expanded(
           child: RepoList(
-            repositories: displayedRepos,
+            repositories: _getDisplayedRepos(),
             githubApi: _dashboardService,
             expandedRepoId: _expandedRepoId,
             onExpandToggle: _onRepoToggle,

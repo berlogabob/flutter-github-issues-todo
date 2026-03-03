@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../models/pending_operation.dart';
 import '../services/github_api_service.dart';
-import '../services/issue_service.dart';
 import '../services/network_service.dart';
 import '../services/pending_operations_service.dart';
+import '../services/cache_service.dart';
+import '../services/local_storage_service.dart';
 import '../utils/relative_time.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/label_chip.dart';
@@ -68,20 +71,39 @@ class IssueDetailScreen extends ConsumerStatefulWidget {
 
 class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
-  final IssueService _issueService = IssueService();
   final PendingOperationsService _pendingOps = PendingOperationsService();
   final NetworkService _networkService = NetworkService();
+  final CacheService _cache = CacheService();
+  final LocalStorageService _localStorage = LocalStorageService();
   late IssueItem _currentIssue;
   bool _isUpdating = false;
   bool _isDescExpanded = false;
   List<Map<String, dynamic>> _comments = [];
   bool _isLoadingComments = false;
+  String? _currentUserLogin;
+  int _commentsPage = 1;
+  static const int _commentsPerPage = 20;
+  bool _hasMoreComments = true;
+  bool _isLoadingMoreComments = false;
+
+  // Assignee picker state
+  List<Map<String, dynamic>> _assignees = [];
+  bool _isLoadingAssignees = false;
+
+  // Label picker state
+  List<Map<String, dynamic>> _labels = [];
+  bool _isLoadingLabels = false;
 
   @override
   void initState() {
     super.initState();
     _currentIssue = widget.issue;
+    _loadCurrentUser();
     _loadComments();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    _currentUserLogin = await _localStorage.getUserLogin();
   }
 
   Future<void> _loadComments() async {
@@ -95,11 +117,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         effectiveOwner,
         effectiveRepo,
         _currentIssue.number!,
+        page: _commentsPage,
+        perPage: _commentsPerPage,
       );
       if (mounted) {
         setState(() {
           _comments = comments;
           _isLoadingComments = false;
+          _hasMoreComments = comments.length >= _commentsPerPage;
         });
       }
     } catch (e, stackTrace) {
@@ -107,6 +132,142 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       debugPrint('Failed to load comments: $e');
       if (mounted) {
         setState(() => _isLoadingComments = false);
+      }
+    }
+  }
+
+  Future<void> _loadMoreComments() async {
+    if (_isLoadingMoreComments || !_hasMoreComments) return;
+    if (_currentIssue.isLocalOnly || _currentIssue.number == null) return;
+
+    setState(() => _isLoadingMoreComments = true);
+    try {
+      _commentsPage++;
+      final effectiveOwner = widget.owner ?? 'berlogabob';
+      final effectiveRepo = widget.repo ?? 'gitdoit';
+      final newComments = await _githubApi.fetchIssueComments(
+        effectiveOwner,
+        effectiveRepo,
+        _currentIssue.number!,
+        page: _commentsPage,
+        perPage: _commentsPerPage,
+      );
+      if (mounted) {
+        setState(() {
+          _comments.addAll(newComments);
+          _isLoadingMoreComments = false;
+          _hasMoreComments = newComments.length >= _commentsPerPage;
+        });
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      debugPrint('Failed to load more comments: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingMoreComments = false;
+          _commentsPage--; // Revert page counter on error
+        });
+      }
+    }
+  }
+
+  /// Deletes a comment with confirmation dialog.
+  ///
+  /// Shows confirmation dialog before deletion.
+  /// Uses optimistic UI update - removes comment immediately.
+  /// Queues for sync when offline.
+  Future<void> _deleteComment(Map<String, dynamic> comment, int commentId) async {
+    // Trigger haptic feedback
+    HapticFeedback.lightImpact();
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceColor,
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red.shade400),
+            SizedBox(width: 8.w),
+            Text(
+              'Delete Comment?',
+              style: TextStyle(color: Colors.white, fontSize: 16.sp),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete this comment? This action cannot be undone.',
+          style: TextStyle(color: Colors.white70, fontSize: 14.sp),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'CANCEL',
+              style: TextStyle(color: AppColors.secondaryText),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade400,
+            ),
+            child: Text(
+              'DELETE',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final isOnline = await _networkService.checkConnectivity();
+
+    // Optimistic UI update - remove immediately
+    setState(() {
+      _comments.removeWhere((c) => c['id'] == commentId);
+    });
+
+    if (!isOnline) {
+      // Queue for sync when offline
+      try {
+        final operationId = 'delete_comment_${commentId}_${DateTime.now().millisecondsSinceEpoch}';
+        final operation = PendingOperation.deleteComment(
+          id: operationId,
+          commentId: commentId,
+          issueNumber: _currentIssue.number!,
+          owner: _effectiveOwner,
+          repo: _effectiveRepo,
+        );
+        await _pendingOps.addOperation(operation);
+        _showSnackBar('Comment deletion queued for sync');
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        // Re-add comment on error
+        setState(() {
+          _comments.add(comment);
+        });
+        _showErrorSnackBar('Failed to queue comment deletion');
+      }
+      return;
+    }
+
+    // Online - delete immediately
+    try {
+      await _githubApi.deleteIssueComment(_effectiveOwner, _effectiveRepo, commentId);
+      if (mounted) {
+        _showSnackBar('Comment deleted successfully');
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      // Re-add comment on error
+      if (mounted) {
+        setState(() {
+          _comments.add(comment);
+        });
+        _showErrorSnackBar('Failed to delete comment');
       }
     }
   }
@@ -605,8 +766,28 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
               ),
             ),
           )
-        else
-          ...(_comments.map((comment) => _buildCommentTile(comment)).toList()),
+        else ...[
+          ..._comments.map((comment) => _buildCommentTile(comment)).toList(),
+          if (_hasMoreComments)
+            Padding(
+              padding: EdgeInsets.only(top: 16.h),
+              child: Center(
+                child: _isLoadingMoreComments
+                    ? BrailleLoader(size: 20)
+                    : TextButton(
+                        onPressed: _loadMoreComments,
+                        child: Text(
+                          'LOAD MORE COMMENTS',
+                          style: TextStyle(
+                            color: AppColors.orangeSecondary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+        ],
       ],
     );
   }
@@ -617,6 +798,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     final avatarUrl = user?['avatar_url'] as String?;
     final body = comment['body'] as String? ?? '';
     final createdAt = comment['created_at'] as String?;
+    final commentId = comment['id'] as int?;
+    final isOwnComment = _currentUserLogin != null && login == _currentUserLogin;
 
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
@@ -635,7 +818,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 radius: 12.r,
                 backgroundColor: AppColors.orangeSecondary,
                 backgroundImage: avatarUrl != null
-                    ? NetworkImage(avatarUrl)
+                    ? CachedNetworkImageProvider(avatarUrl)
                     : null,
                 child: avatarUrl == null
                     ? Text(
@@ -649,15 +832,16 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                     : null,
               ),
               SizedBox(width: 8.w),
-              Text(
-                '@$login',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13.sp,
-                  color: Colors.white,
+              Expanded(
+                child: Text(
+                  '@$login',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.sp,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-              SizedBox(width: 8.w),
               if (createdAt != null)
                 Text(
                   RelativeTime.format(DateTime.parse(createdAt)),
@@ -666,6 +850,17 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                     fontSize: 11.sp,
                   ),
                 ),
+              if (isOwnComment && commentId != null) ...[
+                SizedBox(width: 8.w),
+                GestureDetector(
+                  onTap: () => _deleteComment(comment, commentId),
+                  child: Icon(
+                    Icons.delete_outline,
+                    size: 18.sp,
+                    color: Colors.red.shade400,
+                  ),
+                ),
+              ],
             ],
           ),
           SizedBox(height: 12.h),
@@ -868,84 +1063,19 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     }
   }
 
-  void _showAssigneeDialog() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surfaceColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
-      ),
-      builder: (context) => Container(
-        padding: EdgeInsets.all(24.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Assignee',
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(height: 16.h),
-            if (_currentIssue.assigneeLogin != null)
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppColors.orangeSecondary,
-                  child: Text(
-                    _currentIssue.assigneeLogin![0].toUpperCase(),
-                    style: const TextStyle(color: Colors.black),
-                  ),
-                ),
-                title: Text(
-                  '@${_currentIssue.assigneeLogin}',
-                  style: TextStyle(color: Colors.white),
-                ),
-                trailing: IconButton(
-                  icon: const Icon(
-                    Icons.remove_circle_outline,
-                    color: Colors.red,
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _removeAssignee();
-                  },
-                ),
-              )
-            else
-              Text(
-                'No assignee',
-                style: TextStyle(
-                  color: AppColors.secondaryText,
-                  fontSize: 14.sp,
-                ),
-              ),
-            SizedBox(height: 16.h),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _addAssignee();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeSecondary,
-                ),
-                child: const Text(
-                  'Add Assignee',
-                  style: TextStyle(color: Colors.black),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showLabelsDialog() {
+  /// Shows the assignee picker dialog with real GitHub API data.
+  ///
+  /// Fetches assignees from GitHub API with 5-minute caching.
+  /// Supports offline mode by showing cached assignees.
+  Future<void> _showAssigneeDialog() async {
+    // Trigger haptic feedback
+    HapticFeedback.selectionClick();
+    
+    // Load assignees
+    await _loadAssignees();
+    
+    if (!mounted) return;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceColor,
@@ -954,9 +1084,268 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
       ),
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.8,
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Assignee',
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              if (_isLoadingAssignees)
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.h),
+                    child: BrailleLoader(size: 24),
+                  ),
+                )
+              else if (_assignees.isEmpty)
+                Text(
+                  'No assignees available',
+                  style: TextStyle(
+                    color: AppColors.secondaryText,
+                    fontSize: 14.sp,
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: _assignees.length,
+                    itemBuilder: (context, index) {
+                      final assignee = _assignees[index];
+                      final login = assignee['login'] as String? ?? '';
+                      final avatarUrl = assignee['avatar_url'] as String?;
+                      final isAssigned = _currentIssue.assigneeLogin == login;
+                      
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 16.r,
+                          backgroundColor: AppColors.orangeSecondary,
+                          backgroundImage: avatarUrl != null
+                              ? NetworkImage(avatarUrl)
+                              : null,
+                          child: avatarUrl == null
+                              ? Text(
+                                  login.isNotEmpty ? login[0].toUpperCase() : '?',
+                                  style: const TextStyle(color: Colors.black),
+                                )
+                              : null,
+                        ),
+                        title: Text(
+                          '@$login',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: isAssigned ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        trailing: isAssigned
+                            ? Icon(
+                                Icons.check_circle,
+                                color: AppColors.orangeSecondary,
+                                size: 20.sp,
+                              )
+                            : null,
+                        onTap: () {
+                          Navigator.pop(context);
+                          if (isAssigned) {
+                            _removeAssignee();
+                          } else {
+                            _setAssignee(login);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Loads assignees from GitHub API or cache.
+  ///
+  /// Caches results for 5 minutes. Falls back to cached data in offline mode.
+  Future<void> _loadAssignees() async {
+    if (_isLoadingAssignees) return;
+
+    final cacheKey = 'assignees_${_effectiveOwner}_${_effectiveRepo}';
+    
+    // Try cache first
+    final cachedAssignees = _cache.get<List>(cacheKey);
+    if (cachedAssignees != null) {
+      setState(() {
+        _assignees = cachedAssignees.cast<Map<String, dynamic>>();
+      });
+      return;
+    }
+    
+    // Check network
+    final isOnline = await _networkService.checkConnectivity();
+    if (!isOnline) {
+      _showSnackBar('Offline - showing cached data');
+      return;
+    }
+    
+    setState(() => _isLoadingAssignees = true);
+    
+    try {
+      final assignees = await _githubApi.fetchRepoCollaborators(
+        _effectiveOwner,
+        _effectiveRepo,
+      );
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _assignees = assignees;
+        _isLoadingAssignees = false;
+      });
+      
+      // Cache for 5 minutes
+      await _cache.set(
+        cacheKey,
+        assignees,
+        ttl: const Duration(minutes: 5),
+      );
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      if (mounted) {
+        setState(() => _isLoadingAssignees = false);
+      }
+    }
+  }
+
+  /// Sets the assignee for the current issue.
+  Future<void> _setAssignee(String login) async {
+    if (_currentIssue.isLocalOnly) {
+      // Local issue - update state only
+      setState(() {
+        _currentIssue = IssueItem(
+          id: _currentIssue.id,
+          title: _currentIssue.title,
+          number: _currentIssue.number,
+          status: _currentIssue.status,
+          updatedAt: DateTime.now(),
+          bodyMarkdown: _currentIssue.bodyMarkdown,
+          assigneeLogin: login,
+          labels: _currentIssue.labels,
+          projectColumnName: _currentIssue.projectColumnName,
+          isLocalOnly: true,
+        );
+      });
+      _showSnackBar('Assignee set to @$login');
+      return;
+    }
+    
+    // Check network
+    final isOnline = await _networkService.checkConnectivity();
+    
+    if (!isOnline) {
+      // Queue operation for later sync
+      try {
+        final operationId = 'assignee_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
+        final operation = PendingOperation(
+          id: operationId,
+          type: OperationType.updateIssue,
+          issueId: _currentIssue.id,
+          issueNumber: _currentIssue.number,
+          owner: widget.owner,
+          repo: widget.repo,
+          data: {'assignees': [login]},
+          createdAt: DateTime.now(),
+        );
+        
+        await _pendingOps.addOperation(operation);
+        
+        // Update UI optimistically
+        setState(() {
+          _currentIssue = IssueItem(
+            id: _currentIssue.id,
+            title: _currentIssue.title,
+            number: _currentIssue.number,
+            status: _currentIssue.status,
+            updatedAt: DateTime.now(),
+            bodyMarkdown: _currentIssue.bodyMarkdown,
+            assigneeLogin: login,
+            labels: _currentIssue.labels,
+            projectColumnName: _currentIssue.projectColumnName,
+            isLocalOnly: _currentIssue.isLocalOnly,
+          );
+        });
+        
+        _showSnackBar('Assignee queued for sync');
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      }
+      return;
+    }
+    
+    // Online - update immediately
+    setState(() => _isUpdating = true);
+    
+    try {
+      final updatedIssue = await _githubApi.updateIssue(
+        _effectiveOwner,
+        _effectiveRepo,
+        _currentIssue.number!,
+        assignees: [login],
+      );
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _currentIssue = updatedIssue;
+        _isUpdating = false;
+      });
+      
+      _showSnackBar('Assignee set to @$login');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      if (mounted) {
+        setState(() => _isUpdating = false);
+      }
+      _showErrorSnackBar('Failed to set assignee');
+    }
+  }
+
+  /// Shows the label picker dialog with real GitHub API data.
+  ///
+  /// Fetches labels from GitHub API with 5-minute caching.
+  /// Supports offline mode by showing cached labels.
+  /// Allows adding new labels to the issue.
+  Future<void> _showLabelsDialog() async {
+    // Trigger haptic feedback
+    HapticFeedback.selectionClick();
+    
+    // Load labels
+    await _loadLabels();
+    
+    if (!mounted) return;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceColor,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
         expand: false,
         builder: (context, scrollController) => Container(
           padding: EdgeInsets.all(24.w),
@@ -972,54 +1361,181 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 ),
               ),
               SizedBox(height: 16.h),
-              if (_currentIssue.labels.isNotEmpty) ...[
-                Wrap(
-                  spacing: 8.w,
-                  runSpacing: 8.h,
-                  children: _currentIssue.labels
-                      .map(
-                        (label) => Chip(
-                          label: Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              color: _getLabelColor(label),
-                            ),
+              if (_isLoadingLabels)
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.h),
+                    child: BrailleLoader(size: 24),
+                  ),
+                )
+              else
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Current labels section
+                      if (_currentIssue.labels.isNotEmpty) ...[
+                        Text(
+                          'Current Labels',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.secondaryText,
                           ),
-                          backgroundColor: _getLabelColor(
-                            label,
-                          ).withValues(alpha: 0.2),
-                          deleteIcon: const Icon(Icons.close, size: 16),
-                          onDeleted: () {
-                            Navigator.pop(context);
-                            _removeLabel(label);
-                          },
                         ),
-                      )
-                      .toList(),
-                ),
-                SizedBox(height: 16.h),
-              ],
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _addLabel();
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Label'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orangeSecondary,
-                    foregroundColor: Colors.black,
+                        SizedBox(height: 8.h),
+                        Wrap(
+                          spacing: 8.w,
+                          runSpacing: 8.h,
+                          children: _currentIssue.labels
+                              .map(
+                                (label) => Chip(
+                                  label: Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      color: _getLabelColor(label),
+                                    ),
+                                  ),
+                                  backgroundColor: _getLabelColor(
+                                    label,
+                                  ).withValues(alpha: 0.2),
+                                  deleteIcon: const Icon(Icons.close, size: 16),
+                                  onDeleted: () {
+                                    Navigator.pop(context);
+                                    _removeLabel(label);
+                                  },
+                                ),
+                              )
+                              .toList(),
+                        ),
+                        SizedBox(height: 16.h),
+                        Divider(color: AppColors.borderColor),
+                        SizedBox(height: 8.h),
+                      ],
+                      // Available labels section
+                      Text(
+                        'Available Labels',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.secondaryText,
+                        ),
+                      ),
+                      SizedBox(height: 8.h),
+                      Expanded(
+                        child: _labels.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No labels available',
+                                  style: TextStyle(
+                                    color: AppColors.secondaryText,
+                                    fontSize: 14.sp,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                itemCount: _labels.length,
+                                itemBuilder: (context, index) {
+                                  final label = _labels[index];
+                                  final labelName = label['name'] as String? ?? '';
+                                  final labelColor = label['color'] as String? ?? '000000';
+                                  final isAdded = _currentIssue.labels.contains(labelName);
+                                  
+                                  return CheckboxListTile(
+                                    value: isAdded,
+                                    title: Row(
+                                      children: [
+                                        Container(
+                                          width: 12.w,
+                                          height: 12.h,
+                                          decoration: BoxDecoration(
+                                            color: Color(int.parse('FF$labelColor', radix: 16)),
+                                            borderRadius: BorderRadius.circular(4.r),
+                                          ),
+                                        ),
+                                        SizedBox(width: 8.w),
+                                        Text(
+                                          labelName,
+                                          style: const TextStyle(color: Colors.white),
+                                        ),
+                                      ],
+                                    ),
+                                    activeColor: AppColors.orangeSecondary,
+                                    onChanged: (value) {
+                                      if (value == true) {
+                                        Navigator.pop(context);
+                                        _addLabel(labelName);
+                                      } else if (value == false) {
+                                        Navigator.pop(context);
+                                        _removeLabel(labelName);
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// Loads labels from GitHub API or cache.
+  ///
+  /// Caches results for 5 minutes. Falls back to cached data in offline mode.
+  Future<void> _loadLabels() async {
+    if (_isLoadingLabels) return;
+
+    final cacheKey = 'labels_${_effectiveOwner}_${_effectiveRepo}';
+    
+    // Try cache first
+    final cachedLabels = _cache.get<List>(cacheKey);
+    if (cachedLabels != null) {
+      setState(() {
+        _labels = cachedLabels.cast<Map<String, dynamic>>();
+      });
+      return;
+    }
+    
+    // Check network
+    final isOnline = await _networkService.checkConnectivity();
+    if (!isOnline) {
+      _showSnackBar('Offline - showing cached data');
+      return;
+    }
+    
+    setState(() => _isLoadingLabels = true);
+    
+    try {
+      final labels = await _githubApi.fetchRepoLabels(
+        _effectiveOwner,
+        _effectiveRepo,
+      );
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _labels = labels;
+        _isLoadingLabels = false;
+      });
+      
+      // Cache for 5 minutes
+      await _cache.set(
+        cacheKey,
+        labels,
+        ttl: const Duration(minutes: 5),
+      );
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      if (mounted) {
+        setState(() => _isLoadingLabels = false);
+      }
+    }
   }
 
   Future<void> _removeAssignee() async {
@@ -1062,10 +1578,6 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         _showErrorSnackBar('Failed to remove assignee');
       }
     }
-  }
-
-  Future<void> _addAssignee() async {
-    _showErrorSnackBar('Assignee selection coming soon');
   }
 
   Future<void> _removeLabel(String label) async {
@@ -1111,8 +1623,101 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     }
   }
 
-  Future<void> _addLabel() async {
-    _showErrorSnackBar('Label selection coming soon');
+  /// Adds a label to the current issue.
+  ///
+  /// [labelName] The name of the label to add.
+  Future<void> _addLabel(String labelName) async {
+    if (_currentIssue.isLocalOnly) {
+      // Local issue - update state only
+      final newLabels = List<String>.from(_currentIssue.labels)..add(labelName);
+      setState(() {
+        _currentIssue = IssueItem(
+          id: _currentIssue.id,
+          title: _currentIssue.title,
+          number: _currentIssue.number,
+          status: _currentIssue.status,
+          updatedAt: DateTime.now(),
+          bodyMarkdown: _currentIssue.bodyMarkdown,
+          assigneeLogin: _currentIssue.assigneeLogin,
+          labels: newLabels,
+          projectColumnName: _currentIssue.projectColumnName,
+          isLocalOnly: true,
+        );
+      });
+      _showSnackBar('Label "$labelName" added');
+      return;
+    }
+    
+    // Check network
+    final isOnline = await _networkService.checkConnectivity();
+    
+    if (!isOnline) {
+      // Queue operation for later sync
+      try {
+        final operationId = 'label_add_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
+        final operation = PendingOperation(
+          id: operationId,
+          type: OperationType.updateIssue,
+          issueId: _currentIssue.id,
+          issueNumber: _currentIssue.number,
+          owner: widget.owner,
+          repo: widget.repo,
+          data: {'labels': [..._currentIssue.labels, labelName]},
+          createdAt: DateTime.now(),
+        );
+        
+        await _pendingOps.addOperation(operation);
+        
+        // Update UI optimistically
+        final newLabels = List<String>.from(_currentIssue.labels)..add(labelName);
+        setState(() {
+          _currentIssue = IssueItem(
+            id: _currentIssue.id,
+            title: _currentIssue.title,
+            number: _currentIssue.number,
+            status: _currentIssue.status,
+            updatedAt: DateTime.now(),
+            bodyMarkdown: _currentIssue.bodyMarkdown,
+            assigneeLogin: _currentIssue.assigneeLogin,
+            labels: newLabels,
+            projectColumnName: _currentIssue.projectColumnName,
+            isLocalOnly: _currentIssue.isLocalOnly,
+          );
+        });
+        
+        _showSnackBar('Label queued for sync');
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      }
+      return;
+    }
+    
+    // Online - update immediately
+    setState(() => _isUpdating = true);
+    
+    try {
+      final updatedIssue = await _githubApi.addIssueLabel(
+        _effectiveOwner,
+        _effectiveRepo,
+        _currentIssue.number!,
+        labelName,
+      );
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _currentIssue = updatedIssue;
+        _isUpdating = false;
+      });
+      
+      _showSnackBar('Label "$labelName" added');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      if (mounted) {
+        setState(() => _isUpdating = false);
+      }
+      _showErrorSnackBar('Failed to add label');
+    }
   }
 
   void _addComment() {

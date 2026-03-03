@@ -6,6 +6,8 @@ import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../services/search_history_service.dart';
+import '../services/local_storage_service.dart';
+import '../services/cache_service.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/search_filters_panel.dart';
 import '../widgets/search_result_item.dart';
@@ -46,7 +48,6 @@ class _SearchScreenState extends State<SearchScreen> {
   static const String _sortByCreated = 'created';
   static const String _sortByUpdated = 'updated';
   static const String _sortByTitle = 'title';
-  static const String _sortOrderAsc = 'asc';
   static const String _sortOrderDesc = 'desc';
 
   final _searchController = TextEditingController();
@@ -58,6 +59,11 @@ class _SearchScreenState extends State<SearchScreen> {
   String _filterStatus = 'all';
   String? _searchError;
   final GitHubApiService _githubApi = GitHubApiService();
+  final LocalStorageService _localStorage = LocalStorageService();
+  final CacheService _cache = CacheService();
+
+  // Cached user login for "My Issues" filter
+  String? _cachedUserLogin;
 
   // Filter states
   bool _filterTitle = true;
@@ -87,6 +93,54 @@ class _SearchScreenState extends State<SearchScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
+    // Load user login for "My Issues" filter
+    _loadUserLogin();
+  }
+
+  /// Loads current user login from cache or GitHub API.
+  ///
+  /// Caches the result for performance. Falls back to cached data in offline mode.
+  Future<void> _loadUserLogin() async {
+    if (_cachedUserLogin != null) return;
+
+    try {
+      // Try cache first
+      final cacheKey = 'current_user_login';
+      final cachedLogin = _cache.get<String>(cacheKey);
+      if (cachedLogin != null) {
+        setState(() {
+          _cachedUserLogin = cachedLogin;
+        });
+        return;
+      }
+
+      // Try local storage first (faster)
+      final localUser = await _localStorage.getUserData();
+      if (localUser != null && localUser['login'] != null) {
+        final login = localUser['login'] as String;
+        setState(() {
+          _cachedUserLogin = login;
+        });
+        // Update cache
+        await _cache.set(cacheKey, login, ttl: const Duration(hours: 1));
+        return;
+      }
+
+      // Fetch from GitHub API
+      final userData = await _githubApi.getCurrentUser();
+      if (userData != null && userData['login'] != null) {
+        final login = userData['login'] as String;
+        setState(() {
+          _cachedUserLogin = login;
+        });
+        // Save to local storage and cache
+        await _localStorage.saveUserData(userData);
+        await _cache.set(cacheKey, login, ttl: const Duration(hours: 1));
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error loading user login: $e');
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -95,10 +149,6 @@ class _SearchScreenState extends State<SearchScreen> {
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 
   bool get _hasActiveFilters {
@@ -542,11 +592,14 @@ class _SearchScreenState extends State<SearchScreen> {
 
       // Apply quick filters
       final quickFiltered = authorFiltered.where((issue) {
-        // My Issues filter
+        // My Issues filter - filter by current user's assignee
         if (_filterMyIssues) {
-          // You'll need to get current user login - for now use placeholder
-          // In production, fetch from auth service
-          final currentLogin = 'current_user'; // TODO: Get from auth
+          // Use cached user login, skip filter if not loaded yet
+          final currentLogin = _cachedUserLogin;
+          if (currentLogin == null) {
+            // User login not loaded yet, skip this filter
+            return true;
+          }
           if (issue.assigneeLogin != currentLogin) return false;
         }
 
@@ -618,24 +671,6 @@ class _SearchScreenState extends State<SearchScreen> {
           _isSearching = false;
         });
       }
-    }
-  }
-
-  void _clearFilters() {
-    setState(() {
-      _filterTitle = true;
-      _filterBody = true;
-      _filterLabels = true;
-      _filterStatus = 'all';
-      _filterMyIssues = false;
-      _filterOpen = false;
-      _filterClosed = false;
-      _dateFrom = null;
-      _dateTo = null;
-      _authorQuery = '';
-    });
-    if (_lastQuery.isNotEmpty) {
-      _performSearch(_lastQuery);
     }
   }
 

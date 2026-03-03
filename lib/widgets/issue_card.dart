@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
 import 'status_badge.dart';
 import 'label_chip.dart';
 
 /// IssueCard - Modular, reusable widget for displaying a single issue
+/// 
+/// PERFORMANCE OPTIMIZATION (Task 16.2):
+/// - Uses CachedNetworkImage for assignee avatar caching
+/// - Caches images to disk with maxHeightDiskCache: 100
+/// - Shows CircularProgressIndicator as placeholder
+/// - Shows fallback Icon(Icons.person) on error
 class IssueCard extends StatelessWidget {
   final IssueItem issue;
   final ValueChanged<IssueItem>? onTap;
@@ -24,7 +32,7 @@ class IssueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dismissible(
-      key: Key('issue-${issue.id}'),
+      key: ValueKey('issue-${issue.id}'), // PERFORMANCE: Use ValueKey instead of Key
       direction: DismissDirection.horizontal,
       background: Container(
         alignment: Alignment.centerLeft,
@@ -39,6 +47,8 @@ class IssueCard extends StatelessWidget {
         child: const Icon(Icons.close, color: Colors.white),
       ),
       confirmDismiss: (direction) async {
+        // Trigger haptic feedback on swipe
+        HapticFeedback.lightImpact();
         if (direction == DismissDirection.startToEnd) {
           onSwipeRight?.call();
         } else {
@@ -47,7 +57,11 @@ class IssueCard extends StatelessWidget {
         return false; // Don't dismiss, just trigger action
       },
       child: InkWell(
-        onTap: onTap != null ? () => onTap!(issue) : null,
+        onTap: () {
+          // Trigger haptic feedback on tap
+          HapticFeedback.lightImpact();
+          onTap?.call(issue);
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -93,26 +107,9 @@ class IssueCard extends StatelessWidget {
                           ...issue.labels
                               .take(3)
                               .map((label) => LabelChipWidget(label: label)),
-                        // Assignee
+                        // Assignee with cached image (Task 16.2)
                         if (issue.assigneeLogin != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.person,
-                                size: 12,
-                                color: AppColors.blue,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                issue.assigneeLogin!,
-                                style: const TextStyle(
-                                  color: AppColors.blue,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
+                          _buildAssigneeWithAvatar(),
                         // Local only indicator
                         if (issue.isLocalOnly)
                           Row(
@@ -146,5 +143,82 @@ class IssueCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Build assignee widget with cached avatar image (Task 16.2)
+  /// 
+  /// PERFORMANCE OPTIMIZATION:
+  /// - Uses CachedNetworkImage with disk cache
+  /// - maxHeightDiskCache: 100 for memory efficiency
+  /// - CircularProgressIndicator as placeholder
+  /// - Fallback to Icon(Icons.person) on error
+  Widget _buildAssigneeWithAvatar() {
+    if (issue.assigneeAvatarUrl != null && issue.assigneeAvatarUrl!.isNotEmpty) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // PERFORMANCE: CachedNetworkImage with optimized settings
+          CachedNetworkImage(
+            imageUrl: issue.assigneeAvatarUrl!,
+            width: 16,
+            height: 16,
+            maxHeightDiskCache: 100, // PERFORMANCE: Limit cache size
+            placeholder: (context, url) => const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.blue),
+              ),
+            ),
+            errorWidget: (context, url, error) => const Icon(
+              Icons.person,
+              size: 16,
+              color: AppColors.blue,
+            ),
+            imageBuilder: (context, imageProvider) => Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: imageProvider,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            issue.assigneeLogin!,
+            style: const TextStyle(
+              color: AppColors.blue,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      );
+    } else if (issue.assigneeLogin != null) {
+      // Fallback to icon only if no avatar URL
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.person,
+            size: 12,
+            color: AppColors.blue,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            issue.assigneeLogin!,
+            style: const TextStyle(
+              color: AppColors.blue,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      );
+    }
+    return const SizedBox.shrink();
   }
 }

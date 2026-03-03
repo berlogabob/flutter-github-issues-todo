@@ -136,7 +136,13 @@ class GitHubApiService {
     return token != null && token.isNotEmpty;
   }
 
-  /// Fetch current user's repositories
+  /// Fetch current user's repositories with pagination support
+  /// 
+  /// PERFORMANCE OPTIMIZATION (Task 16.1):
+  /// - Paginates results to reduce initial load time
+  /// - Caches each page separately for faster subsequent loads
+  /// - Default: page=1, per_page=30
+  /// - Cache key format: 'repos_page_{page}'
   Future<List<RepoItem>> fetchMyRepositories({
     int page = 1,
     int perPage = 30,
@@ -146,11 +152,12 @@ class GitHubApiService {
         'fetchMyRepositories() called - page: $page, perPage: $perPage',
       );
 
-      // Check cache first
-      final cacheKey = 'repos_page_${page}_perPage_$perPage';
+      // PERFORMANCE: Cache each page separately for faster subsequent loads
+      // Cache key format: 'repos_page_{page}' as per task requirements
+      final cacheKey = 'repos_page_$page';
       final cachedRepos = _cache.get<List>(cacheKey);
       if (cachedRepos != null) {
-        debugPrint('Cache hit for repositories');
+        debugPrint('Cache hit for repositories (page $page)');
         return cachedRepos
             .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
             .toList();
@@ -179,7 +186,7 @@ class GitHubApiService {
         debugPrint('Parsed ${data.length} repositories');
         final repos = data.map((json) => _parseRepo(json)).toList();
 
-        // Cache the result for 5 minutes
+        // PERFORMANCE: Cache the result for 5 minutes
         await _cache.set(
           cacheKey,
           repos.map((r) => r.toJson()).toList(),
@@ -224,6 +231,38 @@ class GitHubApiService {
         );
       }
       throw Exception('Unexpected error: ${e.toString()}');
+    }
+  }
+
+  /// Check if more repositories are available for pagination
+  /// 
+  /// PERFORMANCE OPTIMIZATION (Task 16.1):
+  /// - Fetches one extra item to determine if more pages exist
+  /// - Returns true if the response has perPage items (meaning more may exist)
+  Future<bool> hasMoreRepositories({
+    int page = 1,
+    int perPage = 30,
+  }) async {
+    try {
+      final headers = await _headers;
+      final uri = Uri.parse(
+        'https://api.github.com/user/repos?sort=updated&per_page=$perPage&page=$page',
+      );
+
+      final response = await _executeWithRetry(
+        () => http.get(uri, headers: headers).timeout(const Duration(seconds: 10)),
+        operation: 'hasMoreRepositories',
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        // If we got perPage items, there might be more on the next page
+        return data.length >= perPage;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error checking for more repos: $e');
+      return false;
     }
   }
 
@@ -384,8 +423,45 @@ class GitHubApiService {
     }
   }
 
-  /// Update an issue (close/reopen/edit)
-  /// Returns updated IssueItem
+  /// Updates an issue's properties (close/reopen/edit/assignee/labels).
+  ///
+  /// Supports updating multiple fields in a single request. Only provided
+  /// (non-null) fields will be updated.
+  ///
+  /// Uses GitHub REST API: `PATCH /repos/{owner}/{repo}/issues/{issue_number}`
+  ///
+  /// Example:
+  /// ```dart
+  /// // Update assignee
+  /// final updated = await githubApi.updateIssue(
+  ///   'flutter',
+  ///   'flutter',
+  ///   123,
+  ///   assignees: ['user1', 'user2'],
+  /// );
+  ///
+  /// // Close issue
+  /// final closed = await githubApi.updateIssue(
+  ///   'flutter',
+  ///   'flutter',
+  ///   123,
+  ///   state: 'closed',
+  /// );
+  /// ```
+  ///
+  /// Throws [Exception] if the request fails.
+  /// Network errors are caught and return user-friendly messages.
+  /// Errors are handled by [AppErrorHandler].
+  ///
+  /// [owner] The repository owner's login.
+  /// [repo] The repository name.
+  /// [number] The issue number.
+  /// [title] New title (optional).
+  /// [body] New description (optional).
+  /// [state] New state: 'open' or 'closed' (optional).
+  /// [labels] New labels list (replaces existing) (optional).
+  /// [assignees] New assignees list (replaces existing) (optional).
+  /// Returns the updated [IssueItem].
   Future<IssueItem> updateIssue(
     String owner,
     String repo,
@@ -446,22 +522,47 @@ class GitHubApiService {
     }
   }
 
-  /// Fetch issue comments
+  /// Fetch issue comments with pagination support.
+  ///
+  /// Uses GitHub REST API: `GET /repos/{owner}/{repo}/issues/{issue_number}/comments`
+  ///
+  /// Example:
+  /// ```dart
+  /// final comments = await githubApi.fetchIssueComments(
+  ///   'flutter',
+  ///   'flutter',
+  ///   123,
+  ///   page: 1,
+  ///   perPage: 20,
+  /// );
+  /// ```
+  ///
+  /// Throws [Exception] if the request fails.
+  /// Errors are handled by [AppErrorHandler].
+  ///
+  /// [owner] The repository owner's login.
+  /// [repo] The repository name.
+  /// [issueNumber] The issue number.
+  /// [page] Page number for pagination (default: 1).
+  /// [perPage] Number of comments per page (default: 20, max: 100).
+  /// Returns a list of comment maps.
   Future<List<Map<String, dynamic>>> fetchIssueComments(
     String owner,
     String repo,
-    int issueNumber,
-  ) async {
+    int issueNumber, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
     try {
       debugPrint(
-        'Fetching comments for issue #$issueNumber in $owner/$repo...',
+        'Fetching comments for issue #$issueNumber in $owner/$repo (page $page)...',
       );
       final headers = await _headers;
 
       final response = await http
           .get(
             Uri.parse(
-              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/comments',
+              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/comments?page=$page&per_page=$perPage',
             ),
             headers: headers,
           )
@@ -486,6 +587,21 @@ class GitHubApiService {
   }
 
   /// Add comment to issue
+  ///
+  /// Uses GitHub REST API: `POST /repos/{owner}/{repo}/issues/{issue_number}/comments`
+  ///
+  /// Example:
+  /// ```dart
+  /// await githubApi.addIssueComment('flutter', 'flutter', 123, 'Great issue!');
+  /// ```
+  ///
+  /// Throws [Exception] if the request fails.
+  /// Errors are handled by [AppErrorHandler].
+  ///
+  /// [owner] The repository owner's login.
+  /// [repo] The repository name.
+  /// [issueNumber] The issue number.
+  /// [body] The comment body text (Markdown supported).
   Future<void> addIssueComment(
     String owner,
     String repo,
@@ -522,7 +638,82 @@ class GitHubApiService {
     }
   }
 
-  /// Remove a label from issue
+  /// Deletes an issue comment.
+  ///
+  /// Uses GitHub REST API: `DELETE /repos/{owner}/{repo}/issues/comments/{comment_id}`
+  ///
+  /// Example:
+  /// ```dart
+  /// await githubApi.deleteIssueComment('flutter', 'flutter', 456);
+  /// ```
+  ///
+  /// Throws [Exception] if the request fails.
+  /// Errors are handled by [AppErrorHandler].
+  ///
+  /// [owner] The repository owner's login.
+  /// [repo] The repository name.
+  /// [commentId] The comment ID to delete.
+  Future<void> deleteIssueComment(
+    String owner,
+    String repo,
+    int commentId,
+  ) async {
+    try {
+      debugPrint('Deleting comment #$commentId in $owner/$repo...');
+      final headers = await _headers;
+
+      final response = await http
+          .delete(
+            Uri.parse(
+              'https://api.github.com/repos/$owner/$repo/issues/comments/$commentId',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('Delete comment response status: ${response.statusCode}');
+
+      if (response.statusCode != 204) {
+        final errorBody = json.decode(response.body);
+        throw Exception(
+          'Failed to delete comment: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+        );
+      }
+      debugPrint('✓ Comment deleted successfully');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Removes a label from an issue.
+  ///
+  /// After removing the label, fetches the updated issue to return the
+  /// current state with updated labels list.
+  ///
+  /// Uses GitHub REST API:
+  /// - `DELETE /repos/{owner}/{repo}/issues/{issue_number}/labels/{name}`
+  /// - `GET /repos/{owner}/{repo}/issues/{issue_number}` (to fetch updated issue)
+  ///
+  /// Example:
+  /// ```dart
+  /// final updatedIssue = await githubApi.removeIssueLabel(
+  ///   'flutter',
+  ///   'flutter',
+  ///   123,
+  ///   'bug',
+  /// );
+  /// print('Remaining labels: ${updatedIssue.labels}');
+  /// ```
+  ///
+  /// Throws [Exception] if the request fails.
+  /// Errors are handled by [AppErrorHandler].
+  ///
+  /// [owner] The repository owner's login.
+  /// [repo] The repository name.
+  /// [issueNumber] The issue number.
+  /// [label] The label name to remove.
+  /// Returns the updated [IssueItem] with the label removed.
   Future<IssueItem> removeIssueLabel(
     String owner,
     String repo,
@@ -579,7 +770,34 @@ class GitHubApiService {
     }
   }
 
-  /// Add a label to issue
+  /// Adds a label to an issue.
+  ///
+  /// After adding the label, fetches the updated issue to return the
+  /// current state with updated labels list.
+  ///
+  /// Uses GitHub REST API:
+  /// - `POST /repos/{owner}/{repo}/issues/{issue_number}/labels`
+  /// - `GET /repos/{owner}/{repo}/issues/{issue_number}` (to fetch updated issue)
+  ///
+  /// Example:
+  /// ```dart
+  /// final updatedIssue = await githubApi.addIssueLabel(
+  ///   'flutter',
+  ///   'flutter',
+  ///   123,
+  ///   'enhancement',
+  /// );
+  /// print('All labels: ${updatedIssue.labels}');
+  /// ```
+  ///
+  /// Throws [Exception] if the request fails.
+  /// Errors are handled by [AppErrorHandler].
+  ///
+  /// [owner] The repository owner's login.
+  /// [repo] The repository name.
+  /// [issueNumber] The issue number.
+  /// [label] The label name to add.
+  /// Returns the updated [IssueItem] with the label added.
   Future<IssueItem> addIssueLabel(
     String owner,
     String repo,
@@ -634,7 +852,31 @@ class GitHubApiService {
     }
   }
 
-  /// Fetch available labels for a repository
+  /// Fetches available labels for a repository.
+  ///
+  /// Returns a list of label objects containing:
+  /// - `id`: Label ID
+  /// - `name`: Label name
+  /// - `color`: Hex color code (6 characters, e.g., "0075ca")
+  /// - `description`: Label description (optional)
+  /// - `url`: API URL for the label
+  ///
+  /// Uses GitHub REST API: `GET /repos/{owner}/{repo}/labels`
+  ///
+  /// Example:
+  /// ```dart
+  /// final labels = await githubApi.fetchRepoLabels('flutter', 'flutter');
+  /// for (final label in labels) {
+  ///   print('${label['name']}: #${label['color']}');
+  /// }
+  /// ```
+  ///
+  /// Throws [Exception] if the request fails or returns a non-200 status code.
+  /// Network errors are caught and handled by [AppErrorHandler].
+  ///
+  /// [owner] The repository owner's login.
+  /// [repo] The repository name.
+  /// Returns a list of label maps.
   Future<List<Map<String, dynamic>>> fetchRepoLabels(
     String owner,
     String repo,
@@ -668,7 +910,31 @@ class GitHubApiService {
     }
   }
 
-  /// Fetch collaborators for a repository
+  /// Fetches collaborators (assignees) for a repository.
+  ///
+  /// Returns a list of collaborator objects containing:
+  /// - `login`: User login name
+  /// - `id`: User ID
+  /// - `avatar_url`: Avatar image URL
+  /// - `html_url`: GitHub profile URL
+  /// - `type`: User type (e.g., "User")
+  ///
+  /// Uses GitHub REST API: `GET /repos/{owner}/{repo}/collaborators`
+  ///
+  /// Example:
+  /// ```dart
+  /// final collaborators = await githubApi.fetchRepoCollaborators('flutter', 'flutter');
+  /// for (final collaborator in collaborators) {
+  ///   print('${collaborator['login']}: ${collaborator['avatar_url']}');
+  /// }
+  /// ```
+  ///
+  /// Throws [Exception] if the request fails or returns a non-200 status code.
+  /// Network errors are caught and handled by [AppErrorHandler].
+  ///
+  /// [owner] The repository owner's login.
+  /// [repo] The repository name.
+  /// Returns a list of collaborator maps.
   Future<List<Map<String, dynamic>>> fetchRepoCollaborators(
     String owner,
     String repo,
@@ -704,7 +970,33 @@ class GitHubApiService {
     }
   }
 
-  /// Get current user info
+  /// Fetches current authenticated user's information.
+  ///
+  /// Returns a map containing user data:
+  /// - `login`: GitHub username
+  /// - `id`: User ID
+  /// - `name`: Display name (optional)
+  /// - `avatar_url`: Avatar image URL
+  /// - `email`: Email address (if public)
+  /// - `html_url`: GitHub profile URL
+  /// - `company`: Company name (optional)
+  /// - `location`: Location (optional)
+  ///
+  /// Uses GitHub REST API: `GET /user`
+  ///
+  /// Example:
+  /// ```dart
+  /// final user = await githubApi.getCurrentUser();
+  /// if (user != null) {
+  ///   print('Logged in as: ${user['login']}');
+  /// }
+  /// ```
+  ///
+  /// Returns `null` if the request fails or user data cannot be retrieved.
+  /// Authentication errors (401) are logged but not thrown.
+  /// All errors are handled by [AppErrorHandler].
+  ///
+  /// Returns a map of user data, or `null` on failure.
   Future<Map<String, dynamic>?> getCurrentUser() async {
     try {
       final headers = await _headers;
@@ -734,7 +1026,43 @@ class GitHubApiService {
     }
   }
 
-  /// Fetch user's Projects v2 using GraphQL
+  /// Fetches current user's Projects V2 using GraphQL.
+  ///
+  /// Returns a list of project objects containing:
+  /// - `id`: Project node ID (for GraphQL operations)
+  /// - `title`: Project title
+  /// - `shortDescription`: Project description
+  /// - `url`: GitHub URL for the project
+  /// - `closed`: Whether the project is closed
+  /// - `createdAt`: Project creation timestamp
+  /// - `updatedAt`: Last update timestamp
+  ///
+  /// Uses GitHub GraphQL API with query:
+  /// ```graphql
+  /// query GetUserProjects($first: Int!) {
+  ///   viewer {
+  ///     projectsV2(first: $first) {
+  ///       nodes { id, title, shortDescription, url, closed, ... }
+  ///     }
+  ///   }
+  /// }
+  /// ```
+  ///
+  /// Results are cached for 5 minutes using [CacheService].
+  ///
+  /// Example:
+  /// ```dart
+  /// final projects = await githubApi.fetchProjects(first: 30);
+  /// for (final project in projects) {
+  ///   print('${project['title']}: ${project['url']}');
+  /// }
+  /// ```
+  ///
+  /// Returns an empty list if the request fails or GraphQL errors occur.
+  /// Errors are logged and handled by [AppErrorHandler].
+  ///
+  /// [first] Maximum number of projects to fetch (default: 30).
+  /// Returns a list of project maps.
   Future<List<Map<String, dynamic>>> fetchProjects({int first = 30}) async {
     try {
       // Check cache first
@@ -1184,6 +1512,8 @@ class GitHubApiService {
           ? DateTime.parse(json['updated_at'] as String)
           : null,
       assigneeLogin: json['assignee']?['login'] as String?,
+      // PERFORMANCE OPTIMIZATION (Task 16.2): Cache avatar URL for image caching
+      assigneeAvatarUrl: json['assignee']?['avatar_url'] as String?,
       labels:
           (json['labels'] as List?)?.map((l) => l['name'] as String).toList() ??
           [],

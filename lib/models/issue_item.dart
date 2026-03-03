@@ -7,6 +7,8 @@ class IssueItem extends Item {
   String? projectColumnName;
   String? projectItemNodeId;
   DateTime? createdAt;
+  // PERFORMANCE OPTIMIZATION (Task 16.2): Cache assignee avatar URL for image caching
+  String? assigneeAvatarUrl;
 
   IssueItem({
     required super.id,
@@ -16,6 +18,7 @@ class IssueItem extends Item {
     this.projectColumnName,
     this.projectItemNodeId,
     this.createdAt,
+    this.assigneeAvatarUrl,
     ItemStatus? status,
     super.updatedAt,
     super.assigneeLogin,
@@ -45,6 +48,7 @@ class IssueItem extends Item {
       'status': status.toString().split('.').last,
       'updatedAt': updatedAt?.toIso8601String(),
       'assigneeLogin': assigneeLogin,
+      'assigneeAvatarUrl': assigneeAvatarUrl,
       'labels': labels,
       'children': children.map((c) => c.toJson()).toList(),
       'isExpanded': isExpanded,
@@ -72,6 +76,7 @@ class IssueItem extends Item {
           ? DateTime.parse(json['updatedAt'] as String)
           : null,
       assigneeLogin: json['assigneeLogin'] as String?,
+      assigneeAvatarUrl: json['assigneeAvatarUrl'] as String?,
       labels: (json['labels'] as List?)?.cast<String>() ?? [],
       children:
           (json['children'] as List?)
@@ -99,6 +104,7 @@ class IssueItem extends Item {
     ItemStatus? status,
     DateTime? updatedAt,
     String? assigneeLogin,
+    String? assigneeAvatarUrl,
     List<String>? labels,
     List<Item>? children,
     bool? isExpanded,
@@ -116,6 +122,7 @@ class IssueItem extends Item {
       status: status ?? this.status,
       updatedAt: updatedAt ?? this.updatedAt,
       assigneeLogin: assigneeLogin ?? this.assigneeLogin,
+      assigneeAvatarUrl: assigneeAvatarUrl ?? this.assigneeAvatarUrl,
       labels: labels ?? this.labels,
       children: children ?? this.children,
       isExpanded: isExpanded ?? this.isExpanded,

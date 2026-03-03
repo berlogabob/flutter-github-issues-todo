@@ -9,6 +9,7 @@ class DashboardFilters extends StatelessWidget {
   final VoidCallback? onClearFilters;
   final bool hideUsernameInRepo;
   final ValueChanged<bool>? onHideUsernameToggle;
+  final int pendingOperationsCount;
 
   const DashboardFilters({
     super.key,
@@ -17,6 +18,7 @@ class DashboardFilters extends StatelessWidget {
     this.onClearFilters,
     required this.hideUsernameInRepo,
     this.onHideUsernameToggle,
+    this.pendingOperationsCount = 0,
   });
 
   @override
@@ -55,6 +57,10 @@ class DashboardFilters extends StatelessWidget {
         _buildFilterChip('All'),
         const Spacer(),
         _buildHideUsernameButton(),
+        if (pendingOperationsCount > 0) ...[
+          const SizedBox(width: 8),
+          _buildPendingBadge(),
+        ],
       ],
     );
   }
@@ -69,7 +75,44 @@ class DashboardFilters extends StatelessWidget {
         _buildFilterChip('All'),
         const Spacer(),
         _buildHideUsernameButton(),
+        if (pendingOperationsCount > 0) ...[
+          const SizedBox(width: 8),
+          _buildPendingBadge(),
+        ],
       ],
+    );
+  }
+
+  Widget _buildPendingBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.orangePrimary.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.orangePrimary,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.cloud_upload_outlined,
+            size: 14,
+            color: AppColors.orangePrimary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$pendingOperationsCount',
+            style: const TextStyle(
+              color: AppColors.orangePrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -92,7 +92,47 @@ class PendingOperationsService {
           jsonDecode(operationJson as String) as Map<String, dynamic>,
         );
         operation.isSyncing = true;
+        operation.status = OperationStatus.syncing;
         operation.retryCount++;
+        await _box.put(operationId, jsonEncode(operation.toJson()));
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+    }
+  }
+
+  /// Mark operation as completed
+  Future<void> markAsCompleted(String operationId) async {
+    if (!_isInitialized) return;
+
+    try {
+      final operationJson = _box.get(operationId);
+      if (operationJson != null) {
+        final operation = PendingOperation.fromJson(
+          jsonDecode(operationJson as String) as Map<String, dynamic>,
+        );
+        operation.status = OperationStatus.completed;
+        operation.isSyncing = false;
+        await _box.put(operationId, jsonEncode(operation.toJson()));
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+    }
+  }
+
+  /// Mark operation as failed
+  Future<void> markAsFailed(String operationId, String error) async {
+    if (!_isInitialized) return;
+
+    try {
+      final operationJson = _box.get(operationId);
+      if (operationJson != null) {
+        final operation = PendingOperation.fromJson(
+          jsonDecode(operationJson as String) as Map<String, dynamic>,
+        );
+        operation.status = OperationStatus.failed;
+        operation.isSyncing = false;
+        operation.errorMessage = error;
         await _box.put(operationId, jsonEncode(operation.toJson()));
       }
     } catch (e, stackTrace) {

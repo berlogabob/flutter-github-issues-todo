@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:hive/hive.dart';
 import 'local_storage_service.dart';
 import 'github_api_service.dart';
 import 'pending_operations_service.dart';
+import 'conflict_detection_service.dart';
 import '../utils/app_error_handler.dart';
+import '../utils/retry_helper.dart';
 import '../models/issue_item.dart';
 import '../models/pending_operation.dart';
+import '../models/sync_history_entry.dart';
 
 part 'sync_service.g.dart';
 
@@ -25,6 +30,7 @@ class SyncService {
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
   final PendingOperationsService _pendingOps = PendingOperationsService();
+  final ConflictDetectionService _conflictDetector = ConflictDetectionService();
 
   // Sync status
   bool _isSyncing = false;
@@ -47,6 +53,11 @@ class SyncService {
 
   // Listener support for UI updates
   final _listeners = <VoidCallback>{};
+
+  // Sync history
+  late Box<dynamic> _historyBox;
+  final List<SyncHistoryEntry> _syncHistory = [];
+  static const String _historyBoxName = 'sync_history';
 
   // Getters
   bool get isSyncing => _isSyncing;
@@ -74,6 +85,113 @@ class SyncService {
     _setupConnectivityListener();
     _checkNetworkStatus();
     _loadLastSyncTimes();
+    _initHistory();
+  }
+
+  /// Initialize sync history
+  Future<void> _initHistory() async {
+    try {
+      _historyBox = await Hive.openBox(_historyBoxName);
+      _loadSyncHistory();
+      debugPrint('SyncService: History initialized with ${_syncHistory.length} entries');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('SyncService: History init failed: $e');
+    }
+  }
+
+  /// Load sync history from storage
+  void _loadSyncHistory() {
+    try {
+      _syncHistory.clear();
+      for (final entry in _historyBox.values) {
+        if (entry is String) {
+          final json = jsonDecode(entry) as Map<String, dynamic>;
+          _syncHistory.add(SyncHistoryEntry.fromJson(json));
+        }
+      }
+      // Keep only last 10 entries
+      if (_syncHistory.length > 10) {
+        _syncHistory.removeRange(10, _syncHistory.length);
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+    }
+  }
+
+  /// Record sync history entry
+  Future<void> _recordSyncHistory({
+    required SyncResult result,
+    required int issuesSynced,
+    required int projectsSynced,
+    required int operationsProcessed,
+    required Duration duration,
+    String? errorMessage,
+  }) async {
+    try {
+      final entry = SyncHistoryEntry(
+        id: 'sync_${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: DateTime.now(),
+        result: result,
+        issuesSynced: issuesSynced,
+        projectsSynced: projectsSynced,
+        operationsProcessed: operationsProcessed,
+        duration: duration,
+        errorMessage: errorMessage,
+      );
+
+      // Add to beginning of list
+      _syncHistory.insert(0, entry);
+
+      // Keep only last 10 entries
+      if (_syncHistory.length > 10) {
+        _syncHistory.removeRange(10, _syncHistory.length);
+      }
+
+      // Save to storage
+      await _historyBox.put(entry.id, jsonEncode(entry.toJson()));
+
+      debugPrint('SyncService: Recorded sync history entry: ${entry.result}');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+    }
+  }
+
+  /// Get sync history
+  List<SyncHistoryEntry> getSyncHistory() {
+    return List.unmodifiable(_syncHistory);
+  }
+
+  /// Get sync statistics
+  SyncStatistics getSyncStatistics() {
+    final totalSyncs = _syncHistory.length;
+    final successfulSyncs = _syncHistory
+        .where((e) => e.result == SyncResult.success)
+        .length;
+    final failedSyncs = _syncHistory
+        .where((e) => e.result == SyncResult.failed)
+        .length;
+    final totalIssuesSynced = _syncHistory.fold<int>(
+      0,
+      (sum, e) => sum + e.issuesSynced,
+    );
+    final totalOperationsProcessed = _syncHistory.fold<int>(
+      0,
+      (sum, e) => sum + e.operationsProcessed,
+    );
+
+    return SyncStatistics(
+      totalSyncs: totalSyncs,
+      successfulSyncs: successfulSyncs,
+      failedSyncs: failedSyncs,
+      totalIssuesSynced: totalIssuesSynced,
+      totalOperationsProcessed: totalOperationsProcessed,
+      lastSyncTime: _lastSyncTime,
+      lastSuccessfulSync: _syncHistory
+          .where((e) => e.result == SyncResult.success)
+          .firstOrNull
+          ?.timestamp,
+    );
   }
 
   /// Dispose resources
@@ -237,6 +355,15 @@ class SyncService {
       debugPrint('  - Synced $_syncedIssuesCount issues');
       debugPrint('  - Synced $_syncedProjectsCount projects');
 
+      // Record sync history
+      await _recordSyncHistory(
+        result: SyncResult.success,
+        issuesSynced: _syncedIssuesCount,
+        projectsSynced: _syncedProjectsCount,
+        operationsProcessed: _pendingOps.getAllOperations().length,
+        duration: DateTime.now().difference(_lastSyncTime ?? DateTime.now()),
+      );
+
       _notifyListeners();
       return true;
     } catch (e, stackTrace) {
@@ -244,6 +371,17 @@ class SyncService {
       debugPrint('SyncService: Sync failed: $e');
       _syncStatus = 'error';
       _syncErrorMessage = e.toString();
+
+      // Record failed sync
+      await _recordSyncHistory(
+        result: SyncResult.failed,
+        issuesSynced: 0,
+        projectsSynced: 0,
+        operationsProcessed: 0,
+        duration: Duration.zero,
+        errorMessage: e.toString(),
+      );
+
       _notifyListeners();
       return false;
     } finally {
@@ -376,6 +514,20 @@ class SyncService {
   ) async {
     debugPrint('SyncService: Resolving conflicts for $repoFullName');
 
+    // Detect conflicts between local and remote issues
+    final conflicts = _conflictDetector.detectConflicts(
+      localIssues: localIssues,
+      remoteIssues: remoteIssues,
+    );
+
+    if (conflicts.isNotEmpty) {
+      debugPrint(
+        'SyncService: Found ${conflicts.length} conflicts - using remote-wins strategy',
+      );
+      // For MVP, we use "remote wins" strategy silently
+      // Future enhancement: Show conflict resolution dialog to user
+    }
+
     // Create a map of remote issues by number for quick lookup
     final remoteIssuesByNumber = <int, IssueItem>{};
     for (final issue in remoteIssues) {
@@ -414,6 +566,16 @@ class SyncService {
 
     debugPrint('SyncService: Merged ${unique.length} total issues');
     return unique;
+  }
+
+  /// Get detected conflicts
+  List<IssueConflict> getDetectedConflicts() {
+    return _conflictDetector.getConflicts();
+  }
+
+  /// Get conflict count
+  int getConflictCount() {
+    return _conflictDetector.getConflictCount();
   }
 
   /// Sync local-only issues to GitHub
@@ -505,8 +667,15 @@ class SyncService {
 
     debugPrint('SyncService: Found ${operations.length} pending operations');
 
+    final retryHelper = RetryHelper(
+      maxRetries: 5,
+      initialDelay: const Duration(seconds: 1),
+      maxDelay: const Duration(seconds: 16),
+      backoffMultiplier: 2.0,
+    );
+
     for (final operation in operations) {
-      if (operation.isSyncing && operation.retryCount > 3) {
+      if (operation.isSyncing && operation.retryCount > 5) {
         debugPrint(
           'SyncService: Skipping operation ${operation.id} (max retries exceeded)',
         );
@@ -515,11 +684,19 @@ class SyncService {
 
       try {
         await _pendingOps.markAsSyncing(operation.id);
-        await _executeOperation(operation);
+        
+        // Execute with exponential backoff retry
+        await retryHelper.execute(
+          () => _executeOperation(operation),
+          operationName: 'Sync operation ${operation.type}',
+        );
+        
+        await _pendingOps.markAsCompleted(operation.id);
         await _pendingOps.removeOperation(operation.id);
         debugPrint('SyncService: Completed operation ${operation.id}');
       } catch (e) {
-        debugPrint('SyncService: Failed operation ${operation.id}: $e');
+        await _pendingOps.markAsFailed(operation.id, e.toString());
+        debugPrint('SyncService: Failed operation ${operation.id} after retries: $e');
         // Keep in queue for next sync
       }
     }
@@ -539,6 +716,15 @@ class SyncService {
         break;
       case OperationType.reopenIssue:
         await _executeReopenIssue(operation);
+        break;
+      case OperationType.updateLabels:
+        await _executeUpdateLabels(operation);
+        break;
+      case OperationType.updateAssignee:
+        await _executeUpdateAssignee(operation);
+        break;
+      case OperationType.addComment:
+        await _executeAddComment(operation);
         break;
       default:
         debugPrint('SyncService: Unknown operation type: ${operation.type}');
@@ -615,6 +801,68 @@ class SyncService {
 
     debugPrint(
       'SyncService: Reopened issue #${operation.issueNumber} from queued operation',
+    );
+  }
+
+  Future<void> _executeUpdateLabels(PendingOperation operation) async {
+    if (operation.owner == null ||
+        operation.repo == null ||
+        operation.issueNumber == null)
+      return;
+
+    final labels = operation.data['labels'] as List<String>?;
+
+    await _githubApi.updateIssue(
+      operation.owner!,
+      operation.repo!,
+      operation.issueNumber!,
+      labels: labels,
+    );
+
+    debugPrint(
+      'SyncService: Updated labels for issue #${operation.issueNumber} from queued operation',
+    );
+  }
+
+  Future<void> _executeUpdateAssignee(PendingOperation operation) async {
+    if (operation.owner == null ||
+        operation.repo == null ||
+        operation.issueNumber == null)
+      return;
+
+    final assignee = operation.data['assignee'] as String?;
+    final List<String>? assignees = assignee != null ? [assignee] : null;
+
+    await _githubApi.updateIssue(
+      operation.owner!,
+      operation.repo!,
+      operation.issueNumber!,
+      assignees: assignees,
+    );
+
+    debugPrint(
+      'SyncService: Updated assignee for issue #${operation.issueNumber} from queued operation',
+    );
+  }
+
+  Future<void> _executeAddComment(PendingOperation operation) async {
+    if (operation.owner == null ||
+        operation.repo == null ||
+        operation.issueNumber == null)
+      return;
+
+    final body = operation.data['body'] as String?;
+    if (body == null || body.isEmpty) return;
+
+    await _githubApi.addIssueComment(
+      operation.owner!,
+      operation.repo!,
+      operation.issueNumber!,
+      body,
+    );
+
+    debugPrint(
+      'SyncService: Added comment to issue #${operation.issueNumber} from queued operation',
     );
   }
 }

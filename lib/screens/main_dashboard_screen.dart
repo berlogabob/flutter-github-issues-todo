@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -15,6 +16,7 @@ import '../services/pending_operations_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/cache_service.dart';
 import '../widgets/braille_loader.dart';
+import '../widgets/loading_skeleton.dart'; // PERFORMANCE: Loading skeletons (Task 16.5)
 import '../widgets/dashboard_filters.dart';
 import '../widgets/dashboard_empty_state.dart';
 import '../widgets/repo_list.dart';
@@ -51,6 +53,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   bool _isFetchingProjects = false;
   String? _errorMessage;
   String? _vaultFolderName;
+
+  // PERFORMANCE OPTIMIZATION (Task 16.1): Pagination support
+  int _currentPage = 1;
+  static const int _perPage = 30;
+  bool _hasMoreRepos = true;
+  bool _isLoadingMore = false;
 
   List<RepoItem> _repositories = [];
   Set<String> _pinnedRepos = {};
@@ -362,17 +370,30 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     }
   }
 
-  Future<void> _fetchRepositories() async {
+  /// Fetch repositories with pagination support (Task 16.1)
+  /// 
+  /// PERFORMANCE OPTIMIZATION:
+  /// - Loads only first page initially (30 repos)
+  /// - Caches each page for faster subsequent loads
+  /// - "Load More" button loads additional pages on demand
+  Future<void> _fetchRepositories({bool loadMore = false}) async {
+    if (loadMore) {
+      await _loadMoreRepos();
+      return;
+    }
+
     setState(() {
       _isFetchingRepos = true;
       _errorMessage = null;
+      _currentPage = 1;
+      _hasMoreRepos = true;
     });
 
     try {
       // Clear cache on manual refresh
       await _cache.clear();
 
-      debugPrint('=== Fetching Repositories ===');
+      debugPrint('=== Fetching Repositories (Page 1) ===');
 
       // Check network connectivity first
       debugPrint('Checking network connectivity...');
@@ -408,8 +429,19 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
 
       debugPrint('Calling fetchMyRepositories()...');
-      final repos = await _dashboardService.fetchMyRepositories(perPage: 30);
+      final repos = await _dashboardService.fetchMyRepositories(
+        page: _currentPage,
+        perPage: _perPage,
+      );
       debugPrint('✓ Fetched ${repos.length} repositories from GitHub');
+
+      // Check if more repos are available
+      final nextPage = _currentPage + 1;
+      _hasMoreRepos = await _dashboardService.hasMoreRepositories(
+        page: nextPage,
+        perPage: _perPage,
+      );
+      debugPrint('Has more repos: $_hasMoreRepos');
 
       if (!mounted) return;
       {
@@ -469,6 +501,54 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             _errorMessage = e.toString();
           }
           _isFetchingRepos = false;
+        });
+      }
+    }
+  }
+
+  /// Load more repositories for pagination (Task 16.1)
+  /// 
+  /// PERFORMANCE OPTIMIZATION:
+  /// - Appends new repos to existing list
+  /// - Shows loading indicator while fetching
+  /// - Updates hasMoreRepos flag
+  Future<void> _loadMoreRepos() async {
+    if (_isLoadingMore || !_hasMoreRepos) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final nextPage = _currentPage + 1;
+      debugPrint('Loading more repos (page $nextPage)...');
+
+      final newRepos = await _dashboardService.fetchMyRepositories(
+        page: nextPage,
+        perPage: _perPage,
+      );
+
+      // Check if even more repos are available
+      final afterNextPage = nextPage + 1;
+      _hasMoreRepos = await _dashboardService.hasMoreRepositories(
+        page: afterNextPage,
+        perPage: _perPage,
+      );
+
+      if (mounted && newRepos.isNotEmpty) {
+        setState(() {
+          _currentPage = nextPage;
+          _repositories.addAll(newRepos);
+          _isLoadingMore = false;
+          debugPrint('✓ Loaded ${newRepos.length} more repos (total: ${_repositories.length})');
+        });
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      debugPrint('Error loading more repos: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
         });
       }
     }
@@ -637,6 +717,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 _localStorage.saveHideUsernameSetting(_hideUsernameInRepo);
               },
               hideUsernameInRepo: _hideUsernameInRepo,
+              pendingOperationsCount: _pendingOps.getPendingCount(),
             ),
             // Error message if any
             if (_errorMessage != null) _buildErrorMessage(),
@@ -719,26 +800,51 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     );
   }
 
+  /// Build fetching indicator with loading skeleton (Task 16.5)
+  /// 
+  /// PERFORMANCE OPTIMIZATION:
+  /// - Uses LoadingSkeleton with shimmer effect
+  /// - Replaces BrailleLoader for better visual feedback
+  /// - Matches list item dimensions for consistent layout
   Widget _buildFetchingIndicator() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BrailleLoader(size: 20),
-          const SizedBox(width: 12),
-          Text(
-            'Fetching your repositories...',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 14,
+          // Header text
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                BrailleLoader(size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Fetching your repositories...',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
+          ),
+          // PERFORMANCE: Loading skeleton for repo list (Task 16.5)
+          const LoadingSkeleton(
+            height: 72, // Match repo header height
+            itemCount: 3,
+            spacing: 16,
           ),
         ],
       ),
     );
   }
 
+  /// Build the task list with pagination support (Task 16.1)
+  /// 
+  /// PERFORMANCE OPTIMIZATION:
+  /// - Shows "Load More" button when more repos are available
+  /// - Displays loading indicator while loading more repos
   Widget _buildTaskList() {
     final displayedRepos = _getDisplayedRepos();
 
@@ -746,38 +852,72 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       return const DashboardEmptyState();
     }
 
-    return RepoList(
-      repositories: displayedRepos,
-      githubApi: _dashboardService,
-      expandedRepoId: _expandedRepoId,
-      onExpandToggle: _onRepoToggle,
-      onIssueTap: _openIssueDetail,
-      filterStatus: _filterStatus,
-      hideUsernameInRepo: _hideUsernameInRepo,
-      pinnedRepos: _pinnedRepos,
-      onPinToggle: _togglePinRepo,
+    return Column(
+      children: [
+        Expanded(
+          child: RepoList(
+            repositories: displayedRepos,
+            githubApi: _dashboardService,
+            expandedRepoId: _expandedRepoId,
+            onExpandToggle: _onRepoToggle,
+            onIssueTap: _openIssueDetail,
+            filterStatus: _filterStatus,
+            hideUsernameInRepo: _hideUsernameInRepo,
+            pinnedRepos: _pinnedRepos,
+            onPinToggle: _togglePinRepo,
+          ),
+        ),
+        // PERFORMANCE: "Load More" button for pagination
+        if (_hasMoreRepos || _isLoadingMore) _buildLoadMoreButton(),
+      ],
+    );
+  }
+
+  /// Build the "Load More" button for pagination (Task 16.1)
+  Widget _buildLoadMoreButton() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: _isLoadingMore
+          ? const BrailleLoader(size: 24)
+          : ElevatedButton(
+              onPressed: _hasMoreRepos ? () => _fetchRepositories(loadMore: true) : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.cardBackground,
+                foregroundColor: AppColors.orangePrimary,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: AppColors.orangePrimary),
+                ),
+              ),
+              child: const Text('Load More Repositories'),
+            ),
     );
   }
 
   void _navigateToSearch() {
+    HapticFeedback.selectionClick();
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const SearchScreen()));
   }
 
   void _navigateToRepoLibrary() {
+    HapticFeedback.selectionClick();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const RepoProjectLibraryScreen()),
     );
   }
 
   void _navigateToSettings() {
+    HapticFeedback.selectionClick();
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
   }
 
   void _togglePinRepo(String repoFullName) {
+    HapticFeedback.lightImpact();
     setState(() {
       if (_pinnedRepos.contains(repoFullName)) {
         _pinnedRepos.remove(repoFullName);
@@ -819,6 +959,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   void _createNewIssue() async {
+    // Trigger haptic feedback
+    HapticFeedback.selectionClick();
+    
     // In offline mode, check if Local Issues repo exists
     if (_repositories.isEmpty && !_isOfflineMode) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1062,6 +1205,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   void _openIssueDetail(IssueItem issue) {
+    // Trigger haptic feedback
+    HapticFeedback.selectionClick();
+    
     // Extract owner/repo from the repository that contains this issue
     String? owner;
     String? repo;

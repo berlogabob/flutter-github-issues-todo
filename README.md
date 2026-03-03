@@ -1,389 +1,99 @@
 # GitDoIt
 
-**Minimalist GitHub Issues & Projects TODO Manager**
+Minimalist GitHub Issues & Projects TODO Manager with offline-first support.
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
-![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-[![Flutter](https://img.shields.io/badge/Flutter-3.24+-blue.svg)](https://flutter.dev)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+## Features
 
-A cross-platform mobile application (Android + iOS) that transforms GitHub Issues and GitHub Projects (v2) into a convenient, fast, minimalist TODO manager with a strong offline-first approach.
+- **Issue Management**: Create, edit, and manage GitHub issues with full Markdown support
+- **Project Integration**: Manage GitHub Projects V2 with drag-and-drop functionality
+- **Offline-First**: Work offline with automatic sync when connection is restored
+- **Real-time Sync**: Pending operations queue for seamless offline-to-online transition
+- **Search**: Global search across all repositories with advanced filtering
+- **Repository Management**: Browse and manage multiple GitHub repositories
+- **Pagination**: Load repos/issues in batches (30 items per page) for better performance
+- **Image Caching**: Avatars cached locally with 10MB disk cache for offline viewing
+- **Background Sync**: Automatic sync every 15 minutes on WiFi connection
+- **Optimized Lists**: 60 FPS scrolling even with 1000+ items using ListView.builder and RepaintBoundary
+- **Loading Skeletons**: Smooth loading experience with shimmer skeleton screens
+- **Comments**: View and delete your issue comments with Markdown rendering
+- **Empty States**: Beautiful custom illustrations for empty states (5 designs)
+- **Tutorial**: First-time user onboarding with 5-step interactive guide
+- **🧪 Comprehensive Tests** - 290+ automated tests
+- **🔒 Error Recovery** - Graceful error handling with retry
+- **📊 Performance Benchmarks** - Documented performance baselines
+- **📝 Error Logging** - Local error logging for debugging
 
-## ✨ Features
+### Pickers & Filters
 
-- 🔐 **Dual Authentication** - OAuth Device Flow or Personal Access Token
-- 📱 **Offline-First** - Work without internet, sync when connected
-- 🗂️ **Hierarchical View** - Repo → Issues → Sub-issues with expandable items
-- 📋 **Project Board** - Kanban-style board with drag-and-drop
-- 🎨 **Dark Theme** - Beautiful dark mode with orange accents
-- ⚡ **Fast** - Optimized for quick scanning and triage
-- 🔍 **Global Search** - Search across titles, labels, and body
+- **Assignee Picker**: Real GitHub API integration for selecting issue assignees with avatar display and 5-minute caching
+- **Label Picker**: Repository labels with color coding, showing current and available labels
+- **Project Picker**: Select default project from your GitHub Projects V2 in settings
+- **My Issues Filter**: Filter issues assigned to you using actual GitHub authentication
 
-## 📱 Screenshots
+### User Experience
 
-<!-- Screenshots coming soon -->
-<!-- The app includes 7 MVP screens:
-1. **Onboarding** - Authentication choice (OAuth/PAT/Offline)
-2. **Dashboard** - Main task hierarchy view
-3. **Issue Detail** - Detailed issue view with markdown
-4. **Project Board** - Kanban board with drag-and-drop
-5. **Repo/Project Library** - Manage repositories and projects
-6. **Search** - Global search functionality
-7. **Settings** - App settings and account management
--->
+- **Haptic Feedback**: Tactile feedback for swipe actions, button taps, and navigation
+- **Responsive Design**: Adapts to different screen sizes using ScreenUtil
+- **Dark Theme**: Optimized dark mode UI with custom color palette
+- **Loading States**: Braille loader animations for smooth loading indicators
 
-## 🏗️ Architecture
-
-### Tech Stack (as per brief)
-- **Framework**: Flutter 3.24+
-- **State Management**: Riverpod 3.0.3
-- **Local Storage**: Hive
-- **Network**: http + graphql_flutter
-- **Secure Storage**: flutter_secure_storage
-- **Markdown**: flutter_markdown
-- **Drag & Drop**: reorderables
-- **URL Launcher**: url_launcher
-
-### Project Structure
-```
-lib/
-├── agents/                    # Multi-agent development system
-│   ├── agent_coordinator.dart # Coordinates all agents
-│   ├── base_agent.dart        # Base agent class
-│   ├── project_manager_agent.dart
-│   ├── flutter_developer_agent.dart
-│   ├── ui_designer_agent.dart
-│   ├── testing_quality_agent.dart
-│   └── documentation_deployment_agent.dart
-├── constants/                 # App constants
-│   └── app_colors.dart       # Color scheme
-├── models/                    # Data models
-│   ├── item.dart             # Abstract base class
-│   ├── repo_item.dart        # Repository model
-│   ├── issue_item.dart       # Issue model
-│   └── project_item.dart     # Project model
-├── screens/                   # UI screens (7 MVP screens)
-│   ├── onboarding_screen.dart
-│   ├── main_dashboard_screen.dart
-│   ├── issue_detail_screen.dart
-│   ├── project_board_screen.dart
-│   ├── repo_project_library_screen.dart
-│   ├── search_screen.dart
-│   └── settings_screen.dart
-├── providers/                 # Riverpod providers
-├── services/                  # Business logic services
-└── widgets/                   # Reusable widgets
-```
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
-- Flutter SDK 3.24 or higher
-- Dart SDK 3.11 or higher
-- Android Studio / Xcode
-- GitHub account (for authentication)
+
+- Flutter SDK >= 3.11.0
+- GitHub Personal Access Token with `repo` scope
 
 ### Installation
 
-1. **Clone the repository**
-```bash
-git clone https://github.com/berlogabob/flutter-github-issues-todo.git
-cd flutter-github-issues-todo
+1. Clone the repository
+2. Run `flutter pub get`
+3. Configure your GitHub token in settings
+
+### Configuration
+
+1. Open the app
+2. Navigate to Settings
+3. Enter your GitHub Personal Access Token
+4. Set default repository and project
+
+## Project Structure
+
+```
+lib/
+├── constants/       # App-wide constants (colors, styles)
+├── models/          # Data models (IssueItem, RepoItem, etc.)
+├── screens/         # UI screens
+├── services/        # Business logic and API services
+├── utils/           # Utility functions and helpers
+└── widgets/         # Reusable UI components
 ```
 
-2. **Install dependencies**
-```bash
-flutter pub get
-```
+## Key Services
 
-3. **Generate code**
-```bash
-flutter pub run build_runner build --delete-conflicting-outputs
-```
+- **GitHubApiService**: REST and GraphQL API integration with retry logic
+- **CacheService**: In-memory caching with TTL support
+- **LocalStorageService**: Persistent local storage for settings and user data
+- **PendingOperationsService**: Offline operation queuing
+- **NetworkService**: Connectivity monitoring
 
-4. **Configure OAuth (Required for GitHub Login)**
+## Dependencies
 
-   **Step 1: Create GitHub OAuth App**
-   - Go to https://github.com/settings/developers
-   - Click "New OAuth App" or "Register a new application"
-   - Fill in the application details:
-     - **Application name**: GitDoIt (or your preferred name)
-     - **Homepage URL**: `https://github.com/berlogabob/flutter-github-issues-todo`
-     - **Authorization callback URL**: `https://github.com/login/device` (for Device Flow)
-   - Click "Register application"
-   - Copy your **Client ID** (you'll need this)
+- **State Management**: flutter_riverpod, riverpod
+- **Local Storage**: hive, hive_flutter
+- **Network**: http, graphql_flutter
+- **Secure Storage**: flutter_secure_storage
+- **Markdown**: flutter_markdown_plus
+- **UI**: flutter_screenutil, flutter_svg
 
-   **Step 2: Set up environment variable**
-   
-   Option A - Using .env file (Recommended for development):
-   ```bash
-   # Copy the example file
-   cp .env.example .env
-   
-   # Edit .env and add your Client ID
-   # GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxxxxxx
-   ```
-   
-   Option B - Using command line flag:
-   ```bash
-   flutter run --dart-define=GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxxxxxx
-   ```
-   
-   Option C - Using Makefile:
-   ```bash
-   # Create .env file first (see Option A), then:
-   make run-with-env
-   ```
+## Version
 
-   **Security Note**: Never commit your `.env` file to version control. The `.env` file is already included in `.gitignore`.
+Current version: 0.5.0+70
 
-5. **Run the app**
-```bash
-flutter run
-```
+## License
 
-### Building for Production
-
-**Android APK**
-```bash
-flutter build apk --release
-```
-
-**Android App Bundle (Play Store)**
-```bash
-flutter build appbundle --release
-```
-
-**iOS IPA (App Store)**
-```bash
-flutter build ipa --release
-```
-
-## 🔐 Authentication
-
-GitDoIt supports three authentication methods:
-
-### 1. OAuth Device Flow (Recommended)
-- Click "Login with GitHub"
-- Enter the provided code on GitHub's device verification page
-- Grant permissions
-- Secure and doesn't require storing tokens manually
-
-### 2. Personal Access Token (PAT)
-Generate a token with these scopes:
-- `repo` - Full control of private repositories
-- `read:org` - Read org membership
-- `write:org` - Read and write org membership
-- `project` - Read and write projects
-
-### 3. Offline Mode
-- Click "Continue Offline"
-- Creates local repository "My Local Tasks"
-- All features work without network
-- Changes sync when you log in later
-
-## 🎨 Design System
-
-### Colors
-- **Background**: `#121212` → `#1E1E1E` (gradient)
-- **Card Background**: `#1E1E1E`
-- **Orange (Primary)**: `#FF6200` - Main actions
-- **Red (Secondary)**: `#FF3B30` - Connectors, danger actions
-- **Blue (Accent)**: `#0A84FF` - Assignee links
-
-### Typography
-- System fonts (SF Pro on iOS, Roboto on Android)
-- Titles: Medium/Bold weight
-- Secondary text: Regular/Light with 0.7-0.85 opacity
-
-## 🧪 Testing
-
-### Run All Tests
-```bash
-flutter test
-```
-
-### Test Coverage
-The Testing & Quality Agent (TQA) validates:
-- ✅ Model tests (24 tests)
-- ✅ Widget tests (42 tests)
-- ✅ ExpandableItem tests (14 tests)
-- ✅ Auth service tests (12 tests)
-- ✅ Sync service tests (18 tests)
-- ✅ User journey tests (5 tests)
-- ✅ Performance tests (6 tests)
-- ✅ Brief compliance (15 checks)
-
-## 🤖 Agent System
-
-GitDoIt uses a unique multi-agent system for parallel development:
-
-### Agents
-1. **Project Manager (PMA)** - Coordinates team, assigns tasks
-2. **Flutter Developer (FDA)** - Writes code, implements features
-3. **UI/UX Designer (UDA)** - Designs interface, ensures style compliance
-4. **Testing & Quality (TQA)** - Validates code, runs tests
-5. **Documentation & Deployment (DDA)** - Maintains docs, prepares releases
-
-### Parallel Execution
-All agents work concurrently and communicate through a message bus:
-```dart
-final coordinator = AgentCoordinator();
-coordinator.registerAgent(ProjectManagerAgent());
-coordinator.registerAgent(FlutterDeveloperAgent());
-// ... register other agents
-await coordinator.startAll();
-```
-
-<!-- See [AGENTS_README.md](AGENTS_README.md) for detailed documentation. -->
-
-## 📋 MVP Scope
-
-### Included (Brief v1.0)
-- ✅ 7 MVP screens
-- ✅ Dark theme only
-- ✅ OAuth + PAT authentication
-- ✅ Offline-first with Hive
-- ✅ Issues sync (REST)
-- ✅ Projects v2 board (GraphQL)
-- ✅ Drag-and-drop between columns
-- ✅ Hierarchical expandable items
-- ✅ Global search
-- ✅ Markdown rendering
-
-### Explicitly Excluded (per brief section 10)
-- ❌ Light theme
-- ❌ Push notifications
-- ❌ Home screen widgets
-- ❌ Share sheet
-- ❌ Other service integrations
-- ❌ Custom icons/illustrations
-- ❌ Lottie animations
-- ❌ Inline editing in lists
-- ❌ Additional features beyond brief
-
-## 🛠️ Development
-
-### Code Generation
-```bash
-# Watch mode (auto-generate on changes)
-flutter pub run build_runner watch
-
-# One-time generation
-flutter pub run build_runner build --delete-conflicting-outputs
-```
-
-### Linting
-```bash
-flutter analyze
-```
-
-### Formatting
-```bash
-dart format .
-```
-
-## 📦 Dependencies
-
-### Production
-- `flutter_riverpod` - State management
-- `hive` + `hive_flutter` - Local database
-- `http` - REST API client
-- `graphql_flutter` - GraphQL client
-- `flutter_secure_storage` - Secure token storage
-- `flutter_markdown` - Markdown rendering
-- `reorderables` - Drag-and-drop lists
-- `url_launcher` - Open URLs
-
-### Development
-- `build_runner` - Code generation
-- `riverpod_generator` - Riverpod codegen
-- `hive_generator` - Hive adapter generation
-- `flutter_lints` - Linting rules
-
-## 🛠️ Build Automation
-
-### Makefile Usage
-The project includes a comprehensive Makefile for automated builds:
-
-```bash
-# Show help and current version
-make
-
-# Build Android APK with automatic version increment
-make build-android
-
-# Build Web release for GitHub Pages (moves to /docs folder)
-make build-web
-
-# Full release (both Android and Web)
-make release
-
-# Clean build directories
-make clean
-
-# Only increment build number
-make version-increment
-```
-
-### GitHub Pages Setup
-1. Build web: `make build-web`
-2. Go to Repository Settings → Pages
-3. Source: Deploy from a branch
-4. Branch: main
-5. Folder: /docs
-6. Save settings
-
-### GitHub Release Setup (Android)
-1. Build Android: `make build-android`
-2. Create release at: https://github.com/berlogabob/flutter-github-issues-todo/releases/new
-3. Tag: v0.5.0 (current version without build number)
-4. Upload: build/app-release.apk
-
-## 📚 API Documentation
-
-Generated API documentation is available at [docs/api/index.html](docs/api/index.html).
-
-To generate:
-```bash
-dart doc
-```
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- GitHub API for providing the backend
-- Flutter community for amazing packages
-- All contributors to this project
-
-## 📞 Support
-
-For issues and feature requests, please create an issue in the repository.
-
-## 🗺️ Roadmap
-
-### Q2 2026
-- [ ] GitHub Projects v2 integration
-- [ ] Bulk issue operations
-- [ ] Advanced filtering
-- [ ] Custom labels
-
-### Q3 2026
-- [ ] Calendar sync
-- [ ] Kanban board view
-- [ ] Team collaboration features
-- [ ] Notifications
-
-### Future
-- [ ] GitHub Comments support
-- [ ] Pull request integration
-- [ ] Multi-account support
-- [ ] Desktop app (Windows/macOS/Linux)
+See LICENSE file for details.
 
 ---
 
-**Built with ❤️ using Flutter and the GitDoIt Agent System**
+Built with ❤️ using Flutter and the GitHub API

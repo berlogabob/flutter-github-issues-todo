@@ -20,6 +20,9 @@ class LocalStorageService {
   static const String _userKey = 'local_user';
   static const String _filtersKey = 'local_filters';
   static const String _projectsKey = 'local_projects';
+  // PERFORMANCE OPTIMIZATION (Task 16.3): Auto-sync settings keys
+  static const String _autoSyncWifiKey = 'auto_sync_wifi';
+  static const String _autoSyncAnyKey = 'auto_sync_any';
 
   /// Get vault folder path from secure storage
   Future<String?> getVaultFolder() async {
@@ -579,6 +582,103 @@ class LocalStorageService {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting hide username setting: $e');
       return true;
+    }
+  }
+
+  // PERFORMANCE OPTIMIZATION (Task 16.3): Auto-sync settings methods
+
+  /// Save auto-sync on WiFi setting
+  Future<void> saveAutoSyncWifi(bool enabled) async {
+    try {
+      await _storage.write(key: _autoSyncWifiKey, value: enabled.toString());
+      debugPrint('Saved auto-sync WiFi setting: $enabled');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error saving auto-sync WiFi setting: $e');
+    }
+  }
+
+  /// Get auto-sync on WiFi setting
+  Future<bool> getAutoSyncWifi() async {
+    try {
+      final value = await _storage.read(key: _autoSyncWifiKey);
+      // Default to true (auto-sync on WiFi)
+      if (value == null) return true;
+      return value == 'true';
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error getting auto-sync WiFi setting: $e');
+      return true;
+    }
+  }
+
+  /// Save auto-sync on any network setting
+  Future<void> saveAutoSyncAny(bool enabled) async {
+    try {
+      await _storage.write(key: _autoSyncAnyKey, value: enabled.toString());
+      debugPrint('Saved auto-sync any network setting: $enabled');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error saving auto-sync any network setting: $e');
+    }
+  }
+
+  /// Get auto-sync on any network setting
+  Future<bool> getAutoSyncAny() async {
+    try {
+      final value = await _storage.read(key: _autoSyncAnyKey);
+      // Default to false (don't use mobile data)
+      if (value == null) return false;
+      return value == 'true';
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error getting auto-sync any network setting: $e');
+      return false;
+    }
+  }
+
+  /// Save user login for quick access
+  Future<void> saveUserLogin(String login) async {
+    try {
+      await _storage.write(key: 'user_login', value: login);
+      debugPrint('Saved user login: $login');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error saving user login: $e');
+    }
+  }
+
+  /// Get saved user login
+  Future<String?> getUserLogin() async {
+    try {
+      return await _storage.read(key: 'user_login');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error getting user login: $e');
+      return null;
+    }
+  }
+
+  /// Save a boolean value
+  Future<void> setBool(String key, bool value) async {
+    try {
+      await _storage.write(key: key, value: value.toString());
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error saving boolean $key: $e');
+    }
+  }
+
+  /// Get a boolean value
+  Future<bool?> getBool(String key) async {
+    try {
+      final value = await _storage.read(key: key);
+      if (value == null) return null;
+      return value == 'true';
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error getting boolean $key: $e');
+      return null;
     }
   }
 }

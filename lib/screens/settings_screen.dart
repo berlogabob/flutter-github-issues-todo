@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
@@ -8,9 +9,14 @@ import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/cache_service.dart';
+import '../services/pending_operations_service.dart';
+import '../services/error_logging_service.dart';
 import '../widgets/braille_loader.dart';
+import '../widgets/pending_operations_list.dart';
 import 'onboarding_screen.dart';
 import 'debug_screen.dart';
+import 'sync_status_dashboard_screen.dart';
+import 'error_log_screen.dart';
 
 /// Settings screen for app configuration and account management.
 ///
@@ -51,17 +57,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.initState();
     _loadUserData();
     _loadDefaultRepo();
+    _loadDefaultProject();
+    _loadAutoSyncSettings();
+  }
+
+  /// Load auto-sync settings from local storage (Task 16.3)
+  Future<void> _loadAutoSyncSettings() async {
+    final autoSyncWifi = await _localStorage.getAutoSyncWifi();
+    final autoSyncAny = await _localStorage.getAutoSyncAny();
+    if (mounted) {
+      setState(() {
+        _autoSyncWifi = autoSyncWifi;
+        _autoSyncAny = autoSyncAny;
+      });
+    }
   }
 
   String _getAppVersion() {
-    // Version from pubspec.yaml: 0.5.0+70
-    return '0.5.0+70';
-    return '0.5.0+69';
-    return '0.5.0+68';
-    return '0.5.0+67';
-    return '0.5.0+66';
-    return '0.5.0+65';
-    return '0.5.0+64';
+    // Version from pubspec.yaml: 0.5.0+72
+    return '0.5.0+72';
+    return '0.5.0+71';
   }
 
   // User data - will be fetched from GitHub
@@ -73,7 +88,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   };
 
   String _defaultRepo = 'user/gitdoit';
-  final String _defaultProject = 'Mobile Development';
+  String _defaultProject = 'Mobile Development';
+  List<Map<String, dynamic>> _projects = [];
+  bool _isLoadingProjects = false;
   List<RepoItem> _userRepos = [];
 
   Future<void> _loadDefaultRepo() async {
@@ -82,6 +99,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _defaultRepo = savedRepo;
       });
+    }
+  }
+
+  Future<void> _loadDefaultProject() async {
+    final savedProject = await _localStorage.getDefaultProject();
+    if (savedProject != null && mounted) {
+      setState(() {
+        _defaultProject = savedProject;
+      });
+    }
+  }
+
+  Future<void> _loadProjects() async {
+    if (_isLoadingProjects) return;
+    
+    setState(() => _isLoadingProjects = true);
+    
+    try {
+      final projects = await _githubApi.fetchProjects();
+      if (mounted) {
+        setState(() {
+          _projects = projects;
+          _isLoadingProjects = false;
+        });
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error loading projects: $e');
+      if (mounted) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        setState(() => _isLoadingProjects = false);
+      }
     }
   }
 
@@ -201,6 +249,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildAutoSyncAnyTile(),
           _buildSyncNowTile(),
           _buildTestConnectionTile(),
+
+          // Pending Operations Section
+          const SizedBox(height: 8),
+          _buildSectionHeader('Pending Operations'),
+          _buildPendingOperationsSection(),
+
+          const SizedBox(height: 8),
+
+          // Developer Section
+          _buildSectionHeader('Developer'),
+          _buildErrorLogTile(),
 
           const SizedBox(height: 8),
 
@@ -370,11 +429,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         value: _autoSyncWifi,
         activeThumbColor: AppColors.orangePrimary,
-        onChanged: (value) {
+        onChanged: (value) async {
           setState(() {
             _autoSyncWifi = value;
             if (value) _autoSyncAny = false;
           });
+          // PERFORMANCE: Persist auto-sync settings (Task 16.3)
+          await _localStorage.saveAutoSyncWifi(value);
         },
       ),
     );
@@ -402,11 +463,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         value: _autoSyncAny,
         activeThumbColor: AppColors.orangePrimary,
-        onChanged: (value) {
+        onChanged: (value) async {
           setState(() {
             _autoSyncAny = value;
             if (value) _autoSyncWifi = false;
           });
+          // PERFORMANCE: Persist auto-sync settings (Task 16.3)
+          await _localStorage.saveAutoSyncAny(value);
         },
       ),
     );
@@ -451,6 +514,147 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         trailing: const Icon(Icons.chevron_right, color: AppColors.red),
         onTap: _testConnection,
+      ),
+    );
+  }
+
+  Widget _buildErrorLogTile() {
+    return FutureBuilder<int>(
+      future: ErrorLoggingService.instance.getErrorCount(),
+      builder: (context, snapshot) {
+        final errorCount = snapshot.data ?? 0;
+        return Card(
+          color: AppColors.cardBackground,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: ListTile(
+            leading: Icon(
+              Icons.bug_report,
+              color: errorCount > 0 ? AppColors.red : AppColors.orangePrimary,
+            ),
+            title: const Text(
+              'View Error Log',
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: Text(
+              errorCount > 0
+                  ? '$errorCount error${errorCount != 1 ? 's' : ''} logged'
+                  : 'No errors logged',
+              style: TextStyle(
+                color: errorCount > 0
+                    ? AppColors.red.withValues(alpha: 0.7)
+                    : Colors.white.withValues(alpha: 0.5),
+                fontSize: 12,
+              ),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (errorCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.red.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$errorCount',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.red,
+                      ),
+                    ),
+                  ),
+                if (errorCount > 0) const SizedBox(width: 8),
+                const Icon(Icons.chevron_right, color: AppColors.red),
+              ],
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ErrorLogScreen()),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPendingOperationsSection() {
+    final pendingOps = PendingOperationsService();
+    final pendingCount = pendingOps.getPendingCount();
+    
+    return Card(
+      color: AppColors.cardBackground,
+      child: Padding(
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Pending Operations',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                if (pendingCount > 0)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Text(
+                      '$pendingCount',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.orangePrimary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            PendingOperationsList(
+              pendingOps: pendingOps,
+              onRefresh: () {
+                setState(() {});
+              },
+            ),
+            SizedBox(height: 12.h),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SyncStatusDashboardScreen(),
+                    ),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.orangePrimary,
+                  side: BorderSide(color: AppColors.orangePrimary),
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                ),
+                child: const Text('View Full Sync Dashboard'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -828,8 +1032,100 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _changeDefaultProject() {
-    // TODO: Show project picker
+  /// Shows project picker dialog with user's GitHub projects.
+  ///
+  /// Fetches projects from GitHub API and allows selection.
+  /// Saves selection to LocalStorageService.
+  Future<void> _changeDefaultProject() async {
+    // Load projects
+    await _loadProjects();
+    
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        title: const Text(
+          'Select Default Project',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _isLoadingProjects
+              ? const Center(child: BrailleLoader(size: 24))
+              : _projects.isEmpty
+                  ? const Text(
+                      'No projects available',
+                      style: TextStyle(color: Colors.white54),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _projects.length,
+                      itemBuilder: (context, index) {
+                        final project = _projects[index];
+                        final title = project['title'] as String? ?? '';
+                        final isClosed = project['closed'] as bool? ?? false;
+                        final isSelected = _defaultProject == title;
+                        
+                        return ListTile(
+                          title: Text(
+                            title,
+                            style: TextStyle(
+                              color: isClosed ? Colors.white38 : Colors.white,
+                              decoration: isClosed
+                                  ? TextDecoration.lineThrough
+                                  : TextDecoration.none,
+                            ),
+                          ),
+                          subtitle: isClosed
+                              ? const Text(
+                                  'Closed',
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                  ),
+                                )
+                              : null,
+                          selected: isSelected,
+                          selectedTileColor: AppColors.orangePrimary.withValues(
+                            alpha: 0.2,
+                          ),
+                          trailing: isSelected
+                              ? const Icon(
+                                  Icons.check,
+                                  color: AppColors.orangePrimary,
+                                )
+                              : null,
+                          onTap: () {
+                            setState(() {
+                              _defaultProject = title;
+                            });
+                            _localStorage.saveDefaultProject(title);
+                            Navigator.pop(context);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Default project set to $title',
+                                ),
+                                backgroundColor: AppColors.orangePrimary,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _syncNow() {

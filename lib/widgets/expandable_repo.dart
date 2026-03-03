@@ -7,9 +7,17 @@ import '../services/github_api_service.dart';
 import '../services/issue_service.dart';
 import '../screens/edit_issue_screen.dart';
 import 'braille_loader.dart';
+import 'loading_skeleton.dart'; // PERFORMANCE: Loading skeletons (Task 16.5)
 import 'issue_card.dart';
 
 /// ExpandableRepo - Modular, reusable widget for displaying a repository with collapsible issues list
+/// 
+/// PERFORMANCE OPTIMIZATION (Task 16.4):
+/// - Uses ListView.builder for lazy loading
+/// - itemExtent: 80.0 for fixed-height issue cards
+/// - RepaintBoundary around static content
+/// - ValueKey for list items (not Key)
+/// - const constructors where possible
 class ExpandableRepo extends StatefulWidget {
   final RepoItem repo;
   final GitHubApiService githubApi;
@@ -238,104 +246,106 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Repo Header (clickable)
-          InkWell(
-            onTap: _toggleExpand,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  // Expand/Collapse Icon
-                  AnimatedRotation(
-                    turns: _isExpanded ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(
-                      Icons.arrow_right,
-                      color: AppColors.red,
-                      size: 24,
+          // PERFORMANCE: RepaintBoundary around static repo header (Task 16.4)
+          RepaintBoundary(
+            child: InkWell(
+              onTap: _toggleExpand,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    // Expand/Collapse Icon
+                    AnimatedRotation(
+                      turns: _isExpanded ? 0.25 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(
+                        Icons.arrow_right,
+                        color: AppColors.red,
+                        size: 24,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Repo Icon
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.orangePrimary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 8),
+                    // Repo Icon
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.folder,
+                        color: AppColors.orangePrimary,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.folder,
-                      color: AppColors.orangePrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Pin icon for pinned repos
-                  if (widget.isPinned)
-                    const Icon(
-                      Icons.push_pin,
-                      color: AppColors.orangePrimary,
-                      size: 16,
-                    ),
-                  if (widget.isPinned) const SizedBox(width: 4),
-                  // Repo Info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _getDisplayName(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (widget.repo.description != null &&
-                            widget.repo.description!.isNotEmpty)
+                    const SizedBox(width: 8),
+                    // Pin icon for pinned repos
+                    if (widget.isPinned)
+                      const Icon(
+                        Icons.push_pin,
+                        color: AppColors.orangePrimary,
+                        size: 16,
+                      ),
+                    if (widget.isPinned) const SizedBox(width: 4),
+                    // Repo Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            widget.repo.description!,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 12,
+                            _getDisplayName(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                      ],
-                    ),
-                  ),
-                  // Issue Count Badge
-                  if (_hasLoadedIssues || widget.repo.children.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.orangePrimary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.orangePrimary.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Text(
-                        _issues.isNotEmpty
-                            ? '${_issues.whereType<IssueItem>().length} issues'
-                            : '${widget.repo.children.whereType<IssueItem>().length} issues',
-                        style: const TextStyle(
-                          color: AppColors.orangePrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                          if (widget.repo.description != null &&
+                              widget.repo.description!.isNotEmpty)
+                            Text(
+                              widget.repo.description!,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
                     ),
-                  // Loading Indicator
-                  if (_isLoadingIssues) BrailleLoader(size: 20),
-                ],
+                    // Issue Count Badge
+                    if (_hasLoadedIssues || widget.repo.children.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.orangePrimary.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          _issues.isNotEmpty
+                              ? '${_issues.whereType<IssueItem>().length} issues'
+                              : '${widget.repo.children.whereType<IssueItem>().length} issues',
+                          style: const TextStyle(
+                            color: AppColors.orangePrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    // Loading Indicator
+                    if (_isLoadingIssues) BrailleLoader(size: 20),
+                  ],
+                ),
               ),
             ),
           ),
@@ -357,12 +367,43 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
     );
   }
 
+  /// Build issues list with performance optimizations (Task 16.4)
+  /// 
+  /// PERFORMANCE OPTIMIZATION:
+  /// - Uses ListView.builder for lazy loading
+  /// - itemExtent: 80.0 for fixed-height issue cards (improves scroll performance)
+  /// - RepaintBoundary around static content
+  /// - ValueKey for list items (not Key)
   Widget _buildIssuesList() {
-    // Show loading
+    // Show loading - PERFORMANCE: Use LoadingSkeleton (Task 16.5)
     if (_isLoadingIssues) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: BrailleLoader(size: 24)),
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Small header with loader
+            Row(
+              children: [
+                BrailleLoader(size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Loading issues...',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // PERFORMANCE: Loading skeleton for issues (Task 16.5)
+            const LoadingSkeleton(
+              height: 80, // Match issue card height
+              itemCount: 4,
+              spacing: 12,
+            ),
+          ],
+        ),
       );
     }
 
@@ -398,6 +439,29 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
       );
     }
 
+    // PERFORMANCE: Use ListView.builder for large list optimization (Task 16.4)
+    // itemExtent: 80.0 for fixed-height issue cards
+    Widget buildIssueList(List<IssueItem> issues) {
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(), // Parent handles scrolling
+        itemCount: issues.length,
+        itemExtent: 80.0, // PERFORMANCE: Fixed height for better scroll performance
+        itemBuilder: (context, index) {
+          final issue = issues[index];
+          return RepaintBoundary( // PERFORMANCE: Isolate repaints
+            child: IssueCard(
+              key: ValueKey('issue-${issue.id}'), // PERFORMANCE: ValueKey instead of Key
+              issue: issue,
+              onTap: widget.onIssueTap,
+              onSwipeRight: () => _openIssueForEdit(issue),
+              onSwipeLeft: () => _closeIssue(issue),
+            ),
+          );
+        },
+      );
+    }
+
     // Show issues from API
     if (_issues.isNotEmpty) {
       return Padding(
@@ -407,19 +471,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
           top: 8,
           bottom: 100,
         ),
-        child: Column(
-          children: _issues
-              .map(
-                (issue) => IssueCard(
-                  key: ValueKey('issue-${issue.id}'),
-                  issue: issue,
-                  onTap: widget.onIssueTap,
-                  onSwipeRight: () => _openIssueForEdit(issue),
-                  onSwipeLeft: () => _closeIssue(issue),
-                ),
-              )
-              .toList(),
-        ),
+        child: buildIssueList(_issues),
       );
     }
 
@@ -432,20 +484,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
           top: 8,
           bottom: 100,
         ),
-        child: Column(
-          children: widget.repo.children
-              .whereType<IssueItem>()
-              .map(
-                (issue) => IssueCard(
-                  key: ValueKey('issue-${issue.id}'),
-                  issue: issue,
-                  onTap: widget.onIssueTap,
-                  onSwipeRight: () => _openIssueForEdit(issue),
-                  onSwipeLeft: () => _closeIssue(issue),
-                ),
-              )
-              .toList(),
-        ),
+        child: buildIssueList(widget.repo.children.whereType<IssueItem>().toList()),
       );
     }
 

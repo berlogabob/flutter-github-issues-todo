@@ -5,8 +5,17 @@ enum OperationType {
   closeIssue,
   reopenIssue,
   addComment,
+  deleteComment,
   updateLabels,
   updateAssignee,
+}
+
+/// Operation status for tracking sync progress
+enum OperationStatus {
+  pending,
+  syncing,
+  completed,
+  failed,
 }
 
 /// Pending operation model
@@ -19,8 +28,10 @@ class PendingOperation {
   final String? repo;
   final Map<String, dynamic> data;
   final DateTime createdAt;
+  OperationStatus status;
   bool isSyncing;
   int retryCount;
+  String? errorMessage;
 
   PendingOperation({
     required this.id,
@@ -31,8 +42,10 @@ class PendingOperation {
     this.repo,
     required this.data,
     required this.createdAt,
+    this.status = OperationStatus.pending,
     this.isSyncing = false,
     this.retryCount = 0,
+    this.errorMessage,
   });
 
   factory PendingOperation.createIssue({
@@ -69,6 +82,112 @@ class PendingOperation {
     );
   }
 
+  factory PendingOperation.closeIssue({
+    required String id,
+    required int issueNumber,
+    required String owner,
+    required String repo,
+  }) {
+    return PendingOperation(
+      id: id,
+      type: OperationType.closeIssue,
+      issueNumber: issueNumber,
+      owner: owner,
+      repo: repo,
+      data: {},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory PendingOperation.reopenIssue({
+    required String id,
+    required int issueNumber,
+    required String owner,
+    required String repo,
+  }) {
+    return PendingOperation(
+      id: id,
+      type: OperationType.reopenIssue,
+      issueNumber: issueNumber,
+      owner: owner,
+      repo: repo,
+      data: {},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory PendingOperation.addComment({
+    required String id,
+    required int issueNumber,
+    required String owner,
+    required String repo,
+    required String body,
+  }) {
+    return PendingOperation(
+      id: id,
+      type: OperationType.addComment,
+      issueNumber: issueNumber,
+      owner: owner,
+      repo: repo,
+      data: {'body': body},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory PendingOperation.deleteComment({
+    required String id,
+    required int commentId,
+    required int issueNumber,
+    required String owner,
+    required String repo,
+  }) {
+    return PendingOperation(
+      id: id,
+      type: OperationType.deleteComment,
+      issueNumber: issueNumber,
+      owner: owner,
+      repo: repo,
+      data: {'commentId': commentId},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory PendingOperation.updateLabels({
+    required String id,
+    required int issueNumber,
+    required String owner,
+    required String repo,
+    required List<String> labels,
+  }) {
+    return PendingOperation(
+      id: id,
+      type: OperationType.updateLabels,
+      issueNumber: issueNumber,
+      owner: owner,
+      repo: repo,
+      data: {'labels': labels},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory PendingOperation.updateAssignee({
+    required String id,
+    required int issueNumber,
+    required String owner,
+    required String repo,
+    required String? assignee,
+  }) {
+    return PendingOperation(
+      id: id,
+      type: OperationType.updateAssignee,
+      issueNumber: issueNumber,
+      owner: owner,
+      repo: repo,
+      data: {'assignee': assignee},
+      createdAt: DateTime.now(),
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -79,8 +198,10 @@ class PendingOperation {
       'repo': repo,
       'data': data,
       'createdAt': createdAt.toIso8601String(),
+      'status': status.name,
       'isSyncing': isSyncing,
       'retryCount': retryCount,
+      'errorMessage': errorMessage,
     };
   }
 
@@ -94,8 +215,13 @@ class PendingOperation {
       repo: json['repo'] as String?,
       data: Map<String, dynamic>.from(json['data']),
       createdAt: DateTime.parse(json['createdAt'] as String),
+      status: OperationStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => OperationStatus.pending,
+      ),
       isSyncing: json['isSyncing'] as bool? ?? false,
       retryCount: json['retryCount'] as int? ?? 0,
+      errorMessage: json['errorMessage'] as String?,
     );
   }
 }

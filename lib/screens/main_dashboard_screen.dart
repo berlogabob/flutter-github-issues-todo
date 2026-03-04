@@ -298,6 +298,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Only reload after initial load is complete
     if (!_isInitialLoad) {
       await _loadSavedFilters();
+      await _reloadPinnedRepos(); // ✅ Reload pinned repos when returning from library
     }
   }
 

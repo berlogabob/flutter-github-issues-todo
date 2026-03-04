@@ -93,11 +93,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     _checkLocalIssuesToSync();
 
     _loadData();
-    
-    // Reload pinned repos when screen becomes visible
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _reloadPinnedRepos();
-    });
   }
 
   /// Reload pinned repos from storage (called when returning to screen)
@@ -306,6 +301,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Load saved filters
     await _loadSavedFilters();
     _isInitialLoad = false;
+    
+    // Load pinned repos
+    await _reloadPinnedRepos();
 
     // Load local issues
     await _loadLocalIssues();

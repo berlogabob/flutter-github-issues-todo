@@ -419,102 +419,156 @@ class _RepoProjectLibraryScreenState
     debugPrint('_buildRepoItem: ${repo.fullName}');
     final isPinned = _pinnedRepos.contains(repo.fullName);
 
-    return Card(
-      color: AppColors.cardBackground,
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: AppColors.orangePrimary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(
-            Icons.folder,
-            color: AppColors.orangePrimary,
-            size: 24,
-          ),
-        ),
-        title: Text(
-          repo.fullName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: repo.description != null && repo.description!.isNotEmpty
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text(
-                    repo.description!,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              )
-            : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+    return Dismissible(
+      key: Key(repo.fullName),
+      direction: DismissDirection.horizontal,
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        color: AppColors.orangePrimary,
+        child: const Row(
           children: [
-            // Pin/Unpin button
-            IconButton(
-              icon: Icon(
-                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                color: isPinned ? AppColors.orangePrimary : Colors.white54,
-                size: 20,
-              ),
-              onPressed: () async {
-                HapticFeedback.lightImpact();
-                if (isPinned) {
-                  await _unpinRepo(repo.fullName);
-                } else {
-                  await _pinRepo(repo.fullName);
-                }
-              },
-              tooltip: isPinned ? 'Unpin from main' : 'Pin to main',
-            ),
-            // Pin badge
-            if (isPinned)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.orangePrimary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'Main',
-                  style: TextStyle(
-                    color: AppColors.orangePrimary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            const Icon(Icons.chevron_right, color: AppColors.red, size: 20),
+            Icon(Icons.add, color: Colors.white),
+            SizedBox(width: 8),
+            Text('Show on main', style: TextStyle(color: Colors.white)),
           ],
         ),
-        onTap: () async {
-          final parts = repo.fullName.split('/');
-          if (parts.length == 2) {
-            await _navigateToRepoDetail(parts[0], parts[1]);
-          }
-        },
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: AppColors.red,
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text('Hide from main', style: TextStyle(color: Colors.white)),
+            SizedBox(width: 8),
+            Icon(Icons.remove, color: Colors.white),
+          ],
+        ),
+      ),
+      resizeDuration: null, // Don't resize/dismiss the item
+      onDismissed: (direction) async {
+        HapticFeedback.lightImpact();
+        
+        // Swipe right - pin
+        if (direction == DismissDirection.startToEnd) {
+          await _pinRepo(repo.fullName);
+        }
+        // Swipe left - unpin
+        else {
+          await _unpinRepo(repo.fullName);
+        }
+        
+        // Show feedback
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(
+                    direction == DismissDirection.startToEnd 
+                      ? Icons.check_circle 
+                      : Icons.remove_circle,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    direction == DismissDirection.startToEnd
+                      ? '${repo.fullName} will appear on main page'
+                      : '${repo.fullName} removed from main page',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+              backgroundColor: direction == DismissDirection.startToEnd
+                ? AppColors.orangePrimary
+                : AppColors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+      child: Card(
+        color: AppColors.cardBackground,
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: ListTile(
+          leading: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.orangePrimary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.folder,
+              color: AppColors.orangePrimary,
+              size: 24,
+            ),
+          ),
+          title: Text(
+            repo.fullName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: repo.description != null && repo.description!.isNotEmpty
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(
+                      repo.description!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 12,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                )
+              : null,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Pin badge
+              if (isPinned)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Main',
+                    style: TextStyle(
+                      color: AppColors.orangePrimary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              const Icon(Icons.chevron_right, color: AppColors.red, size: 20),
+            ],
+          ),
+          onTap: () async {
+            final parts = repo.fullName.split('/');
+            if (parts.length == 2) {
+              await _navigateToRepoDetail(parts[0], parts[1]);
+            }
+          },
+        ),
       ),
     );
   }

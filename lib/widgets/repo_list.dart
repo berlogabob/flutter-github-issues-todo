@@ -121,8 +121,14 @@ class RepoList extends StatelessWidget {
         return true;
       }).toList();
 
-      // Include repo if it has issues matching the filter, or if filter is 'all'
-      if (filteredIssues.isNotEmpty || filterStatus == 'all') {
+      // Include repo if:
+      // 1. Filter is 'all' - always show
+      // 2. Filter is 'open' or 'closed' - show if has matching issues OR issues not loaded yet (children.isEmpty)
+      final bool shouldIncludeRepo = filterStatus == 'all' 
+          || filteredIssues.isNotEmpty 
+          || repo.children.isEmpty;
+      
+      if (shouldIncludeRepo) {
         final filteredRepo = RepoItem(
           id: repo.id,
           title: repo.title,

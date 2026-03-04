@@ -4,12 +4,16 @@ import 'item.dart';
 class RepoItem extends Item {
   String fullName;
   String? description;
+  bool isPinned;
+  bool isMain;
 
   RepoItem({
     required super.id,
     required super.title,
     required this.fullName,
     this.description,
+    this.isPinned = false,
+    this.isMain = false,
     ItemStatus? status,
     super.updatedAt,
     super.assigneeLogin,
@@ -33,6 +37,8 @@ class RepoItem extends Item {
       'title': title,
       'fullName': fullName,
       'description': description,
+      'isPinned': isPinned,
+      'isMain': isMain,
       'status': status.toString().split('.').last,
       'updatedAt': updatedAt?.toIso8601String(),
       'assigneeLogin': assigneeLogin,
@@ -50,6 +56,8 @@ class RepoItem extends Item {
       title: json['title'] as String,
       fullName: json['fullName'] as String,
       description: json['description'] as String?,
+      isPinned: json['isPinned'] as bool? ?? false,
+      isMain: json['isMain'] as bool? ?? false,
       status: ItemStatus.values.firstWhere(
         (e) => e.toString().split('.').last == json['status'],
         orElse: () => ItemStatus.open,

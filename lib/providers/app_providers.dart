@@ -5,6 +5,7 @@ import '../services/sync_service.dart';
 import '../services/secure_storage_service.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
+import 'repositories_provider.dart';
 
 /// Auth state class
 class AuthState {
@@ -43,10 +44,16 @@ final authStateProvider = FutureProvider<AuthState>((ref) async {
   }
 });
 
-/// Repositories provider
+/// Repositories provider - fetches from GitHub API
 final reposProvider = FutureProvider<List<RepoItem>>((ref) async {
   final api = GitHubApiService();
-  return await api.fetchMyRepositories(perPage: 30);
+  final repos = await api.fetchMyRepositories(perPage: 30);
+  
+  // Update the local state notifier
+  final notifier = ref.read(repositoriesProvider.notifier);
+  notifier.setRepos(repos);
+  
+  return repos;
 });
 
 /// Issues provider for a specific repo

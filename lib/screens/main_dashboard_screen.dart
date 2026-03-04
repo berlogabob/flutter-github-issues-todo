@@ -29,6 +29,8 @@ import 'project_board_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'repo_project_library_screen.dart';
+import '../providers/pinned_repos_provider.dart';
+import '../providers/repositories_provider.dart';
 
 /// MainDashboardScreen - Main screen with task hierarchy
 /// Implements brief section 7, screen 2
@@ -62,7 +64,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   static const int _maxConcurrentIssueFetches = 5;
 
   List<RepoItem> _repositories = [];
-  Set<String> _pinnedRepos = {};
   String? _expandedRepoId;
   List<Map<String, dynamic>> _projects = [];
   // Cloud icon now updates via SyncService listener only (no timer)
@@ -97,25 +98,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   /// Reload pinned repos from storage (called when returning to screen)
   Future<void> _reloadPinnedRepos() async {
-    final filters = await _localStorage.getFilters();
-    if (mounted) {
-      final pinnedList = filters['pinnedRepos'] as List? ?? [];
-      final newPinnedRepos = pinnedList.map((e) => e.toString()).toSet();
-      
-      // Only update if changed
-      if (!_setEquals(_pinnedRepos, newPinnedRepos)) {
-        setState(() {
-          _pinnedRepos = newPinnedRepos;
-        });
-        debugPrint('[Dashboard] ✓ Reloaded pinned repos: ${_pinnedRepos.length}');
-      }
-    }
-  }
-
-  /// Check if two sets are equal
-  bool _setEquals(Set<String> a, Set<String> b) {
-    if (a.length != b.length) return false;
-    return a.every((e) => b.contains(e));
+    ref.read(pinnedReposProvider.notifier).load();
+    ref.read(mainRepoProvider.notifier).load();
   }
 
   Future<void> _loadHideUsernameSetting() async {
@@ -340,12 +324,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       if (mounted) {
         setState(() {
           _filterStatus = filters['filterStatus'] ?? 'open';
-          // Convert List to Set properly
-          final pinnedList = filters['pinnedRepos'] as List? ?? [];
-          _pinnedRepos = pinnedList.map((e) => e.toString()).toSet();
+          // Update Riverpod provider
+          ref.read(pinnedReposProvider.notifier).load();
         });
         debugPrint(
-          '[Dashboard] ✓ Loaded filters: status=$_filterStatus, pinned=${_pinnedRepos.length} repos',
+          '[Dashboard] ✓ Loaded filters: status=$_filterStatus',
         );
       }
     } catch (e, stackTrace) {
@@ -359,7 +342,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       if (mounted) {
         setState(() {
           _filterStatus = 'open';
-          _pinnedRepos = {};
         });
       }
     }
@@ -367,19 +349,14 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   Future<void> _autoPinDefaultRepo() async {
     // If no pinned repos, auto-pin the default repo from settings
-    if (_pinnedRepos.isEmpty) {
+    final pinned = ref.read(pinnedReposProvider);
+    if (pinned.isEmpty) {
       final defaultRepoName = await _localStorage.getDefaultRepo();
       if (defaultRepoName != null && mounted) {
-        // Find repo by fullName and pin using fullName
+        // Find repo by fullName and pin using Riverpod
         for (final repo in _repositories) {
           if (repo.fullName == defaultRepoName) {
-            setState(() {
-              _pinnedRepos.add(repo.fullName);
-            });
-            await _localStorage.saveFilters(
-              filterStatus: _filterStatus,
-              pinnedRepos: _pinnedRepos.toList(),
-            );
+            await ref.read(pinnedReposProvider.notifier).pin(repo.fullName);
             debugPrint('Auto-pinned default repo: $defaultRepoName');
             break;
           }
@@ -668,6 +645,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final pinnedRepos = ref.watch(pinnedReposProvider).toSet();
+    // Show only pinned repositories on main dashboard
+    final displayedRepos = ref.watch(repositoriesProvider)
+        .where((repo) => pinnedRepos.contains(repo.fullName))
+        .toList();
+    
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -804,7 +787,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                   : RefreshIndicator(
                       onRefresh: _fetchRepositories,
                       color: AppColors.orangePrimary,
-                      child: _buildTaskList(),
+                      child: _buildTaskList(displayedRepos, pinnedRepos),
                     ),
             ),
           ],
@@ -915,13 +898,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   /// Build the task list with pagination support (Task 16.1)
-  /// 
+  ///
   /// PERFORMANCE OPTIMIZATION:
   /// - Shows "Load More" button when more repos are available
   /// - Displays loading indicator while loading more repos
-  Widget _buildTaskList() {
-    final displayedRepos = _getDisplayedRepos();
-
+  Widget _buildTaskList(List<RepoItem> displayedRepos, Set<String> pinnedRepos) {
+    // Show empty state only if no repositories at all (not based on filter)
     if (displayedRepos.isEmpty && !_isFetchingRepos) {
       return const DashboardEmptyState();
     }
@@ -930,14 +912,14 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       children: [
         Expanded(
           child: RepoList(
-            repositories: _getDisplayedRepos(),
+            repositories: displayedRepos,
             githubApi: _dashboardService,
             expandedRepoId: _expandedRepoId,
             onExpandToggle: _onRepoToggle,
             onIssueTap: _openIssueDetail,
             filterStatus: _filterStatus,
             hideUsernameInRepo: _hideUsernameInRepo,
-            pinnedRepos: _pinnedRepos,
+            pinnedRepos: pinnedRepos,
             onPinToggle: _togglePinRepo,
           ),
         ),
@@ -976,31 +958,20 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   /// Toggle pin status for a repository with improved error handling.
   ///
   /// FIX (Task 20.3): Ensures pin state persists correctly.
-  void _togglePinRepo(String repoFullName) {
+  void _togglePinRepo(String repoFullName) async {
     HapticFeedback.lightImpact();
     debugPrint('[Dashboard] Toggle pin for: $repoFullName');
-    setState(() {
-      if (_pinnedRepos.contains(repoFullName)) {
-        _pinnedRepos.remove(repoFullName);
-        debugPrint('[Dashboard] Unpinned: $repoFullName');
-      } else {
-        _pinnedRepos.add(repoFullName);
-        debugPrint('[Dashboard] Pinned: $repoFullName');
-      }
-    });
-    // Persist pin state with error handling
-    _dashboardService.togglePinRepo(
-      repoFullName: repoFullName,
-      pinnedRepos: _pinnedRepos,
-      filterStatus: _filterStatus,
-    ).catchError((e, stackTrace) {
-      debugPrint('[Dashboard] ✗ Failed to toggle pin: $e');
-      AppErrorHandler.handle(
-        e,
-        stackTrace: stackTrace,
-        showSnackBar: false,
-      );
-    });
+    
+    final pinned = ref.read(pinnedReposProvider);
+    final notifier = ref.read(pinnedReposProvider.notifier);
+    
+    if (pinned.contains(repoFullName)) {
+      await notifier.unpin(repoFullName);
+      debugPrint('[Dashboard] Unpinned: $repoFullName');
+    } else {
+      await notifier.pin(repoFullName);
+      debugPrint('[Dashboard] Pinned: $repoFullName');
+    }
   }
 
   void _onRepoToggle(String repoId, bool isExpanded) {
@@ -1013,15 +984,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         _expandedRepoId = null;
       }
     });
-  }
-
-  /// Get list of repos to display on main screen
-  List<RepoItem> _getDisplayedRepos() {
-    return _dashboardService.getDisplayedRepos(
-      repositories: _repositories,
-      isOfflineMode: _isOfflineMode,
-      pinnedRepos: _pinnedRepos,
-    );
   }
 
   /// Get sync cloud state based on sync service status

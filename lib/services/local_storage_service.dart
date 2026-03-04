@@ -537,6 +537,34 @@ class LocalStorageService {
     }
   }
 
+  // ==================== PINNED REPOS ====================
+  static const String _pinnedReposKey = 'pinned_repos';
+
+  /// Save pinned repositories
+  Future<void> savePinnedRepos(List<String> fullNames) async {
+    try {
+      await _storage.write(key: _pinnedReposKey, value: json.encode(fullNames));
+      debugPrint('✅ Saved ${fullNames.length} pinned repositories');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error saving pinned repos: $e');
+    }
+  }
+
+  /// Get pinned repositories
+  Future<List<String>> getPinnedRepos() async {
+    try {
+      final jsonStr = await _storage.read(key: _pinnedReposKey);
+      if (jsonStr == null || jsonStr.isEmpty) return [];
+      final List<dynamic> decoded = json.decode(jsonStr);
+      return decoded.cast<String>();
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error getting pinned repos: $e');
+      return [];
+    }
+  }
+
   /// Save default project for issue creation
   Future<void> saveDefaultProject(String projectName) async {
     try {

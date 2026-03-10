@@ -5,6 +5,7 @@ import 'package:gitdoit/widgets/issue_card.dart';
 import 'package:gitdoit/widgets/expandable_repo.dart';
 import 'package:gitdoit/models/repo_item.dart';
 import 'package:gitdoit/models/issue_item.dart';
+import 'package:gitdoit/models/item.dart';
 import 'package:gitdoit/services/github_api_service.dart';
 
 void main() {
@@ -14,34 +15,45 @@ void main() {
 
     setUp(() {
       // Create test repos
-      testRepos = List.generate(100, (i) => RepoItem(
-        id: 'repo$i',
-        title: 'Repository $i',
-        fullName: 'user/repo$i',
-        description: 'Description for repository $i',
-        status: 'public',
-        children: List.generate(5, (j) => IssueItem(
-          id: 'issue${i}_$j',
-          title: 'Issue $j',
-          number: j,
-          status: j % 2 == 0 ? ItemStatus.open : ItemStatus.closed,
-          labels: ['bug'],
-        )),
-      ));
+      testRepos = List.generate(
+        100,
+        (i) => RepoItem(
+          id: 'repo$i',
+          title: 'Repository $i',
+          fullName: 'user/repo$i',
+          description: 'Description for repository $i',
+          status: ItemStatus.open,
+          children: List.generate(
+            5,
+            (j) => IssueItem(
+              id: 'issue${i}_$j',
+              title: 'Issue $j',
+              number: j,
+              status: j % 2 == 0 ? ItemStatus.open : ItemStatus.closed,
+              labels: ['bug'],
+            ),
+          ),
+        ),
+      );
 
       // Create test issues
-      testIssues = List.generate(100, (i) => IssueItem(
-        id: 'issue$i',
-        title: 'Test Issue $i',
-        number: i,
-        status: i % 2 == 0 ? ItemStatus.open : ItemStatus.closed,
-        labels: ['bug', 'feature'],
-        assigneeLogin: 'user$i',
-      ));
+      testIssues = List.generate(
+        100,
+        (i) => IssueItem(
+          id: 'issue$i',
+          title: 'Test Issue $i',
+          number: i,
+          status: i % 2 == 0 ? ItemStatus.open : ItemStatus.closed,
+          labels: ['bug', 'feature'],
+          assigneeLogin: 'user$i',
+        ),
+      );
     });
 
     group('ListView.builder used', () {
-      testWidgets('RepoList uses ListView.builder', (WidgetTester tester) async {
+      testWidgets('RepoList uses ListView.builder', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final githubApi = GitHubApiService();
 
@@ -67,7 +79,9 @@ void main() {
         expect(find.byType(ListView), findsOneWidget);
       });
 
-      testWidgets('IssueCard can be used in ListView.builder', (WidgetTester tester) async {
+      testWidgets('IssueCard can be used in ListView.builder', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         await tester.pumpWidget(
           MaterialApp(
@@ -93,22 +107,30 @@ void main() {
         expect(find.byType(IssueCard), findsNWidgets(100));
       });
 
-      test('ListView.builder should be efficient with large datasets', () async {
-        // Arrange - create 1000 items
-        final largeList = List.generate(1000, (i) => IssueItem(
-          id: 'issue$i',
-          title: 'Issue $i',
-          number: i,
-          status: ItemStatus.open,
-        ));
+      test(
+        'ListView.builder should be efficient with large datasets',
+        () async {
+          // Arrange - create 1000 items
+          final largeList = List.generate(
+            1000,
+            (i) => IssueItem(
+              id: 'issue$i',
+              title: 'Issue $i',
+              number: i,
+              status: ItemStatus.open,
+            ),
+          );
 
-        // Assert - list creation should be fast
-        expect(largeList.length, 1000);
-      });
+          // Assert - list creation should be fast
+          expect(largeList.length, 1000);
+        },
+      );
     });
 
     group('itemExtent set', () {
-      testWidgets('ListView should support itemExtent for fixed heights', (WidgetTester tester) async {
+      testWidgets('ListView should support itemExtent for fixed heights', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
           MaterialApp(
@@ -139,7 +161,9 @@ void main() {
         expect(true, true);
       });
 
-      testWidgets('RepoList should render with consistent item heights', (WidgetTester tester) async {
+      testWidgets('RepoList should render with consistent item heights', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final githubApi = GitHubApiService();
         final smallRepoList = testRepos.take(10).toList();
@@ -169,7 +193,9 @@ void main() {
     });
 
     group('RepaintBoundary present', () {
-      testWidgets('IssueCard should be wrapped in RepaintBoundary', (WidgetTester tester) async {
+      testWidgets('IssueCard should be wrapped in RepaintBoundary', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',
@@ -199,14 +225,16 @@ void main() {
         expect(find.byType(IssueCard), findsOneWidget);
       });
 
-      testWidgets('Repo header should use RepaintBoundary for static content', (WidgetTester tester) async {
+      testWidgets('Repo header should use RepaintBoundary for static content', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final repo = RepoItem(
           id: 'repo1',
           title: 'Test Repo',
           fullName: 'user/repo1',
           description: 'Test description',
-          status: 'public',
+          status: ItemStatus.open,
         );
 
         await tester.pumpWidget(
@@ -219,7 +247,7 @@ void main() {
                       // Repo header (static)
                       ListTile(
                         title: Text(repo.title),
-                        subtitle: Text(repo.description),
+                        subtitle: Text(repo.description ?? ''),
                       ),
                     ],
                   ),
@@ -244,15 +272,20 @@ void main() {
     });
 
     group('1000 items scroll at 60 FPS (manual)', () {
-      testWidgets('should render 1000 items without crashing', (WidgetTester tester) async {
+      testWidgets('should render 1000 items without crashing', (
+        WidgetTester tester,
+      ) async {
         // Arrange - create 1000 issues
-        final thousandIssues = List.generate(1000, (i) => IssueItem(
-          id: 'issue$i',
-          title: 'Issue $i',
-          number: i,
-          status: ItemStatus.open,
-          labels: ['bug'],
-        ));
+        final thousandIssues = List.generate(
+          1000,
+          (i) => IssueItem(
+            id: 'issue$i',
+            title: 'Issue $i',
+            number: i,
+            status: ItemStatus.open,
+            labels: ['bug'],
+          ),
+        );
 
         // Act
         await tester.pumpWidget(
@@ -279,14 +312,19 @@ void main() {
         expect(find.byType(IssueCard), findsNWidgets(1000));
       });
 
-      testWidgets('should scroll through 1000 items', (WidgetTester tester) async {
+      testWidgets('should scroll through 1000 items', (
+        WidgetTester tester,
+      ) async {
         // Arrange
-        final thousandIssues = List.generate(1000, (i) => IssueItem(
-          id: 'issue$i',
-          title: 'Issue $i',
-          number: i,
-          status: ItemStatus.open,
-        ));
+        final thousandIssues = List.generate(
+          1000,
+          (i) => IssueItem(
+            id: 'issue$i',
+            title: 'Issue $i',
+            number: i,
+            status: ItemStatus.open,
+          ),
+        );
 
         await tester.pumpWidget(
           MaterialApp(
@@ -319,16 +357,19 @@ void main() {
       test('large list creation should be performant', () {
         // Measure list creation time
         final stopwatch = Stopwatch()..start();
-        
-        final largeList = List.generate(1000, (i) => IssueItem(
-          id: 'issue$i',
-          title: 'Issue $i',
-          number: i,
-          status: ItemStatus.open,
-        ));
-        
+
+        final largeList = List.generate(
+          1000,
+          (i) => IssueItem(
+            id: 'issue$i',
+            title: 'Issue $i',
+            number: i,
+            status: ItemStatus.open,
+          ),
+        );
+
         stopwatch.stop();
-        
+
         // Should create 1000 items in under 100ms
         expect(stopwatch.elapsedMilliseconds, lessThan(100));
         expect(largeList.length, 1000);
@@ -358,13 +399,16 @@ void main() {
           title: 'Test Repo',
           fullName: 'user/repo1',
           description: 'Test description',
-          status: 'public',
-          children: List.generate(10, (i) => IssueItem(
-            id: 'issue$i',
-            title: 'Issue $i',
-            number: i,
-            status: ItemStatus.open,
-          )),
+          status: ItemStatus.open,
+          children: List.generate(
+            10,
+            (i) => IssueItem(
+              id: 'issue$i',
+              title: 'Issue $i',
+              number: i,
+              status: ItemStatus.open,
+            ),
+          ),
         );
 
         // Assert - repo with children should be created successfully
@@ -375,17 +419,20 @@ void main() {
       test('1000 IssueItems should use reasonable memory', () {
         // Arrange & Act
         final stopwatch = Stopwatch()..start();
-        
-        final issues = List.generate(1000, (i) => IssueItem(
-          id: 'issue$i',
-          title: 'Issue $i',
-          number: i,
-          status: ItemStatus.open,
-          labels: ['bug', 'feature'],
-        ));
-        
+
+        final issues = List.generate(
+          1000,
+          (i) => IssueItem(
+            id: 'issue$i',
+            title: 'Issue $i',
+            number: i,
+            status: ItemStatus.open,
+            labels: ['bug', 'feature'],
+          ),
+        );
+
         stopwatch.stop();
-        
+
         // Assert
         expect(issues.length, 1000);
         expect(stopwatch.elapsedMilliseconds, lessThan(100));
@@ -398,16 +445,31 @@ void main() {
 
         // Assert - ValueKey uses value equality
         expect(valueKey, const ValueKey('issue-1'));
-        expect(objectKey != const Key('issue-1'), true); // Object keys use identity
+        expect(
+          objectKey != const Key('issue-1'),
+          true,
+        ); // Object keys use identity
       });
     });
 
     group('Performance Optimizations', () {
-      testWidgets('should use ValueKey for list items', (WidgetTester tester) async {
+      testWidgets('should use ValueKey for list items', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issues = [
-          IssueItem(id: 'issue1', title: 'Issue 1', number: 1, status: ItemStatus.open),
-          IssueItem(id: 'issue2', title: 'Issue 2', number: 2, status: ItemStatus.open),
+          IssueItem(
+            id: 'issue1',
+            title: 'Issue 1',
+            number: 1,
+            status: ItemStatus.open,
+          ),
+          IssueItem(
+            id: 'issue2',
+            title: 'Issue 2',
+            number: 2,
+            status: ItemStatus.open,
+          ),
         ];
 
         await tester.pumpWidget(
@@ -417,7 +479,9 @@ void main() {
                 itemCount: issues.length,
                 itemBuilder: (context, index) {
                   return IssueCard(
-                    key: ValueKey('issue-${issues[index].id}'), // ValueKey for performance
+                    key: ValueKey(
+                      'issue-${issues[index].id}',
+                    ), // ValueKey for performance
                     issue: issues[index],
                   );
                 },
@@ -433,9 +497,11 @@ void main() {
         expect(find.byType(IssueCard), findsNWidgets(2));
       });
 
-      testWidgets('should use const constructors where possible', (WidgetTester tester) async {
+      testWidgets('should use const constructors where possible', (
+        WidgetTester tester,
+      ) async {
         // Arrange - IssueCard has const constructor
-        const issueCard = IssueCard(
+        late final issueCard = IssueCard(
           issue: IssueItem(
             id: 'issue1',
             title: 'Test',
@@ -443,13 +509,7 @@ void main() {
           ),
         );
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: issueCard,
-            ),
-          ),
-        );
+        await tester.pumpWidget(MaterialApp(home: Scaffold(body: issueCard)));
 
         // Act
         await tester.pumpAndSettle();
@@ -458,14 +518,19 @@ void main() {
         expect(find.byType(IssueCard), findsOneWidget);
       });
 
-      testWidgets('should cache list with cacheExtent', (WidgetTester tester) async {
+      testWidgets('should cache list with cacheExtent', (
+        WidgetTester tester,
+      ) async {
         // Arrange
-        final issues = List.generate(50, (i) => IssueItem(
-          id: 'issue$i',
-          title: 'Issue $i',
-          number: i,
-          status: ItemStatus.open,
-        ));
+        final issues = List.generate(
+          50,
+          (i) => IssueItem(
+            id: 'issue$i',
+            title: 'Issue $i',
+            number: i,
+            status: ItemStatus.open,
+          ),
+        );
 
         await tester.pumpWidget(
           MaterialApp(
@@ -491,14 +556,19 @@ void main() {
         expect(find.byType(ListView), findsOneWidget);
       });
 
-      testWidgets('should use addAutomaticKeepAlives for list caching', (WidgetTester tester) async {
+      testWidgets('should use addAutomaticKeepAlives for list caching', (
+        WidgetTester tester,
+      ) async {
         // Arrange
-        final issues = List.generate(50, (i) => IssueItem(
-          id: 'issue$i',
-          title: 'Issue $i',
-          number: i,
-          status: ItemStatus.open,
-        ));
+        final issues = List.generate(
+          50,
+          (i) => IssueItem(
+            id: 'issue$i',
+            title: 'Issue $i',
+            number: i,
+            status: ItemStatus.open,
+          ),
+        );
 
         await tester.pumpWidget(
           MaterialApp(
@@ -526,17 +596,22 @@ void main() {
     });
 
     group('Integration Tests', () {
-      testWidgets('RepoList with 100 repos performs well', (WidgetTester tester) async {
+      testWidgets('RepoList with 100 repos performs well', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final githubApi = GitHubApiService();
-        final hundredRepos = List.generate(100, (i) => RepoItem(
-          id: 'repo$i',
-          title: 'Repository $i',
-          fullName: 'user/repo$i',
-          description: 'Description $i',
-          status: 'public',
-          children: [],
-        ));
+        final hundredRepos = List.generate(
+          100,
+          (i) => RepoItem(
+            id: 'repo$i',
+            title: 'Repository $i',
+            fullName: 'user/repo$i',
+            description: 'Description $i',
+            status: ItemStatus.open,
+            children: [],
+          ),
+        );
 
         final stopwatch = Stopwatch()..start();
 
@@ -564,7 +639,9 @@ void main() {
         expect(stopwatch.elapsedMilliseconds, lessThan(500));
       });
 
-      testWidgets('IssueCard with all fields renders correctly', (WidgetTester tester) async {
+      testWidgets('IssueCard with all fields renders correctly', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',

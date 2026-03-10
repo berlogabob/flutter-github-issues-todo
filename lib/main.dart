@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:workmanager/workmanager.dart';
 import 'constants/app_colors.dart';
 import 'utils/app_error_handler.dart';
@@ -9,7 +9,6 @@ import 'services/secure_storage_service.dart';
 import 'services/network_service.dart';
 import 'services/sync_service.dart';
 import 'services/local_storage_service.dart';
-import 'providers/app_providers.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/main_dashboard_screen.dart';
 
@@ -21,33 +20,33 @@ const String _backgroundSyncTask = 'background_sync_task';
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     debugPrint('Background sync task started: $task');
-    
+
     try {
       // Initialize required services
       await Hive.initFlutter();
       final localStorage = LocalStorageService();
       final syncService = SyncService();
-      
+
       // Load auto-sync settings
       final autoSyncWifi = await localStorage.getAutoSyncWifi();
       final autoSyncAny = await localStorage.getAutoSyncAny();
-      
+
       debugPrint('Auto-sync settings - WiFi: $autoSyncWifi, Any: $autoSyncAny');
-      
+
       // Check if auto-sync is enabled
       if (!autoSyncWifi && !autoSyncAny) {
         debugPrint('Auto-sync disabled, skipping background sync');
         return true;
       }
-      
+
       // Check for pending operations
       // Note: We can't directly access PendingOperationsService here due to isolation
       // The sync service will handle this during syncAll()
-      
+
       // Initialize and run sync
       syncService.init();
       final result = await syncService.syncAll(forceRefresh: false);
-      
+
       debugPrint('Background sync completed: $result');
       return result;
     } catch (e, stackTrace) {
@@ -57,29 +56,6 @@ void callbackDispatcher() {
     }
   });
 }
-
-// Authentication state provider using singleton
-final authStateProvider = FutureProvider<AuthState>((ref) async {
-  try {
-    final token = await SecureStorageService.getToken();
-    final authType = await SecureStorageService.instance.read(key: 'auth_type');
-
-    debugPrint('Auth check - Token exists: ${token != null}, Type: $authType');
-
-    if (token != null && token.isNotEmpty) {
-      return AuthState(
-        isAuthenticated: true,
-        authType: authType ?? 'unknown',
-        token: token,
-      );
-    }
-
-    return AuthState(isAuthenticated: false, authType: 'none', token: null);
-  } catch (e) {
-    debugPrint('Auth check error: $e');
-    return AuthState(isAuthenticated: false, authType: 'error', token: null);
-  }
-});
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

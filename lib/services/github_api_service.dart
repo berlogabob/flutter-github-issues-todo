@@ -3,15 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'secure_storage_service.dart';
 import 'cache_service.dart';
 import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
-
-part 'github_api_service.g.dart';
 
 /// GitHub REST API Service
 class GitHubApiService {
@@ -137,7 +134,7 @@ class GitHubApiService {
   }
 
   /// Fetch current user's repositories with pagination support
-  /// 
+  ///
   /// PERFORMANCE OPTIMIZATION (Task 16.1):
   /// - Paginates results to reduce initial load time
   /// - Caches each page separately for faster subsequent loads
@@ -235,14 +232,11 @@ class GitHubApiService {
   }
 
   /// Check if more repositories are available for pagination
-  /// 
+  ///
   /// PERFORMANCE OPTIMIZATION (Task 16.1):
   /// - Fetches one extra item to determine if more pages exist
   /// - Returns true if the response has perPage items (meaning more may exist)
-  Future<bool> hasMoreRepositories({
-    int page = 1,
-    int perPage = 30,
-  }) async {
+  Future<bool> hasMoreRepositories({int page = 1, int perPage = 30}) async {
     try {
       final headers = await _headers;
       final uri = Uri.parse(
@@ -250,7 +244,9 @@ class GitHubApiService {
       );
 
       final response = await _executeWithRetry(
-        () => http.get(uri, headers: headers).timeout(const Duration(seconds: 10)),
+        () => http
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 10)),
         operation: 'hasMoreRepositories',
       );
 
@@ -914,11 +910,7 @@ class GitHubApiService {
         debugPrint('✓ Fetched ${labelsData.length} labels');
 
         // Cache the result for 5 minutes (Task 19.2)
-        await _cache.set(
-          cacheKey,
-          labelsData,
-          ttl: const Duration(minutes: 5),
-        );
+        await _cache.set(cacheKey, labelsData, ttl: const Duration(minutes: 5));
 
         return labelsData.cast<Map<String, dynamic>>();
       } else {
@@ -997,7 +989,9 @@ class GitHubApiService {
             .map((json) => json as Map<String, dynamic>)
             .toList();
       }
-      debugPrint('Cache MISS for collaborators: $owner/$repo - fetching from network');
+      debugPrint(
+        'Cache MISS for collaborators: $owner/$repo - fetching from network',
+      );
 
       final headers = await _headers;
 
@@ -1606,9 +1600,4 @@ class GitHubApiService {
       isLocalOnly: false,
     );
   }
-}
-
-@Riverpod(keepAlive: true)
-GitHubApiService githubApiService(Ref ref) {
-  return GitHubApiService();
 }

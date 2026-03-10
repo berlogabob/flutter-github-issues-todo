@@ -100,6 +100,9 @@ run-with-env: validate-env
 # Build Android APK
 build-android: init version-increment
 	@echo "📱 Building Android APK..."
+	@# Clean Gradle cache and stale generated plugin files
+	@rm -rf android/.gradle android/app/build
+	@rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 	@flutter build apk --release
 	@echo "✅ Android APK built successfully"
 	@echo ""

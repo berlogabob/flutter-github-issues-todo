@@ -121,7 +121,6 @@ void main() {
       test('LocalStorageService has auto-sync methods', () async {
         // Arrange
         final localStorage = LocalStorageService();
-        await localStorage.init();
 
         // Assert - methods exist
         expect(localStorage.saveAutoSyncWifi, isNotNull);
@@ -133,43 +132,40 @@ void main() {
       test('should save and retrieve auto-sync WiFi setting', () async {
         // Arrange
         final localStorage = LocalStorageService();
-        await localStorage.init();
 
         // Act - save
         await localStorage.saveAutoSyncWifi(true);
-        
+
         // Act - retrieve
         final result = await localStorage.getAutoSyncWifi();
 
         // Assert
         expect(result, true);
 
-        // Cleanup
-        await localStorage.clear();
+        // Cleanup - reset to default
+        await localStorage.saveAutoSyncWifi(false);
       });
 
       test('should save and retrieve auto-sync Any setting', () async {
         // Arrange
         final localStorage = LocalStorageService();
-        await localStorage.init();
 
         // Act - save
         await localStorage.saveAutoSyncAny(false);
-        
+
         // Act - retrieve
         final result = await localStorage.getAutoSyncAny();
 
         // Assert
         expect(result, false);
 
-        // Cleanup
-        await localStorage.clear();
+        // Cleanup - reset to default
+        await localStorage.saveAutoSyncAny(false);
       });
 
       test('should default to auto-sync disabled', () async {
         // Arrange
         final localStorage = LocalStorageService();
-        await localStorage.init();
 
         // Act
         final wifiSetting = await localStorage.getAutoSyncWifi();
@@ -178,9 +174,6 @@ void main() {
         // Assert
         expect(wifiSetting, false);
         expect(anySetting, false);
-
-        // Cleanup
-        await localStorage.clear();
       });
     });
 
@@ -202,12 +195,12 @@ void main() {
       test('should check for pending operations', () async {
         // Arrange
         final pendingOps = PendingOperationsService();
-        await pendingOps.init();
 
         final operation = PendingOperation(
           id: 'op1',
           type: OperationType.createIssue,
           data: {'title': 'Test'},
+          createdAt: DateTime.now(),
         );
 
         // Act - add operation
@@ -225,7 +218,6 @@ void main() {
       test('should return empty when no pending operations', () async {
         // Arrange
         final pendingOps = PendingOperationsService();
-        await pendingOps.init();
 
         // Act
         final operations = pendingOps.getAllOperations();
@@ -237,12 +229,12 @@ void main() {
       test('should mark operation as syncing', () async {
         // Arrange
         final pendingOps = PendingOperationsService();
-        await pendingOps.init();
 
         final operation = PendingOperation(
           id: 'op1',
           type: OperationType.createIssue,
           data: {'title': 'Test'},
+          createdAt: DateTime.now(),
         );
         await pendingOps.addOperation(operation);
 
@@ -260,12 +252,12 @@ void main() {
       test('should mark operation as completed', () async {
         // Arrange
         final pendingOps = PendingOperationsService();
-        await pendingOps.init();
 
         final operation = PendingOperation(
           id: 'op1',
           type: OperationType.createIssue,
           data: {'title': 'Test'},
+          createdAt: DateTime.now(),
         );
         await pendingOps.addOperation(operation);
         await pendingOps.markAsSyncing('op1');
@@ -284,12 +276,12 @@ void main() {
       test('should mark operation as failed', () async {
         // Arrange
         final pendingOps = PendingOperationsService();
-        await pendingOps.init();
 
         final operation = PendingOperation(
           id: 'op1',
           type: OperationType.createIssue,
           data: {'title': 'Test'},
+          createdAt: DateTime.now(),
         );
         await pendingOps.addOperation(operation);
         await pendingOps.markAsSyncing('op1');
@@ -377,13 +369,13 @@ void main() {
       test('PendingOperationsService complete flow', () async {
         // Arrange
         final pendingOps = PendingOperationsService();
-        await pendingOps.init();
 
         // Act - add operation
         final operation = PendingOperation(
           id: 'test_op',
           type: OperationType.createIssue,
           data: {'title': 'Test'},
+          createdAt: DateTime.now(),
         );
         await pendingOps.addOperation(operation);
 
@@ -398,7 +390,6 @@ void main() {
       test('LocalStorageService auto-sync settings flow', () async {
         // Arrange
         final localStorage = LocalStorageService();
-        await localStorage.init();
 
         // Act - save settings
         await localStorage.saveAutoSyncWifi(true);
@@ -411,8 +402,9 @@ void main() {
         expect(wifiSetting, true);
         expect(anySetting, false);
 
-        // Cleanup
-        await localStorage.clear();
+        // Cleanup - reset to default
+        await localStorage.saveAutoSyncWifi(false);
+        await localStorage.saveAutoSyncAny(false);
       });
 
       test('OperationType createIssue has correct data', () {
@@ -425,6 +417,7 @@ void main() {
             'body': 'Test body',
             'labels': ['bug'],
           },
+          createdAt: DateTime.now(),
         );
 
         // Assert
@@ -439,10 +432,8 @@ void main() {
         final operation = PendingOperation(
           id: 'op1',
           type: OperationType.updateIssue,
-          data: {
-            'title': 'Updated Title',
-            'body': 'Updated body',
-          },
+          data: {'title': 'Updated Title', 'body': 'Updated body'},
+          createdAt: DateTime.now(),
         );
 
         // Assert

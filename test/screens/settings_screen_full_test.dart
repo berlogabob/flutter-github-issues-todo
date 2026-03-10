@@ -9,9 +9,7 @@ void main() {
     Widget createTestApp() {
       return ScreenUtilInit(
         designSize: const Size(360, 690),
-        builder: (context, child) => const MaterialApp(
-          home: SettingsScreen(),
-        ),
+        builder: (context, child) => const MaterialApp(home: SettingsScreen()),
       );
     }
 
@@ -75,11 +73,15 @@ void main() {
         await tester.pumpAndSettle();
 
         // User name should be displayed
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-                      widget.data != null &&
-                      widget.data!.isNotEmpty,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Text &&
+                widget.data != null &&
+                widget.data!.isNotEmpty,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('shows loading state for user data', (tester) async {
@@ -125,10 +127,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Default repo should be displayed
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-                      widget.data?.contains('/') == true,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Text && widget.data?.contains('/') == true,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('displays Default Project setting', (tester) async {
@@ -267,10 +271,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Danger zone items should use red color
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-                      widget.style?.color == AppColors.red,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Text && widget.style?.color == AppColors.red,
+          ),
+          findsWidgets,
+        );
       });
     });
 
@@ -460,9 +466,9 @@ void main() {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 
-        final switch = find.byType(Switch).first;
-        if (switch.evaluate().isNotEmpty) {
-          await tester.tap(switch);
+        final wifiSwitch = find.byType(Switch).first;
+        if (wifiSwitch.evaluate().isNotEmpty) {
+          await tester.tap(wifiSwitch);
           await tester.pumpAndSettle();
         }
       });
@@ -517,10 +523,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Section headers should be styled differently
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-                      widget.style?.fontSize == 12,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Text && widget.style?.fontSize == 12,
+          ),
+          findsWidgets,
+        );
       });
     });
 
@@ -537,9 +545,12 @@ void main() {
         await tester.pumpWidget(createTestApp());
         await tester.pump();
 
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('BrailleLoader'),
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget.toString().contains('BrailleLoader'),
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('displays Loading text during data fetch', (tester) async {
@@ -619,9 +630,8 @@ void main() {
         await tester.pumpWidget(
           ScreenUtilInit(
             designSize: const Size(768, 1024),
-            builder: (context, child) => const MaterialApp(
-              home: SettingsScreen(),
-            ),
+            builder: (context, child) =>
+                const MaterialApp(home: SettingsScreen()),
           ),
         );
         await tester.pumpAndSettle();
@@ -662,7 +672,9 @@ void main() {
         expect(find.byType(SettingsScreen), findsOneWidget);
       });
 
-      testWidgets('displays error message on connection test failure', (tester) async {
+      testWidgets('displays error message on connection test failure', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 
@@ -672,7 +684,9 @@ void main() {
     });
 
     group('Connection Test', () {
-      testWidgets('shows loading dialog during connection test', (tester) async {
+      testWidgets('shows loading dialog during connection test', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 
@@ -684,7 +698,9 @@ void main() {
         expect(find.textContaining('Testing'), findsWidgets);
       });
 
-      testWidgets('displays success message on connection test', (tester) async {
+      testWidgets('displays success message on connection test', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 
@@ -692,7 +708,9 @@ void main() {
         expect(find.byType(AlertDialog), findsWidgets);
       });
 
-      testWidgets('displays error message on connection test failure', (tester) async {
+      testWidgets('displays error message on connection test failure', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 

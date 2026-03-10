@@ -4,10 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../utils/app_error_handler.dart';
-
-part 'oauth_service.g.dart';
 
 /// OAuth Device Flow Service
 /// Implements GitHub OAuth Device Flow for authentication
@@ -26,23 +23,34 @@ class OAuthService {
   // GitHub OAuth credentials
   // Security: Client ID must be provided via environment variable
   // Never hardcode credentials in source code
-  static const String _clientId = String.fromEnvironment('GITHUB_CLIENT_ID');
+  //
+  // Build/run with: --dart-define=GITHUB_CLIENT_ID=your_client_id
+  static final String _clientId = const String.fromEnvironment(
+    'GITHUB_CLIENT_ID',
+    defaultValue: '',
+  );
 
-  // Validate client ID at initialization
+  // Flag to ensure validation only happens once
+  static bool _validated = false;
+
+  /// Check if client ID is configured (for UI feedback before attempting OAuth)
+  static bool get isClientIdConfigured => _clientId.isNotEmpty;
+
+  /// Validate client ID - throws if not configured
+  /// Call this early to fail fast with a clear error
   static void _validateClientId() {
     if (_clientId.isEmpty) {
       throw Exception(
         'GITHUB_CLIENT_ID environment variable is not set.\n'
-        'Please set the GITHUB_CLIENT_ID environment variable:\n'
+        'To fix this:\n'
         '  1. Copy .env.example to .env\n'
         '  2. Add your GitHub OAuth Client ID to .env\n'
         '  3. Run: flutter run --dart-define=GITHUB_CLIENT_ID=your_client_id\n'
+        'Or for release builds, update android/app/build.gradle or ios/Runner.xcconfig\n'
         'See README.md for detailed setup instructions.',
       );
     }
   }
-
-  static bool _validated = false;
 
   // Device code response
   DeviceCodeResponse? _deviceCode;
@@ -290,9 +298,4 @@ class DeviceCodeResponse {
   String toString() {
     return 'DeviceCodeResponse(userCode: $userCode, expiresIn: $expiresIn)';
   }
-}
-
-@Riverpod(keepAlive: true)
-OAuthService oauthService(Ref ref) {
-  return OAuthService();
 }

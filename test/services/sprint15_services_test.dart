@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gitdoit/services/cache_service.dart';
 import 'package:gitdoit/services/pending_operations_service.dart';
 import 'package:gitdoit/models/pending_operation.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive_ce.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
@@ -31,8 +31,11 @@ void main() {
         ];
 
         // Cache assignees for 5 minutes
-        await cacheService.set('assignees_owner_repo', assignees, 
-            ttl: const Duration(minutes: 5));
+        await cacheService.set(
+          'assignees_owner_repo',
+          assignees,
+          ttl: const Duration(minutes: 5),
+        );
 
         final cached = cacheService.get<List>('assignees_owner_repo');
         expect(cached, isNotNull);
@@ -46,8 +49,11 @@ void main() {
         ];
 
         // Cache labels for 5 minutes
-        await cacheService.set('labels_owner_repo', labels, 
-            ttl: const Duration(minutes: 5));
+        await cacheService.set(
+          'labels_owner_repo',
+          labels,
+          ttl: const Duration(minutes: 5),
+        );
 
         final cached = cacheService.get<List>('labels_owner_repo');
         expect(cached, isNotNull);
@@ -56,8 +62,11 @@ void main() {
 
       test('Cache user login with TTL', () async {
         // Cache user login for 1 hour
-        await cacheService.set('user_login', 'testuser', 
-            ttl: const Duration(hours: 1));
+        await cacheService.set(
+          'user_login',
+          'testuser',
+          ttl: const Duration(hours: 1),
+        );
 
         final cached = cacheService.get<String>('user_login');
         expect(cached, 'testuser');
@@ -69,8 +78,11 @@ void main() {
           {'title': 'Project 2', 'closed': false},
         ];
 
-        await cacheService.set('projects_user', projects, 
-            ttl: const Duration(minutes: 5));
+        await cacheService.set(
+          'projects_user',
+          projects,
+          ttl: const Duration(minutes: 5),
+        );
 
         final cached = cacheService.get<List>('projects_user');
         expect(cached, isNotNull);
@@ -78,8 +90,11 @@ void main() {
       });
 
       test('Cache expires after TTL', () async {
-        await cacheService.set('short_ttl', 'value', 
-            ttl: const Duration(milliseconds: 100));
+        await cacheService.set(
+          'short_ttl',
+          'value',
+          ttl: const Duration(milliseconds: 100),
+        );
 
         // Should exist immediately
         expect(cacheService.get<String>('short_ttl'), 'value');
@@ -155,7 +170,9 @@ void main() {
 
         await pendingOps.addOperation(operation);
 
-        final operations = pendingOps.getOperationsByType(OperationType.updateIssue);
+        final operations = pendingOps.getOperationsByType(
+          OperationType.updateIssue,
+        );
         expect(operations.length, 1);
       });
 
@@ -226,20 +243,24 @@ void main() {
       });
 
       test('Clear all operations', () async {
-        await pendingOps.addOperation(PendingOperation.updateIssue(
-          id: 'op_1',
-          issueNumber: 123,
-          owner: 'testowner',
-          repo: 'testrepo',
-          data: {},
-        ));
-        await pendingOps.addOperation(PendingOperation.updateLabels(
-          id: 'op_2',
-          issueNumber: 123,
-          owner: 'testowner',
-          repo: 'testrepo',
-          labels: ['bug'],
-        ));
+        await pendingOps.addOperation(
+          PendingOperation.updateIssue(
+            id: 'op_1',
+            issueNumber: 123,
+            owner: 'testowner',
+            repo: 'testrepo',
+            data: {},
+          ),
+        );
+        await pendingOps.addOperation(
+          PendingOperation.updateLabels(
+            id: 'op_2',
+            issueNumber: 123,
+            owner: 'testowner',
+            repo: 'testrepo',
+            labels: ['bug'],
+          ),
+        );
 
         await pendingOps.clear();
 

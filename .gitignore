@@ -56,7 +56,6 @@ app.*.map.json
 *.rar
 
 # macOS
-.DS_Store
 .AppleDouble
 .LSOverride
 

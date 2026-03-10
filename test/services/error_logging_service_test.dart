@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gitdoit/services/error_logging_service.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
@@ -78,7 +77,7 @@ void main() {
       testWidgets('creates log file if not exists', (tester) async {
         await ErrorLoggingService.instance.init();
 
-        final logFile = File('${ErrorLoggingService.instance.logFilePath!}');
+        final logFile = File(ErrorLoggingService.instance.logFilePath!);
         expect(await logFile.exists(), isTrue);
       });
 
@@ -159,8 +158,14 @@ void main() {
         final errors = await ErrorLoggingService.instance.getErrors();
         final timestamp = errors.first.timestamp;
 
-        expect(timestamp.isAfter(beforeLog.subtract(const Duration(seconds: 1))), isTrue);
-        expect(timestamp.isBefore(afterLog.add(const Duration(seconds: 1))), isTrue);
+        expect(
+          timestamp.isAfter(beforeLog.subtract(const Duration(seconds: 1))),
+          isTrue,
+        );
+        expect(
+          timestamp.isBefore(afterLog.add(const Duration(seconds: 1))),
+          isTrue,
+        );
       });
 
       testWidgets('log entry has correct level', (tester) async {
@@ -224,13 +229,16 @@ void main() {
 
         final errors = await ErrorLoggingService.instance.getErrors();
 
-        expect(errors.map((e) => e.level).toList(), containsAll([
-          ErrorLevel.debug,
-          ErrorLevel.info,
-          ErrorLevel.warning,
-          ErrorLevel.error,
-          ErrorLevel.critical,
-        ]));
+        expect(
+          errors.map((e) => e.level).toList(),
+          containsAll([
+            ErrorLevel.debug,
+            ErrorLevel.info,
+            ErrorLevel.warning,
+            ErrorLevel.error,
+            ErrorLevel.critical,
+          ]),
+        );
       });
     });
 
@@ -245,7 +253,9 @@ void main() {
         expect(errors, isEmpty);
       });
 
-      testWidgets('returns errors in reverse chronological order', (tester) async {
+      testWidgets('returns errors in reverse chronological order', (
+        tester,
+      ) async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 

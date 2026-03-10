@@ -3,7 +3,7 @@ import 'package:shimmer/shimmer.dart';
 import '../constants/app_colors.dart';
 
 /// Loading Skeleton widget with shimmer effect (Task 16.5)
-/// 
+///
 /// PERFORMANCE OPTIMIZATION:
 /// - Uses AnimatedOpacity for smooth fade animation
 /// - Matches list item dimensions for consistent layout
@@ -13,16 +13,16 @@ import '../constants/app_colors.dart';
 class LoadingSkeleton extends StatefulWidget {
   /// Height of the skeleton item
   final double height;
-  
+
   /// Width of the skeleton item (defaults to full width)
   final double? width;
-  
+
   /// Border radius for rounded corners
   final double borderRadius;
-  
+
   /// Number of skeleton items to display
   final int itemCount;
-  
+
   /// Spacing between skeleton items
   final double spacing;
 
@@ -47,16 +47,17 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
   @override
   void initState() {
     super.initState();
-    
+
     // PERFORMANCE: AnimatedOpacity for smooth fade animation (Task 16.5)
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
 
-    _opacityAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _opacityAnimation = Tween<double>(
+      begin: 0.3,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _controller.repeat(reverse: true);
   }
@@ -97,7 +98,7 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
         borderRadius: BorderRadius.circular(widget.borderRadius),
         child: Shimmer.fromColors(
           baseColor: AppColors.cardBackground,
-          highlightColor: AppColors.background.withOpacity(0.5),
+          highlightColor: AppColors.background.withValues(alpha: 0.5),
           child: Container(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -190,7 +191,7 @@ class RepoHeaderSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Shimmer.fromColors(
           baseColor: AppColors.cardBackground,
-          highlightColor: AppColors.background.withOpacity(0.5),
+          highlightColor: AppColors.background.withValues(alpha: 0.5),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(

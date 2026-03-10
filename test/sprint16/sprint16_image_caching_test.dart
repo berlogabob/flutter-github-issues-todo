@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:gitdoit/widgets/issue_card.dart';
 import 'package:gitdoit/models/issue_item.dart';
+import 'package:gitdoit/models/item.dart';
 
 void main() {
   group('Task 16.2 - Image Caching Tests', () {
@@ -21,10 +22,12 @@ void main() {
     });
 
     group('Image loads from network', () {
-      testWidgets('should display CachedNetworkImage for assignee avatar', (WidgetTester tester) async {
+      testWidgets('should display CachedNetworkImage for assignee avatar', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         await tester.pumpWidget(
-          const MaterialApp(
+          MaterialApp(
             home: Material(
               child: IssueCard(
                 issue: IssueItem(
@@ -33,6 +36,7 @@ void main() {
                   assigneeAvatarUrl: 'https://example.com/avatar.png',
                   assigneeLogin: 'testuser',
                   status: ItemStatus.open,
+                  createdAt: DateTime.now(),
                 ),
               ),
             ),
@@ -103,7 +107,9 @@ void main() {
     });
 
     group('Image loads from cache', () {
-      testWidgets('should use disk cache with maxHeightDiskCache', (WidgetTester tester) async {
+      testWidgets('should use disk cache with maxHeightDiskCache', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',
@@ -114,12 +120,8 @@ void main() {
         );
 
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Material(
-              child: IssueCard(
-                issue: issue,
-              ),
-            ),
+          MaterialApp(
+            home: Material(child: IssueCard(issue: issue)),
           ),
         );
 
@@ -159,7 +161,9 @@ void main() {
         );
 
         // Act
-        final modified = original.copyWith(assigneeAvatarUrl: 'https://example.com/avatar2.png');
+        final modified = original.copyWith(
+          assigneeAvatarUrl: 'https://example.com/avatar2.png',
+        );
 
         // Assert
         expect(modified.assigneeAvatarUrl, 'https://example.com/avatar2.png');
@@ -167,7 +171,9 @@ void main() {
     });
 
     group('Placeholder shows while loading', () {
-      testWidgets('should show CircularProgressIndicator as placeholder', (WidgetTester tester) async {
+      testWidgets('should show CircularProgressIndicator as placeholder', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',
@@ -178,12 +184,8 @@ void main() {
         );
 
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Material(
-              child: IssueCard(
-                issue: issue,
-              ),
-            ),
+          MaterialApp(
+            home: Material(child: IssueCard(issue: issue)),
           ),
         );
 
@@ -197,10 +199,15 @@ void main() {
       test('placeholder should use AppColors.blue', () {
         // This test verifies the placeholder configuration in the widget
         // The actual color is tested visually in widget tests
-        expect(true, true); // Placeholder color verified in widget implementation
+        expect(
+          true,
+          true,
+        ); // Placeholder color verified in widget implementation
       });
 
-      testWidgets('placeholder should have correct size', (WidgetTester tester) async {
+      testWidgets('placeholder should have correct size', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',
@@ -211,12 +218,8 @@ void main() {
         );
 
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Material(
-              child: IssueCard(
-                issue: issue,
-              ),
-            ),
+          MaterialApp(
+            home: Material(child: IssueCard(issue: issue)),
           ),
         );
 
@@ -230,7 +233,9 @@ void main() {
     });
 
     group('Error widget on failure', () {
-      testWidgets('should show Icon person on error', (WidgetTester tester) async {
+      testWidgets('should show Icon person on error', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',
@@ -241,12 +246,8 @@ void main() {
         );
 
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Material(
-              child: IssueCard(
-                issue: issue,
-              ),
-            ),
+          MaterialApp(
+            home: Material(child: IssueCard(issue: issue)),
           ),
         );
 
@@ -262,7 +263,9 @@ void main() {
         expect(true, true);
       });
 
-      testWidgets('should fallback to person icon when no avatar URL', (WidgetTester tester) async {
+      testWidgets('should fallback to person icon when no avatar URL', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',
@@ -273,12 +276,8 @@ void main() {
         );
 
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Material(
-              child: IssueCard(
-                issue: issue,
-              ),
-            ),
+          MaterialApp(
+            home: Material(child: IssueCard(issue: issue)),
           ),
         );
 
@@ -349,7 +348,9 @@ void main() {
     });
 
     group('Integration Tests', () {
-      testWidgets('IssueCard displays complete assignee information', (WidgetTester tester) async {
+      testWidgets('IssueCard displays complete assignee information', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',
@@ -363,9 +364,7 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
-            home: Material(
-              child: IssueCard(issue: issue),
-            ),
+            home: Material(child: IssueCard(issue: issue)),
           ),
         );
 
@@ -378,7 +377,9 @@ void main() {
         expect(find.text('#1 Test Issue'), findsOneWidget);
       });
 
-      testWidgets('IssueCard handles missing assignee gracefully', (WidgetTester tester) async {
+      testWidgets('IssueCard handles missing assignee gracefully', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final issue = IssueItem(
           id: 'issue1',
@@ -390,9 +391,7 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
-            home: Material(
-              child: IssueCard(issue: issue),
-            ),
+            home: Material(child: IssueCard(issue: issue)),
           ),
         );
 

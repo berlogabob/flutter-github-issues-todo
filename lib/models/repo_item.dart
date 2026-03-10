@@ -80,4 +80,39 @@ class RepoItem extends Item {
           : null,
     );
   }
+
+  /// Create a copy of this RepoItem with updated fields
+  RepoItem copyWith({
+    String? id,
+    String? title,
+    String? fullName,
+    String? description,
+    bool? isPinned,
+    bool? isMain,
+    ItemStatus? status,
+    DateTime? updatedAt,
+    String? assigneeLogin,
+    List<String>? labels,
+    List<Item>? children,
+    bool? isExpanded,
+    bool? isLocalOnly,
+    DateTime? localUpdatedAt,
+  }) {
+    return RepoItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      fullName: fullName ?? this.fullName,
+      description: description ?? this.description,
+      isPinned: isPinned ?? this.isPinned,
+      isMain: isMain ?? this.isMain,
+      status: status ?? this.status,
+      updatedAt: updatedAt ?? this.updatedAt,
+      assigneeLogin: assigneeLogin ?? this.assigneeLogin,
+      labels: labels ?? this.labels,
+      children: children ?? this.children,
+      isExpanded: isExpanded ?? this.isExpanded,
+      isLocalOnly: isLocalOnly ?? this.isLocalOnly,
+      localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
+    );
+  }
 }

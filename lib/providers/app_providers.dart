@@ -1,11 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/github_api_service.dart';
-import '../services/local_storage_service.dart';
-import '../services/sync_service.dart';
 import '../services/secure_storage_service.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import 'repositories_provider.dart';
+import 'service_providers.dart';
 
 /// Auth state class
 class AuthState {
@@ -46,13 +44,13 @@ final authStateProvider = FutureProvider<AuthState>((ref) async {
 
 /// Repositories provider - fetches from GitHub API
 final reposProvider = FutureProvider<List<RepoItem>>((ref) async {
-  final api = GitHubApiService();
+  final api = ref.read(githubApiServiceProvider);
   final repos = await api.fetchMyRepositories(perPage: 30);
-  
+
   // Update the local state notifier
   final notifier = ref.read(repositoriesProvider.notifier);
   notifier.setRepos(repos);
-  
+
   return repos;
 });
 
@@ -62,30 +60,30 @@ final issuesProvider = FutureProvider.family<List<IssueItem>, String>((
   repoFullName,
 ) async {
   final parts = repoFullName.split('/');
-  final api = GitHubApiService();
+  final api = ref.read(githubApiServiceProvider);
   return await api.fetchIssues(parts[0], parts[1]);
 });
 
 /// Local issues provider (offline vault)
 final localIssuesProvider = FutureProvider<List<IssueItem>>((ref) async {
-  final storage = LocalStorageService();
+  final storage = ref.read(localStorageServiceProvider);
   return await storage.getLocalIssues();
 });
 
 /// Sync status provider
 final syncStatusProvider = Provider<String>((ref) {
-  final sync = SyncService();
+  final sync = ref.read(syncServiceProvider);
   return sync.syncStatus;
 });
 
 /// Last sync time provider
 final lastSyncProvider = Provider<DateTime?>((ref) {
-  final sync = SyncService();
+  final sync = ref.read(syncServiceProvider);
   return sync.lastSyncTime;
 });
 
 /// Is online provider
 final isOnlineProvider = Provider<bool>((ref) {
-  final sync = SyncService();
+  final sync = ref.read(syncServiceProvider);
   return sync.isNetworkAvailable;
 });

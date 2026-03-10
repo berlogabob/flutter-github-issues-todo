@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive_ce.dart';
 
 /// Cache service with TTL (Time-To-Live) support for offline-first architecture.
 ///
@@ -97,7 +97,9 @@ class CacheService {
       debugPrint('CacheService: Initializing cache...');
       _cache = await Hive.openBox('cache');
       _isInitialized = true;
-      debugPrint('CacheService: Initialized with ${_cache.length} cached items');
+      debugPrint(
+        'CacheService: Initialized with ${_cache.length} cached items',
+      );
     } catch (e, stackTrace) {
       debugPrint('CacheService: Initialization failed: $e');
       debugPrint('Stack: $stackTrace');
@@ -151,7 +153,9 @@ class CacheService {
 
       // Check if expired
       if (DateTime.now().isAfter(expiry)) {
-        debugPrint('CacheService: Cache EXPIRED for key: $key (expired at $expiry)');
+        debugPrint(
+          'CacheService: Cache EXPIRED for key: $key (expired at $expiry)',
+        );
         _cache.delete(key); // Clean up expired entry
         return null;
       }
@@ -183,11 +187,7 @@ class CacheService {
   /// // Custom TTL (1 hour)
   /// await cache.set('session', sessionData, ttl: Duration(hours: 1));
   /// ```
-  Future<void> set<T>(
-    String key,
-    T value, {
-    Duration ttl = defaultTtl,
-  }) async {
+  Future<void> set<T>(String key, T value, {Duration ttl = defaultTtl}) async {
     // Ensure initialization
     if (!_isInitialized) {
       await init();
@@ -327,7 +327,12 @@ class CacheService {
     } catch (e, stackTrace) {
       debugPrint('CacheService: Error getting stats: $e');
       debugPrint('Stack: $stackTrace');
-      return {'initialized': true, 'size': -1, 'keys': [], 'error': e.toString()};
+      return {
+        'initialized': true,
+        'size': -1,
+        'keys': [],
+        'error': e.toString(),
+      };
     }
   }
 

@@ -251,10 +251,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             const Icon(Icons.warning_amber, color: Colors.white),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
-              ),
+              child: Text(message, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -273,10 +270,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             const Icon(Icons.check_circle, color: Colors.white),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
-              ),
+              child: Text(message, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -295,10 +289,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             const Icon(Icons.error_outline, color: Colors.white),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
-              ),
+              child: Text(message, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -375,10 +366,10 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.red.withOpacity(0.2),
+                        color: AppColors.red.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: AppColors.red.withOpacity(0.5),
+                          color: AppColors.red.withValues(alpha: 0.5),
                         ),
                       ),
                       child: Row(
@@ -463,7 +454,9 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                           ),
                           Icon(
                             Icons.check_circle,
-                            color: AppColors.orangePrimary.withValues(alpha: 0.7),
+                            color: AppColors.orangePrimary.withValues(
+                              alpha: 0.7,
+                            ),
                             size: 18,
                           ),
                         ],
@@ -556,7 +549,8 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                         ),
                       ),
                       errorText: _validateTitle(_titleController.text),
-                      counterText: '${_titleController.text.length}/$_maxTitleLength',
+                      counterText:
+                          '${_titleController.text.length}/$_maxTitleLength',
                     ),
                     autofocus: true,
                     maxLength: _maxTitleLength,
@@ -595,7 +589,8 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                           color: AppColors.orangePrimary,
                         ),
                       ),
-                      counterText: '${_bodyController.text.length}/$_maxBodyLength',
+                      counterText:
+                          '${_bodyController.text.length}/$_maxBodyLength',
                     ),
                     maxLines: 8,
                     maxLength: _maxBodyLength,
@@ -887,25 +882,23 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isSaving = false);
-        
+
         // Provide specific error messages based on error type
         final errorMessage = e.toString();
         if (errorMessage.contains('422')) {
           _showErrorMessage(
             'Invalid issue data. Please check your input and try again.',
           );
-        } else if (errorMessage.contains('401') || 
-                   errorMessage.contains('unauthorized')) {
-          _showErrorMessage(
-            'Authentication failed. Please login again.',
-          );
-        } else if (errorMessage.contains('403') || 
-                   errorMessage.contains('forbidden')) {
+        } else if (errorMessage.contains('401') ||
+            errorMessage.contains('unauthorized')) {
+          _showErrorMessage('Authentication failed. Please login again.');
+        } else if (errorMessage.contains('403') ||
+            errorMessage.contains('forbidden')) {
           _showErrorMessage(
             'You do not have permission to create issues in this repository.',
           );
-        } else if (errorMessage.contains('Network') || 
-                   errorMessage.contains('SocketException')) {
+        } else if (errorMessage.contains('Network') ||
+            errorMessage.contains('SocketException')) {
           // Network error during online attempt - queue for later
           _showErrorMessage(
             'Network error. Issue saved locally and will be synced when online.',

@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive_ce.dart';
 import 'local_storage_service.dart';
 import 'github_api_service.dart';
 import 'pending_operations_service.dart';
@@ -13,8 +12,6 @@ import '../utils/retry_helper.dart';
 import '../models/issue_item.dart';
 import '../models/pending_operation.dart';
 import '../models/sync_history_entry.dart';
-
-part 'sync_service.g.dart';
 
 /// Sync Service - Handles synchronization between local storage and GitHub
 ///
@@ -93,7 +90,9 @@ class SyncService {
     try {
       _historyBox = await Hive.openBox(_historyBoxName);
       _loadSyncHistory();
-      debugPrint('SyncService: History initialized with ${_syncHistory.length} entries');
+      debugPrint(
+        'SyncService: History initialized with ${_syncHistory.length} entries',
+      );
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('SyncService: History init failed: $e');
@@ -684,19 +683,21 @@ class SyncService {
 
       try {
         await _pendingOps.markAsSyncing(operation.id);
-        
+
         // Execute with exponential backoff retry
         await retryHelper.execute(
           () => _executeOperation(operation),
           operationName: 'Sync operation ${operation.type}',
         );
-        
+
         await _pendingOps.markAsCompleted(operation.id);
         await _pendingOps.removeOperation(operation.id);
         debugPrint('SyncService: Completed operation ${operation.id}');
       } catch (e) {
         await _pendingOps.markAsFailed(operation.id, e.toString());
-        debugPrint('SyncService: Failed operation ${operation.id} after retries: $e');
+        debugPrint(
+          'SyncService: Failed operation ${operation.id} after retries: $e',
+        );
         // Keep in queue for next sync
       }
     }
@@ -865,12 +866,4 @@ class SyncService {
       'SyncService: Added comment to issue #${operation.issueNumber} from queued operation',
     );
   }
-}
-
-@Riverpod(keepAlive: true)
-SyncService syncService(Ref ref) {
-  final service = SyncService();
-  service.init();
-  ref.onDispose(() => service.dispose());
-  return service;
 }

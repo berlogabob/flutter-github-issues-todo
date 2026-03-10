@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.5.0+93
+version: 0.5.0+102
 
 environment:
   sdk: ^3.11.0
@@ -36,14 +36,13 @@ dependencies:
   riverpod_annotation: ^4.0.2
   riverpod: ^3.2.1
 
-  # Local storage
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
+  # Local storage - using hive_ce (community edition, actively maintained)
+  hive_ce: ^2.10.1
+  hive_ce_flutter: ^2.2.0
   path_provider: ^2.1.5
 
   # Network
   http: ^1.6.0
-  graphql_flutter: ^5.2.1
 
   # Secure storage
   flutter_secure_storage: ^10.0.0
@@ -58,14 +57,14 @@ dependencies:
   url_launcher: ^6.3.2
 
   # Connectivity
-  connectivity_plus: ^6.1.3
+  connectivity_plus: ^7.0.0
 
   # File picker for folder selection
   file_picker: ^10.3.10
 
   # Permission handler
   permission_handler: ^12.0.1
-  permission_handler_android: 13.0.1
+  permission_handler_android: ^13.0.1
 
   # Screen utilities for responsive design
   flutter_screenutil: ^5.9.3
@@ -79,10 +78,6 @@ dependencies:
   # Package info for dynamic version reading
   package_info_plus: ^9.0.0
 
-  # GraphQL
-  gql_dedupe_link: 2.0.4-alpha+1715521079596
-  normalize: 0.9.1
-
   # Image caching (Task 16.2)
   cached_network_image: ^3.3.1
 
@@ -93,7 +88,7 @@ dependencies:
   shimmer: ^3.0.0
 
   # Share plugin for exporting error logs (Task 18.4)
-  share_plus: ^10.1.4
+  share_plus: ^12.0.1
 
 dev_dependencies:
   flutter_test:
@@ -107,13 +102,10 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
   # Testing
-  test: 1.29.0
-  test_api: 0.7.9
-  test_core: 0.6.15
-  matcher: 0.12.18
+  # (test, test_api, test_core, matcher provided by flutter_test SDK)
 
   # Build tools
-  build_config: 1.2.0
+  build_config: ^1.2.0
 
   # Integration testing
   integration_test:

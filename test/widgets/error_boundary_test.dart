@@ -8,11 +8,13 @@ void main() {
     Widget createTestApp({Widget? child}) {
       return MaterialApp(
         home: Scaffold(
-          body: child ?? const ErrorBoundary(
-            errorMessage: 'Test Error',
-            onRetry: null,
-            child: Text('Child Content'),
-          ),
+          body:
+              child ??
+              const ErrorBoundary(
+                errorMessage: 'Test Error',
+                onRetry: null,
+                child: Text('Child Content'),
+              ),
         ),
       );
     }
@@ -21,9 +23,7 @@ void main() {
       testWidgets('renders child widget when no error', (tester) async {
         await tester.pumpWidget(
           createTestApp(
-            child: const ErrorBoundary(
-              child: Text('Child Content'),
-            ),
+            child: const ErrorBoundary(child: Text('Child Content')),
           ),
         );
         await tester.pumpAndSettle();
@@ -35,12 +35,7 @@ void main() {
         await tester.pumpWidget(
           createTestApp(
             child: const ErrorBoundary(
-              child: Column(
-                children: [
-                  Text('Line 1'),
-                  Text('Line 2'),
-                ],
-              ),
+              child: Column(children: [Text('Line 1'), Text('Line 2')]),
             ),
           ),
         );
@@ -71,13 +66,11 @@ void main() {
         expect(find.text('Custom Error Message'), findsOneWidget);
       });
 
-      testWidgets('displays default error message when not provided', (tester) async {
+      testWidgets('displays default error message when not provided', (
+        tester,
+      ) async {
         await tester.pumpWidget(
-          createTestApp(
-            child: const ErrorBoundary(
-              child: Text('Child'),
-            ),
-          ),
+          createTestApp(child: const ErrorBoundary(child: Text('Child'))),
         );
         await tester.pumpAndSettle();
 
@@ -190,7 +183,9 @@ void main() {
         expect(find.byIcon(Icons.refresh), findsOneWidget);
       });
 
-      testWidgets('retry button is hidden when showRetryButton is false', (tester) async {
+      testWidgets('retry button is hidden when showRetryButton is false', (
+        tester,
+      ) async {
         await tester.pumpWidget(
           createTestApp(
             child: const ErrorBoundary(
@@ -266,6 +261,9 @@ void main() {
         await tester.tap(find.text('Retry'));
         await tester.pumpAndSettle();
 
+        // Verify retry callback was called
+        expect(retryCalled, isTrue);
+
         // Child should be displayed again
         expect(find.text('Child Content'), findsOneWidget);
       });
@@ -290,7 +288,10 @@ void main() {
         final button = tester.widget<ElevatedButton>(
           find.byType(ElevatedButton).first,
         );
-        expect(button.style?.backgroundColor?.resolve({}), AppColors.orangePrimary);
+        expect(
+          button.style?.backgroundColor?.resolve({}),
+          AppColors.orangePrimary,
+        );
       });
     });
 
@@ -333,7 +334,9 @@ void main() {
         expect(find.byIcon(Icons.arrow_back), findsOneWidget);
       });
 
-      testWidgets('go back button is hidden when showGoBackButton is false', (tester) async {
+      testWidgets('go back button is hidden when showGoBackButton is false', (
+        tester,
+      ) async {
         await tester.pumpWidget(
           createTestApp(
             child: const ErrorBoundary(
@@ -353,7 +356,9 @@ void main() {
         expect(find.text('Go Back'), findsNothing);
       });
 
-      testWidgets('go back button navigates to previous screen', (tester) async {
+      testWidgets('go back button navigates to previous screen', (
+        tester,
+      ) async {
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
@@ -401,25 +406,28 @@ void main() {
         expect(find.text('Error Details'), findsOneWidget);
       });
 
-      testWidgets('details section is hidden when allowExpandDetails is false', (tester) async {
-        await tester.pumpWidget(
-          createTestApp(
-            child: const ErrorBoundary(
-              errorMessage: 'Error',
-              allowExpandDetails: false,
-              child: Text('Child'),
+      testWidgets(
+        'details section is hidden when allowExpandDetails is false',
+        (tester) async {
+          await tester.pumpWidget(
+            createTestApp(
+              child: const ErrorBoundary(
+                errorMessage: 'Error',
+                allowExpandDetails: false,
+                child: Text('Child'),
+              ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
+          );
+          await tester.pumpAndSettle();
 
-        // Trigger error
-        final context = tester.element(find.byType(ErrorBoundary));
-        context.reportError(Exception('Test error'));
-        await tester.pumpAndSettle();
+          // Trigger error
+          final context = tester.element(find.byType(ErrorBoundary));
+          context.reportError(Exception('Test error'));
+          await tester.pumpAndSettle();
 
-        expect(find.text('Error Details'), findsNothing);
-      });
+          expect(find.text('Error Details'), findsNothing);
+        },
+      );
 
       testWidgets('details section is expandable', (tester) async {
         await tester.pumpWidget(
@@ -508,10 +516,7 @@ void main() {
 
         // Trigger error with stack trace
         final context = tester.element(find.byType(ErrorBoundary));
-        context.reportError(
-          Exception('Test error'),
-          StackTrace.current,
-        );
+        context.reportError(Exception('Test error'), StackTrace.current);
         await tester.pumpAndSettle();
 
         // Expand details
@@ -608,10 +613,13 @@ void main() {
         await tester.tap(find.text('Error Details'));
         await tester.pumpAndSettle();
 
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              (widget as Container).decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('error details has red border', (tester) async {
@@ -761,9 +769,7 @@ void main() {
     testWidgets('renders inline error with message', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: InlineError(message: 'Inline error message'),
-          ),
+          home: Scaffold(body: InlineError(message: 'Inline error message')),
         ),
       );
       await tester.pumpAndSettle();
@@ -774,9 +780,7 @@ void main() {
     testWidgets('displays error icon', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: InlineError(message: 'Error'),
-          ),
+          home: Scaffold(body: InlineError(message: 'Error')),
         ),
       );
       await tester.pumpAndSettle();
@@ -787,9 +791,7 @@ void main() {
     testWidgets('icon has red color', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: InlineError(message: 'Error'),
-          ),
+          home: Scaffold(body: InlineError(message: 'Error')),
         ),
       );
       await tester.pumpAndSettle();
@@ -802,10 +804,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: InlineError(
-              message: 'Error',
-              details: 'Additional details',
-            ),
+            body: InlineError(message: 'Error', details: 'Additional details'),
           ),
         ),
       );
@@ -817,9 +816,7 @@ void main() {
     testWidgets('dismiss button is optional', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: InlineError(message: 'Error'),
-          ),
+          home: Scaffold(body: InlineError(message: 'Error')),
         ),
       );
       await tester.pumpAndSettle();
@@ -828,14 +825,13 @@ void main() {
       expect(find.byIcon(Icons.close), findsNothing);
     });
 
-    testWidgets('dismiss button appears when onDismiss provided', (tester) async {
+    testWidgets('dismiss button appears when onDismiss provided', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: InlineError(
-              message: 'Error',
-              onDismiss: () {},
-            ),
+            body: InlineError(message: 'Error', onDismiss: () {}),
           ),
         ),
       );
@@ -859,9 +855,7 @@ void main() {
     testWidgets('has red background with opacity', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: InlineError(message: 'Error'),
-          ),
+          home: Scaffold(body: InlineError(message: 'Error')),
         ),
       );
       await tester.pumpAndSettle();
@@ -873,9 +867,7 @@ void main() {
     testWidgets('has rounded corners', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: InlineError(message: 'Error'),
-          ),
+          home: Scaffold(body: InlineError(message: 'Error')),
         ),
       );
       await tester.pumpAndSettle();
@@ -887,9 +879,7 @@ void main() {
     testWidgets('has red border', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: InlineError(message: 'Error'),
-          ),
+          home: Scaffold(body: InlineError(message: 'Error')),
         ),
       );
       await tester.pumpAndSettle();

@@ -22,13 +22,16 @@ void main() {
 
       test('should create multiple repos for first page', () {
         // Arrange
-        final repos = List.generate(30, (i) => RepoItem(
-          id: 'repo$i',
-          title: 'Repo $i',
-          fullName: 'user/repo$i',
-          description: 'Description $i',
-          status: ItemStatus.open,
-        ));
+        final repos = List.generate(
+          30,
+          (i) => RepoItem(
+            id: 'repo$i',
+            title: 'Repo $i',
+            fullName: 'user/repo$i',
+            description: 'Description $i',
+            status: ItemStatus.open,
+          ),
+        );
 
         // Assert
         expect(repos.length, 30);
@@ -82,21 +85,27 @@ void main() {
     group('Load more repos (page 2)', () {
       test('should append page 2 results to existing list', () {
         // Arrange
-        final page1Repos = List.generate(30, (i) => RepoItem(
-          id: 'repo$i',
-          title: 'Repo $i',
-          fullName: 'user/repo$i',
-          description: 'Description $i',
-          status: ItemStatus.open,
-        ));
+        final page1Repos = List.generate(
+          30,
+          (i) => RepoItem(
+            id: 'repo$i',
+            title: 'Repo $i',
+            fullName: 'user/repo$i',
+            description: 'Description $i',
+            status: ItemStatus.open,
+          ),
+        );
 
-        final page2Repos = List.generate(15, (i) => RepoItem(
-          id: 'repo${30 + i}',
-          title: 'Repo ${30 + i}',
-          fullName: 'user/repo${30 + i}',
-          description: 'Description ${30 + i}',
-          status: ItemStatus.open,
-        ));
+        final page2Repos = List.generate(
+          15,
+          (i) => RepoItem(
+            id: 'repo${30 + i}',
+            title: 'Repo ${30 + i}',
+            fullName: 'user/repo${30 + i}',
+            description: 'Description ${30 + i}',
+            status: ItemStatus.open,
+          ),
+        );
 
         // Act - simulate appending
         final allRepos = [...page1Repos, ...page2Repos];
@@ -124,13 +133,16 @@ void main() {
     group('"Load More" button appears', () {
       test('should indicate more repos available when page is full', () {
         // Arrange
-        final fullPage = List.generate(30, (i) => RepoItem(
-          id: 'repo$i',
-          title: 'Repo $i',
-          fullName: 'user/repo$i',
-          description: 'Description $i',
-          status: ItemStatus.open,
-        ));
+        final fullPage = List.generate(
+          30,
+          (i) => RepoItem(
+            id: 'repo$i',
+            title: 'Repo $i',
+            fullName: 'user/repo$i',
+            description: 'Description $i',
+            status: ItemStatus.open,
+          ),
+        );
 
         // Act
         final hasMore = fullPage.length == 30;
@@ -141,13 +153,16 @@ void main() {
 
       test('should indicate no more repos when page is not full', () {
         // Arrange
-        final partialPage = List.generate(15, (i) => RepoItem(
-          id: 'repo$i',
-          title: 'Repo $i',
-          fullName: 'user/repo$i',
-          description: 'Description $i',
-          status: ItemStatus.open,
-        ));
+        final partialPage = List.generate(
+          15,
+          (i) => RepoItem(
+            id: 'repo$i',
+            title: 'Repo $i',
+            fullName: 'user/repo$i',
+            description: 'Description $i',
+            status: ItemStatus.open,
+          ),
+        );
 
         // Act
         final hasMore = partialPage.length == 30;
@@ -159,7 +174,6 @@ void main() {
       test('pagination state variables work correctly', () {
         // Arrange
         int currentPage = 1;
-        const perPage = 30;
         bool hasMoreRepos = true;
         bool isLoadingMore = false;
 
@@ -179,11 +193,7 @@ void main() {
     group('Cache stores multiple pages', () {
       test('should have different cache keys for different pages', () {
         // Arrange
-        final cacheKeys = [
-          'repos_page_1',
-          'repos_page_2',
-          'repos_page_3',
-        ];
+        final cacheKeys = ['repos_page_1', 'repos_page_2', 'repos_page_3'];
 
         // Assert - keys should be unique
         expect(cacheKeys.length, cacheKeys.toSet().length);
@@ -204,12 +214,24 @@ void main() {
       test('should store and retrieve repos by page', () {
         // Arrange - simulate cache
         final cache = <String, List<RepoItem>>{};
-        
+
         final page1Repos = [
-          RepoItem(id: 'repo1', title: 'Repo 1', fullName: 'user/repo1', description: 'Desc 1', status: ItemStatus.open),
+          RepoItem(
+            id: 'repo1',
+            title: 'Repo 1',
+            fullName: 'user/repo1',
+            description: 'Desc 1',
+            status: ItemStatus.open,
+          ),
         ];
         final page2Repos = [
-          RepoItem(id: 'repo31', title: 'Repo 31', fullName: 'user/repo31', description: 'Desc 31', status: ItemStatus.open),
+          RepoItem(
+            id: 'repo31',
+            title: 'Repo 31',
+            fullName: 'user/repo31',
+            description: 'Desc 31',
+            status: ItemStatus.open,
+          ),
         ];
 
         // Act - store in cache
@@ -229,7 +251,13 @@ void main() {
         // Arrange - simulate cache
         final cache = <String, List<RepoItem>>{
           'repos_page_1': [
-            RepoItem(id: 'repo1', title: 'Offline Repo', fullName: 'user/repo1', description: 'Offline', status: ItemStatus.open),
+            RepoItem(
+              id: 'repo1',
+              title: 'Offline Repo',
+              fullName: 'user/repo1',
+              description: 'Offline',
+              status: ItemStatus.open,
+            ),
           ],
         };
 
@@ -283,15 +311,18 @@ void main() {
 
         // Simulate fetching pages
         while (hasMore && page <= 3) {
-          final pageRepos = List.generate(perPage, (i) => RepoItem(
-            id: 'repo${(page - 1) * perPage + i}',
-            title: 'Repo ${(page - 1) * perPage + i}',
-            fullName: 'user/repo${(page - 1) * perPage + i}',
-            description: 'Description',
-            status: ItemStatus.open,
-          ));
+          final pageRepos = List.generate(
+            perPage,
+            (i) => RepoItem(
+              id: 'repo${(page - 1) * perPage + i}',
+              title: 'Repo ${(page - 1) * perPage + i}',
+              fullName: 'user/repo${(page - 1) * perPage + i}',
+              description: 'Description',
+              status: ItemStatus.open,
+            ),
+          );
           allPages.add(pageRepos);
-          
+
           // Last page has fewer items
           hasMore = page < 3;
           page++;
@@ -314,19 +345,28 @@ void main() {
           fullName: 'user/repo1',
           description: 'Description',
           status: ItemStatus.open,
-          children: List.generate(5, (i) => RepoItem(
-            id: 'issue$i',
-            title: 'Issue $i',
-            fullName: 'user/repo1#$i',
-            description: 'Issue description',
-            status: i % 2 == 0 ? ItemStatus.open : ItemStatus.closed,
-          )),
+          children: List.generate(
+            5,
+            (i) => RepoItem(
+              id: 'issue$i',
+              title: 'Issue $i',
+              fullName: 'user/repo1#$i',
+              description: 'Issue description',
+              status: i % 2 == 0 ? ItemStatus.open : ItemStatus.closed,
+            ),
+          ),
         );
 
         // Assert
         expect(repo.children.length, 5);
-        expect(repo.children.where((c) => c.status == ItemStatus.open).length, 3);
-        expect(repo.children.where((c) => c.status == ItemStatus.closed).length, 2);
+        expect(
+          repo.children.where((c) => c.status == ItemStatus.open).length,
+          3,
+        );
+        expect(
+          repo.children.where((c) => c.status == ItemStatus.closed).length,
+          2,
+        );
       });
     });
   });

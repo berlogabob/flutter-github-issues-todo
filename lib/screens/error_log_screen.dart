@@ -105,12 +105,14 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
       final exportPath = await _errorService.exportErrors();
       if (exportPath != null && mounted) {
         // Share the file
-        final result = await Share.shareXFiles(
-          [XFile(exportPath)],
-          subject: 'GitDoIt Error Log',
-          text: 'Error log exported from GitDoIt',
+        final result = await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(exportPath)],
+            subject: 'GitDoIt Error Log',
+            text: 'Error log exported from GitDoIt',
+          ),
         );
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -358,10 +360,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Text(
                 entry.message,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 14),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -411,7 +410,8 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
                     ),
                   ],
                   // Stack trace
-                  if (entry.stackTrace != null && entry.stackTrace!.isNotEmpty) ...[
+                  if (entry.stackTrace != null &&
+                      entry.stackTrace!.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
                       'Stack Trace:',
@@ -455,7 +455,8 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
                             ),
                           ),
                           onPressed: () {
-                            final text = '${entry.message}\n\nError: ${entry.error}\n\nStackTrace: ${entry.stackTrace}';
+                            final text =
+                                '${entry.message}\n\nError: ${entry.error}\n\nStackTrace: ${entry.stackTrace}';
                             Clipboard.setData(ClipboardData(text: text));
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -487,7 +488,9 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
                               // Could integrate with crash reporting
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Error report feature coming soon'),
+                                  content: Text(
+                                    'Error report feature coming soon',
+                                  ),
                                   backgroundColor: AppColors.orangePrimary,
                                 ),
                               );

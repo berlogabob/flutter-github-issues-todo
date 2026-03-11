@@ -75,7 +75,7 @@ class _BrailleLoaderState extends State<BrailleLoader>
             _brailleFrames[frameIndex],
             style: TextStyle(
               fontSize: widget.size * 0.9,
-              color: widget.color ?? AppColors.orangePrimary,
+              color: widget.color ?? AppColors.primary,
               fontWeight: FontWeight.bold,
               height: 1,
               fontFamily: 'monospace',

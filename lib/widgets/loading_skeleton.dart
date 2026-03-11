@@ -7,7 +7,7 @@ import '../constants/app_colors.dart';
 /// PERFORMANCE OPTIMIZATION:
 /// - Uses AnimatedOpacity for smooth fade animation
 /// - Matches list item dimensions for consistent layout
-/// - Uses AppColors.cardBackground and AppColors.background
+/// - Uses AppColors.card and AppColors.background
 /// - Replaces BrailleLoader in list loading states
 /// - Provides visual feedback during data loading
 class LoadingSkeleton extends StatefulWidget {
@@ -91,13 +91,13 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
       height: widget.height,
       width: widget.width,
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(widget.borderRadius),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         child: Shimmer.fromColors(
-          baseColor: AppColors.cardBackground,
+          baseColor: AppColors.card,
           highlightColor: AppColors.background.withValues(alpha: 0.5),
           child: Container(
             padding: const EdgeInsets.all(12),
@@ -184,13 +184,13 @@ class RepoHeaderSkeleton extends StatelessWidget {
       height: 72,
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Shimmer.fromColors(
-          baseColor: AppColors.cardBackground,
+          baseColor: AppColors.card,
           highlightColor: AppColors.background.withValues(alpha: 0.5),
           child: Padding(
             padding: const EdgeInsets.all(16),

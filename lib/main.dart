@@ -166,12 +166,12 @@ class GitDoItApp extends StatelessWidget {
           theme: ThemeData(
             brightness: Brightness.dark,
             scaffoldBackgroundColor: AppColors.background,
-            primaryColor: AppColors.orangePrimary,
+            primaryColor: AppColors.primary,
             colorScheme: const ColorScheme.dark(
-              primary: AppColors.orangePrimary,
-              secondary: AppColors.red,
-              surface: AppColors.cardBackground,
-              error: AppColors.red,
+              primary: AppColors.primary,
+              secondary: AppColors.error,
+              surface: AppColors.card,
+              error: AppColors.error,
               onPrimary: Colors.black,
               onSecondary: Colors.white,
               onSurface: Colors.white,
@@ -183,12 +183,12 @@ class GitDoItApp extends StatelessWidget {
               elevation: 0,
             ),
             cardTheme: CardThemeData(
-              color: AppColors.cardBackground,
+              color: AppColors.card,
               elevation: 2,
             ),
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orangePrimary,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.black,
                 elevation: 2,
                 shape: RoundedRectangleBorder(
@@ -199,7 +199,7 @@ class GitDoItApp extends StatelessWidget {
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
-                side: const BorderSide(color: AppColors.orangePrimary),
+                side: const BorderSide(color: AppColors.primary),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),
@@ -207,13 +207,13 @@ class GitDoItApp extends StatelessWidget {
             ),
             inputDecorationTheme: const InputDecorationTheme(
               filled: true,
-              fillColor: AppColors.cardBackground,
+              fillColor: AppColors.card,
               border: OutlineInputBorder(),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: Color(0x4DFFFFFF)),
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColors.orangePrimary),
+                borderSide: BorderSide(color: AppColors.primary),
               ),
             ),
             fontFamily: '.SF Pro Text',

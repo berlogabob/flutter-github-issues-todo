@@ -57,7 +57,7 @@ class _SyncStatusDashboardScreenState
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            color: AppColors.orangePrimary,
+            color: AppColors.primary,
             onPressed: _isSyncing ? null : _triggerSync,
             tooltip: 'Sync Now',
           ),
@@ -94,7 +94,7 @@ class _SyncStatusDashboardScreenState
     final isNetworkAvailable = _syncService.isNetworkAvailable;
 
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       child: Padding(
         padding: EdgeInsets.all(20.w),
         child: Column(
@@ -171,7 +171,7 @@ class _SyncStatusDashboardScreenState
                 icon: const Icon(Icons.sync),
                 label: Text(_isSyncing ? 'Syncing...' : 'Sync Now'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangePrimary,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.black,
                   padding: EdgeInsets.symmetric(vertical: 12.h),
                   shape: RoundedRectangleBorder(
@@ -192,7 +192,7 @@ class _SyncStatusDashboardScreenState
     final conflictCount = _syncService.getConflictCount();
 
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       child: Padding(
         padding: EdgeInsets.all(20.w),
         child: Column(
@@ -216,7 +216,7 @@ class _SyncStatusDashboardScreenState
                   pendingCount.toString(),
                   Icons.pending,
                   pendingCount > 0
-                      ? AppColors.orangePrimary
+                      ? AppColors.primary
                       : Colors.green,
                 ),
                 _buildStatItem(
@@ -230,7 +230,7 @@ class _SyncStatusDashboardScreenState
                   conflictCount.toString(),
                   Icons.warning_amber,
                   conflictCount > 0
-                      ? AppColors.red
+                      ? AppColors.error
                       : Colors.green,
                 ),
                 _buildStatItem(
@@ -240,8 +240,8 @@ class _SyncStatusDashboardScreenState
                   stats.successRate >= 80
                       ? Colors.green
                       : stats.successRate >= 50
-                          ? AppColors.orangePrimary
-                          : AppColors.red,
+                          ? AppColors.primary
+                          : AppColors.error,
                 ),
               ],
             ),
@@ -292,7 +292,7 @@ class _SyncStatusDashboardScreenState
     final pendingCount = _pendingOps.getPendingCount();
 
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       child: Padding(
         padding: EdgeInsets.all(20.w),
         child: Column(
@@ -313,7 +313,7 @@ class _SyncStatusDashboardScreenState
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
-                      color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                      color: AppColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Text(
@@ -321,7 +321,7 @@ class _SyncStatusDashboardScreenState
                       style: TextStyle(
                         fontSize: 12.sp,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.orangePrimary,
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
@@ -346,7 +346,7 @@ class _SyncStatusDashboardScreenState
 
     if (history.isEmpty) {
       return Card(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         child: Padding(
           padding: EdgeInsets.all(20.w),
           child: Column(
@@ -388,7 +388,7 @@ class _SyncStatusDashboardScreenState
     }
 
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       child: Padding(
         padding: EdgeInsets.all(20.w),
         child: Column(
@@ -412,8 +412,8 @@ class _SyncStatusDashboardScreenState
                     color: stats.successRate >= 80
                         ? Colors.green
                         : stats.successRate >= 50
-                            ? AppColors.orangePrimary
-                            : AppColors.red,
+                            ? AppColors.primary
+                            : AppColors.error,
                   ),
                 ),
               ],
@@ -484,7 +484,7 @@ class _SyncStatusDashboardScreenState
                 style: TextStyle(
                   fontSize: 12.sp,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.orangePrimary,
+                  color: AppColors.primary,
                 ),
               ),
               Text(
@@ -528,9 +528,9 @@ class _SyncStatusDashboardScreenState
       case SyncResult.success:
         return Colors.green;
       case SyncResult.partial:
-        return AppColors.orangePrimary;
+        return AppColors.primary;
       case SyncResult.failed:
-        return AppColors.red;
+        return AppColors.error;
     }
   }
 
@@ -581,11 +581,11 @@ class _SyncStatusDashboardScreenState
       case 'idle':
         return Colors.grey;
       case 'syncing':
-        return AppColors.orangePrimary;
+        return AppColors.primary;
       case 'success':
         return Colors.green;
       case 'error':
-        return AppColors.red;
+        return AppColors.error;
       default:
         return Colors.grey;
     }
@@ -640,7 +640,7 @@ class _SyncStatusDashboardScreenState
                 ),
               ],
             ),
-            backgroundColor: AppColors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }

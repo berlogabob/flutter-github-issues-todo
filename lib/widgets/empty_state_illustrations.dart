@@ -120,17 +120,17 @@ class NoReposPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.orangeSecondary
+      ..color = AppColors.primary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
     final fillPaint = Paint()
-      ..color = AppColors.orangeSecondary.withValues(alpha: 0.1)
+      ..color = AppColors.primary.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     final questionPaint = Paint()
-      ..color = AppColors.secondaryText
+      ..color = AppColors.textSecondary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -172,7 +172,7 @@ class NoReposPainter extends CustomPainter {
 
     // Question mark dot
     final dotPaint = Paint()
-      ..color = AppColors.secondaryText
+      ..color = AppColors.textSecondary
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(centerX, centerY + 5), 2, dotPaint);
   }
@@ -186,13 +186,13 @@ class NoIssuesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.orangeSecondary
+      ..color = AppColors.primary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
     final fillPaint = Paint()
-      ..color = AppColors.orangeSecondary.withValues(alpha: 0.1)
+      ..color = AppColors.primary.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     final xPaint = Paint()
@@ -223,7 +223,7 @@ class NoIssuesPainter extends CustomPainter {
 
     // Checklist lines
     final linePaint = Paint()
-      ..color = AppColors.secondaryText.withValues(alpha: 0.5)
+      ..color = AppColors.textSecondary.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -269,17 +269,17 @@ class NoCommentsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.orangeSecondary
+      ..color = AppColors.primary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
     final fillPaint = Paint()
-      ..color = AppColors.orangeSecondary.withValues(alpha: 0.1)
+      ..color = AppColors.primary.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     final questionPaint = Paint()
-      ..color = AppColors.secondaryText
+      ..color = AppColors.textSecondary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -322,7 +322,7 @@ class NoCommentsPainter extends CustomPainter {
 
     // Question mark dot
     final dotPaint = Paint()
-      ..color = AppColors.secondaryText
+      ..color = AppColors.textSecondary
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(centerX, centerY + 5), 2, dotPaint);
   }
@@ -336,17 +336,17 @@ class NoProjectsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.orangeSecondary
+      ..color = AppColors.primary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
     final fillPaint = Paint()
-      ..color = AppColors.orangeSecondary.withValues(alpha: 0.1)
+      ..color = AppColors.primary.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     final questionPaint = Paint()
-      ..color = AppColors.secondaryText
+      ..color = AppColors.textSecondary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -365,7 +365,7 @@ class NoProjectsPainter extends CustomPainter {
 
     // Board columns
     final columnPaint = Paint()
-      ..color = AppColors.secondaryText.withValues(alpha: 0.3)
+      ..color = AppColors.textSecondary.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(
@@ -400,7 +400,7 @@ class NoProjectsPainter extends CustomPainter {
 
     // Question mark dot
     final dotPaint = Paint()
-      ..color = AppColors.secondaryText
+      ..color = AppColors.textSecondary
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(centerX, centerY + 8), 2.5, dotPaint);
   }
@@ -414,13 +414,13 @@ class SearchEmptyPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.orangeSecondary
+      ..color = AppColors.primary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
 
     final questionPaint = Paint()
-      ..color = AppColors.secondaryText
+      ..color = AppColors.textSecondary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -431,7 +431,7 @@ class SearchEmptyPainter extends CustomPainter {
 
     // Magnifying glass lens
     final lensPaint = Paint()
-      ..color = AppColors.orangeSecondary.withValues(alpha: 0.1)
+      ..color = AppColors.primary.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(centerX, centerY), lensRadius, lensPaint);
     canvas.drawCircle(Offset(centerX, centerY), lensRadius, paint);
@@ -461,7 +461,7 @@ class SearchEmptyPainter extends CustomPainter {
 
     // Question mark dot
     final dotPaint = Paint()
-      ..color = AppColors.secondaryText
+      ..color = AppColors.textSecondary
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(centerX, centerY + 5), 2, dotPaint);
   }
@@ -523,7 +523,7 @@ class EmptyStateWidget extends StatelessWidget {
                 subtitle!,
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.secondaryText,
+                  color: AppColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),

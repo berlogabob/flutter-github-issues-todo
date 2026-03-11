@@ -28,7 +28,7 @@ class SyncStatusWidget extends ConsumerWidget {
   Widget _buildContent() {
     // Show BrailleLoader when syncing
     if (isSyncing) {
-      return BrailleLoader(size: size * 0.7, color: AppColors.orangePrimary);
+      return BrailleLoader(size: size * 0.7, color: AppColors.primary);
     }
 
     // Show last sync time when not syncing

@@ -114,7 +114,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.open_in_browser, color: AppColors.blue),
+            icon: const Icon(Icons.open_in_browser, color: AppColors.link),
             onPressed: _openInBrowser,
             tooltip: 'Open on GitHub',
           ),
@@ -146,7 +146,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.red, size: 48),
+            const Icon(Icons.error_outline, color: AppColors.error, size: 48),
             const SizedBox(height: 16),
             Text(
               'Failed to load repository',
@@ -164,7 +164,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orangePrimary,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.black,
               ),
             ),
@@ -175,7 +175,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadRepoDetails,
-      color: AppColors.orangePrimary,
+      color: AppColors.primary,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -189,7 +189,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
 
   Widget _buildRepoInfoCard() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -240,16 +240,16 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.orangePrimary.withValues(alpha: 0.2),
+        color: AppColors.primary.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.orangePrimary.withValues(alpha: 0.5),
+          color: AppColors.primary.withValues(alpha: 0.5),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.orangePrimary, size: 16),
+          Icon(icon, color: AppColors.primary, size: 16),
           const SizedBox(width: 4),
           Text(
             value,
@@ -294,7 +294,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: AppColors.cardBackground,
+              color: AppColors.card,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -325,7 +325,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
     final isOpen = issue.status == ItemStatus.open;
 
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: Icon(
@@ -351,7 +351,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
             : null,
         trailing: const Icon(
           Icons.chevron_right,
-          color: AppColors.red,
+          color: AppColors.error,
           size: 20,
         ),
         onTap: () => _openIssue(issue),

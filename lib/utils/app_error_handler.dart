@@ -36,7 +36,7 @@ class AppErrorHandler {
             ),
           ],
         ),
-        backgroundColor: AppColors.red,
+        backgroundColor: AppColors.error,
         duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'DISMISS',

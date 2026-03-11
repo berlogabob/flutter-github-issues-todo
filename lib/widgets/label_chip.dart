@@ -18,7 +18,7 @@ class LabelChipWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = colorHex != null
         ? Color(int.parse('FF$colorHex', radix: 16))
-        : AppColors.orangePrimary;
+        : AppColors.primary;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

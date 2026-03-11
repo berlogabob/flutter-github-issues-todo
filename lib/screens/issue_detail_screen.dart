@@ -184,7 +184,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceColor,
+        backgroundColor: AppColors.dark,
         title: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.red.shade400),
@@ -204,7 +204,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               'CANCEL',
-              style: TextStyle(color: AppColors.secondaryText),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
           ),
           ElevatedButton(
@@ -326,7 +326,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   Widget _buildSyncBanner() {
     return Container(
       width: double.infinity,
-      color: AppColors.orangeSecondary,
+      color: AppColors.primary,
       padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 16.w),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -383,7 +383,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.orangeSecondary,
+                backgroundColor: AppColors.primary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),
@@ -395,7 +395,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       ],
       bottom: PreferredSize(
         preferredSize: Size.fromHeight(1.h),
-        child: Divider(height: 1, color: AppColors.borderColor),
+        child: Divider(height: 1, color: AppColors.border),
       ),
     );
   }
@@ -404,7 +404,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return Text(
       '$_effectiveOwner/$_effectiveRepo > #${_currentIssue.number ?? '---'}',
       style: TextStyle(
-        color: AppColors.orangeSecondary,
+        color: AppColors.primary,
         fontSize: 12.sp,
         fontFamily: 'monospace',
       ),
@@ -438,7 +438,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           _buildIconText(
             Icons.person_outline,
             '@${_currentIssue.assigneeLogin}',
-            color: AppColors.orangeSecondary,
+            color: AppColors.primary,
             isBold: true,
           ),
         _buildIconText(Icons.visibility_outlined, '0'),
@@ -452,7 +452,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.orangeSecondary),
+        border: Border.all(color: AppColors.primary),
         borderRadius: BorderRadius.circular(20.r),
       ),
       child: Row(
@@ -486,13 +486,13 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14.sp, color: color ?? AppColors.secondaryText),
+        Icon(icon, size: 14.sp, color: color ?? AppColors.textSecondary),
         SizedBox(width: 4.w),
         Text(
           text,
           style: TextStyle(
             fontSize: 12.sp,
-            color: color ?? AppColors.secondaryText,
+            color: color ?? AppColors.textSecondary,
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -504,7 +504,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
-        color: AppColors.borderColor,
+        color: AppColors.border,
         borderRadius: BorderRadius.circular(4.r),
       ),
       child: Text(
@@ -538,7 +538,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     if (labelLower.contains('enhancement')) return const Color(0xFF238636);
     if (labelLower.contains('documentation')) return const Color(0xFF6E7781);
     if (labelLower.contains('help')) return const Color(0xFFA371F7);
-    return AppColors.orangeSecondary;
+    return AppColors.primary;
   }
 
   Widget _buildDescription() {
@@ -549,7 +549,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         Container(
           padding: EdgeInsets.all(16.w),
           decoration: BoxDecoration(
-            color: AppColors.darkBackground,
+            color: AppColors.dark,
             border: Border.all(color: const Color(0xFF222222)),
             borderRadius: BorderRadius.circular(16.r),
           ),
@@ -582,7 +582,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                       color: Colors.white,
                     ),
                     code: TextStyle(
-                      color: AppColors.orangeSecondary,
+                      color: AppColors.primary,
                       backgroundColor: const Color(0xFF2D2D2D),
                       fontSize: 12.sp,
                     ),
@@ -594,7 +594,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                       color: Colors.white.withValues(alpha: 0.7),
                       fontStyle: FontStyle.italic,
                     ),
-                    listBullet: TextStyle(color: AppColors.orangeSecondary),
+                    listBullet: TextStyle(color: AppColors.primary),
                   ),
                   shrinkWrap: !_isDescExpanded,
                 ),
@@ -608,7 +608,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         child: Text(
                           _isDescExpanded ? 'SHOW LESS' : 'READ MORE',
                           style: TextStyle(
-                            color: AppColors.orangeSecondary,
+                            color: AppColors.primary,
                             fontWeight: FontWeight.bold,
                             fontSize: 12.sp,
                           ),
@@ -639,7 +639,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           Text(
             title.toUpperCase(),
             style: TextStyle(
-              color: AppColors.secondaryText,
+              color: AppColors.textSecondary,
               fontSize: 10.sp,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -647,7 +647,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           ),
           SizedBox(width: 8.w),
           Expanded(
-            child: Divider(color: AppColors.borderColor.withValues(alpha: 0.5)),
+            child: Divider(color: AppColors.border.withValues(alpha: 0.5)),
           ),
         ],
       ),
@@ -698,12 +698,12 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                   icon,
                   size: 16.sp,
                   color: isAccent
-                      ? AppColors.orangeSecondary
-                      : AppColors.secondaryText,
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
                 ),
                 Expanded(
                   child: VerticalDivider(
-                    color: AppColors.borderColor,
+                    color: AppColors.border,
                     thickness: 1,
                   ),
                 ),
@@ -724,7 +724,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                       RelativeTime.format(time),
                       style: TextStyle(
                         fontSize: 12.sp,
-                        color: AppColors.secondaryText,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                 ],
@@ -752,7 +752,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           Container(
             padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
-              color: AppColors.surfaceColor,
+              color: AppColors.dark,
               border: Border.all(color: const Color(0xFF222222)),
               borderRadius: BorderRadius.circular(16.r),
             ),
@@ -760,7 +760,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
               child: Text(
                 'No comments yet',
                 style: TextStyle(
-                  color: AppColors.secondaryText,
+                  color: AppColors.textSecondary,
                   fontSize: 14.sp,
                 ),
               ),
@@ -779,7 +779,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         child: Text(
                           'LOAD MORE COMMENTS',
                           style: TextStyle(
-                            color: AppColors.orangeSecondary,
+                            color: AppColors.primary,
                             fontWeight: FontWeight.bold,
                             fontSize: 12.sp,
                           ),
@@ -805,7 +805,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       margin: EdgeInsets.only(bottom: 16.h),
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppColors.surfaceColor,
+        color: AppColors.dark,
         border: Border.all(color: const Color(0xFF222222)),
         borderRadius: BorderRadius.circular(16.r),
       ),
@@ -816,7 +816,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             children: [
               CircleAvatar(
                 radius: 12.r,
-                backgroundColor: AppColors.orangeSecondary,
+                backgroundColor: AppColors.primary,
                 backgroundImage: avatarUrl != null
                     ? CachedNetworkImageProvider(avatarUrl)
                     : null,
@@ -846,7 +846,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 Text(
                   RelativeTime.format(DateTime.parse(createdAt)),
                   style: TextStyle(
-                    color: AppColors.secondaryText,
+                    color: AppColors.textSecondary,
                     fontSize: 11.sp,
                   ),
                 ),
@@ -869,7 +869,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             styleSheet: MarkdownStyleSheet(
               p: TextStyle(fontSize: 14.sp, height: 1.4, color: Colors.white),
               code: TextStyle(
-                color: AppColors.orangeSecondary,
+                color: AppColors.primary,
                 backgroundColor: const Color(0xFF2D2D2D),
                 fontSize: 12.sp,
               ),
@@ -885,7 +885,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.95),
-        border: Border(top: BorderSide(color: AppColors.borderColor)),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         children: [
@@ -895,7 +895,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
               child: ElevatedButton(
                 onPressed: _isUpdating ? null : _toggleStatus,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeSecondary,
+                  backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16.r),
                   ),
@@ -930,11 +930,11 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         width: 40.w,
         height: 40.h,
         decoration: BoxDecoration(
-          color: AppColors.surfaceColor,
-          border: Border.all(color: AppColors.borderColor),
+          color: AppColors.dark,
+          border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(12.r),
         ),
-        child: Icon(icon, color: AppColors.secondaryText, size: 20.sp),
+        child: Icon(icon, color: AppColors.textSecondary, size: 20.sp),
       ),
     );
   }
@@ -1078,7 +1078,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surfaceColor,
+      backgroundColor: AppColors.dark,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
@@ -1113,7 +1113,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 Text(
                   'No assignees available',
                   style: TextStyle(
-                    color: AppColors.secondaryText,
+                    color: AppColors.textSecondary,
                     fontSize: 14.sp,
                   ),
                 )
@@ -1131,7 +1131,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                       return ListTile(
                         leading: CircleAvatar(
                           radius: 16.r,
-                          backgroundColor: AppColors.orangeSecondary,
+                          backgroundColor: AppColors.primary,
                           backgroundImage: avatarUrl != null
                               ? CachedNetworkImageProvider(avatarUrl)
                               : null,
@@ -1152,7 +1152,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         trailing: isAssigned
                             ? Icon(
                                 Icons.check_circle,
-                                color: AppColors.orangeSecondary,
+                                color: AppColors.primary,
                                 size: 20.sp,
                               )
                             : null,
@@ -1337,7 +1337,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surfaceColor,
+      backgroundColor: AppColors.dark,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
@@ -1379,7 +1379,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                           style: TextStyle(
                             fontSize: 14.sp,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.secondaryText,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                         SizedBox(height: 8.h),
@@ -1409,7 +1409,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                               .toList(),
                         ),
                         SizedBox(height: 16.h),
-                        Divider(color: AppColors.borderColor),
+                        Divider(color: AppColors.border),
                         SizedBox(height: 8.h),
                       ],
                       // Available labels section
@@ -1418,7 +1418,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         style: TextStyle(
                           fontSize: 14.sp,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.secondaryText,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                       SizedBox(height: 8.h),
@@ -1428,7 +1428,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                                 child: Text(
                                   'No labels available',
                                   style: TextStyle(
-                                    color: AppColors.secondaryText,
+                                    color: AppColors.textSecondary,
                                     fontSize: 14.sp,
                                   ),
                                 ),
@@ -1461,7 +1461,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                                         ),
                                       ],
                                     ),
-                                    activeColor: AppColors.orangeSecondary,
+                                    activeColor: AppColors.primary,
                                     onChanged: (value) {
                                       if (value == true) {
                                         Navigator.pop(context);
@@ -1725,7 +1725,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surfaceColor,
+      backgroundColor: AppColors.dark,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
       ),
@@ -1755,12 +1755,12 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
               style: TextStyle(color: Colors.white, fontSize: 14.sp),
               decoration: InputDecoration(
                 hintText: 'Write a comment...',
-                hintStyle: TextStyle(color: AppColors.secondaryText),
+                hintStyle: TextStyle(color: AppColors.textSecondary),
                 filled: true,
-                fillColor: AppColors.darkBackground,
+                fillColor: AppColors.dark,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(color: AppColors.borderColor),
+                  borderSide: BorderSide(color: AppColors.border),
                 ),
               ),
             ),
@@ -1773,7 +1773,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                   _submitComment(controller.text);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeSecondary,
+                  backgroundColor: AppColors.primary,
                 ),
                 child: const Text(
                   'Submit',
@@ -1838,7 +1838,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppColors.orangeSecondary,
+        backgroundColor: AppColors.primary,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -1848,7 +1848,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppColors.red,
+        backgroundColor: AppColors.error,
         duration: const Duration(seconds: 3),
       ),
     );

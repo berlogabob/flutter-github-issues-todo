@@ -97,7 +97,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
           Icon(
             Icons.error_outline,
             size: 64,
-            color: AppColors.red.withValues(alpha: 0.8),
+            color: AppColors.error.withValues(alpha: 0.8),
           ),
           const SizedBox(height: 16),
 
@@ -140,7 +140,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orangePrimary,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -202,10 +202,10 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppColors.red.withValues(alpha: 0.3),
+          color: AppColors.error.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -226,14 +226,14 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                     _isDetailsExpanded
                         ? Icons.expand_less
                         : Icons.expand_more,
-                    color: AppColors.red.withValues(alpha: 0.7),
+                    color: AppColors.error.withValues(alpha: 0.7),
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Error Details',
                     style: TextStyle(
-                      color: AppColors.red.withValues(alpha: 0.8),
+                      color: AppColors.error.withValues(alpha: 0.8),
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -269,7 +269,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                   Text(
                     'Error:',
                     style: TextStyle(
-                      color: AppColors.red.withValues(alpha: 0.7),
+                      color: AppColors.error.withValues(alpha: 0.7),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -290,7 +290,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                     Text(
                       'Stack Trace:',
                       style: TextStyle(
-                        color: AppColors.red.withValues(alpha: 0.7),
+                        color: AppColors.error.withValues(alpha: 0.7),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -415,9 +415,9 @@ class InlineError extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppColors.red.withValues(alpha: 0.15),
+        color: AppColors.error.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.red.withValues(alpha: 0.5)),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.5)),
       ),
       child: _buildErrorContent(context, compact: true),
     );
@@ -431,7 +431,7 @@ class InlineError extends StatelessWidget {
           children: [
             Icon(
               Icons.error_outline,
-              color: AppColors.red,
+              color: AppColors.error,
               size: compact ? 20 : 40,
             ),
             const SizedBox(width: 12),
@@ -442,7 +442,7 @@ class InlineError extends StatelessWidget {
                   Text(
                     message,
                     style: TextStyle(
-                      color: AppColors.red,
+                      color: AppColors.error,
                       fontSize: compact ? 13 : 16,
                       fontWeight: FontWeight.w600,
                     ),

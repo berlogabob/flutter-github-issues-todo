@@ -77,7 +77,7 @@ class SearchFiltersPanel extends StatelessWidget {
           child: DropdownButton<String>(
             value: sortBy,
             isExpanded: true,
-            dropdownColor: AppColors.cardBackground,
+            dropdownColor: AppColors.card,
             underline: const SizedBox(),
             items: const [
               DropdownMenuItem(value: 'created', child: Text('Date Created')),
@@ -95,7 +95,7 @@ class SearchFiltersPanel extends StatelessWidget {
         IconButton(
           icon: Icon(
             sortOrder == 'desc' ? Icons.arrow_downward : Icons.arrow_upward,
-            color: AppColors.orangePrimary,
+            color: AppColors.primary,
           ),
           onPressed: () {
             onSortOrderChanged(sortOrder == 'asc' ? 'desc' : 'asc');
@@ -129,7 +129,7 @@ class SearchFiltersPanel extends StatelessWidget {
           },
           child: const Text(
             'Select',
-            style: TextStyle(color: AppColors.orangePrimary),
+            style: TextStyle(color: AppColors.primary),
           ),
         ),
         const SizedBox(width: 8),
@@ -153,7 +153,7 @@ class SearchFiltersPanel extends StatelessWidget {
           },
           child: const Text(
             'Select',
-            style: TextStyle(color: AppColors.orangePrimary),
+            style: TextStyle(color: AppColors.primary),
           ),
         ),
       ],
@@ -164,10 +164,10 @@ class SearchFiltersPanel extends StatelessWidget {
     return TextField(
       decoration: InputDecoration(
         hintText: 'Filter by author...',
-        prefixIcon: const Icon(Icons.person, color: AppColors.orangePrimary),
+        prefixIcon: const Icon(Icons.person, color: AppColors.primary),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
-        fillColor: AppColors.cardBackground,
+        fillColor: AppColors.card,
       ),
       onChanged: onAuthorChanged,
     );
@@ -213,7 +213,7 @@ class SearchFiltersPanel extends StatelessWidget {
       icon: const Icon(Icons.clear_all, size: 16),
       label: const Text('Clear All Filters', style: TextStyle(fontSize: 12)),
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.orangePrimary,
+        foregroundColor: AppColors.primary,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
     );

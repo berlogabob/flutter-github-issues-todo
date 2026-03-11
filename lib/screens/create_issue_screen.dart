@@ -183,7 +183,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not load labels/assignees: ${e.toString()}'),
-            backgroundColor: AppColors.orangePrimary,
+            backgroundColor: AppColors.primary,
             duration: const Duration(seconds: 3),
             action: SnackBarAction(
               label: 'RETRY',
@@ -255,7 +255,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             ),
           ],
         ),
-        backgroundColor: AppColors.orangePrimary,
+        backgroundColor: AppColors.primary,
         duration: const Duration(seconds: 3),
       ),
     );
@@ -293,7 +293,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             ),
           ],
         ),
-        backgroundColor: AppColors.red,
+        backgroundColor: AppColors.error,
         duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'DISMISS',
@@ -333,7 +333,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             child: Text(
               'Create',
               style: TextStyle(
-                color: _isSaving ? Colors.white54 : AppColors.orangePrimary,
+                color: _isSaving ? Colors.white54 : AppColors.primary,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -366,17 +366,17 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.red.withValues(alpha: 0.2),
+                        color: AppColors.error.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: AppColors.red.withValues(alpha: 0.5),
+                          color: AppColors.error.withValues(alpha: 0.5),
                         ),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.error_outline,
-                            color: AppColors.red,
+                            color: AppColors.error,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -384,7 +384,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                             child: Text(
                               _errorMessage!,
                               style: const TextStyle(
-                                color: AppColors.red,
+                                color: AppColors.error,
                                 fontSize: 12,
                               ),
                             ),
@@ -392,7 +392,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                           IconButton(
                             icon: const Icon(
                               Icons.close,
-                              color: AppColors.red,
+                              color: AppColors.error,
                               size: 20,
                             ),
                             onPressed: () {
@@ -414,17 +414,17 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.orangePrimary.withValues(alpha: 0.15),
+                        color: AppColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: AppColors.orangePrimary.withValues(alpha: 0.5),
+                          color: AppColors.primary.withValues(alpha: 0.5),
                         ),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.folder_open,
-                            color: AppColors.orangePrimary,
+                            color: AppColors.primary,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
@@ -435,7 +435,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                                 const Text(
                                   'Creating in expanded repository',
                                   style: TextStyle(
-                                    color: AppColors.orangePrimary,
+                                    color: AppColors.primary,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -454,7 +454,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                           ),
                           Icon(
                             Icons.check_circle,
-                            color: AppColors.orangePrimary.withValues(
+                            color: AppColors.primary.withValues(
                               alpha: 0.7,
                             ),
                             size: 18,
@@ -477,20 +477,20 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
+                      color: AppColors.card,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: AppColors.orangePrimary.withValues(alpha: 0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                       ),
                     ),
                     child: DropdownButton<String>(
                       value: _selectedRepoFullName ?? widget.repo,
                       isExpanded: true,
-                      dropdownColor: AppColors.cardBackground,
+                      dropdownColor: AppColors.card,
                       underline: const SizedBox(),
                       icon: const Icon(
                         Icons.arrow_drop_down,
-                        color: AppColors.orangePrimary,
+                        color: AppColors.primary,
                       ),
                       items:
                           widget.availableRepos != null &&
@@ -537,7 +537,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       hintText: 'Issue title (required)',
                       hintStyle: const TextStyle(color: Colors.white38),
                       filled: true,
-                      fillColor: AppColors.cardBackground,
+                      fillColor: AppColors.card,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
@@ -545,7 +545,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                          color: AppColors.orangePrimary,
+                          color: AppColors.primary,
                         ),
                       ),
                       errorText: _validateTitle(_titleController.text),
@@ -578,7 +578,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       hintText: 'Add a description (Markdown supported)',
                       hintStyle: const TextStyle(color: Colors.white38),
                       filled: true,
-                      fillColor: AppColors.cardBackground,
+                      fillColor: AppColors.card,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
@@ -586,7 +586,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: const BorderSide(
-                          color: AppColors.orangePrimary,
+                          color: AppColors.primary,
                         ),
                       ),
                       counterText:
@@ -633,7 +633,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.cardBackground,
+            color: AppColors.card,
             borderRadius: BorderRadius.circular(8),
           ),
           child: _availableLabels.isEmpty
@@ -657,7 +657,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       IconButton(
                         icon: const Icon(
                           Icons.refresh,
-                          color: AppColors.orangePrimary,
+                          color: AppColors.primary,
                           size: 20,
                         ),
                         onPressed: _loadRepoData,
@@ -729,7 +729,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: AppColors.cardBackground,
+            color: AppColors.card,
             borderRadius: BorderRadius.circular(8),
           ),
           child: DropdownButton<String?>(
@@ -740,7 +740,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             ),
             underline: const SizedBox(),
             isExpanded: true,
-            dropdownColor: AppColors.cardBackground,
+            dropdownColor: AppColors.card,
             items: [
               const DropdownMenuItem(
                 value: null,
@@ -758,7 +758,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                     children: [
                       CircleAvatar(
                         radius: 12,
-                        backgroundColor: AppColors.orangePrimary,
+                        backgroundColor: AppColors.primary,
                         backgroundImage: avatarUrl != null
                             ? NetworkImage(avatarUrl)
                             : null,

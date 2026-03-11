@@ -37,13 +37,13 @@ class IssueCard extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 20),
-        color: AppColors.blue,
+        color: AppColors.link,
         child: const Icon(Icons.edit, color: Colors.white),
       ),
       secondaryBackground: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        color: AppColors.red,
+        color: AppColors.error,
         child: const Icon(Icons.close, color: Colors.white),
       ),
       confirmDismiss: (direction) async {
@@ -67,7 +67,7 @@ class IssueCard extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: AppColors.cardBackground.withValues(alpha: 0.5),
+                color: AppColors.card.withValues(alpha: 0.5),
                 width: 1,
               ),
             ),
@@ -118,13 +118,13 @@ class IssueCard extends StatelessWidget {
                               const Icon(
                                 Icons.cloud_off,
                                 size: 12,
-                                color: AppColors.orangePrimary,
+                                color: AppColors.primary,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Local',
                                 style: const TextStyle(
-                                  color: AppColors.orangePrimary,
+                                  color: AppColors.primary,
                                   fontSize: 11,
                                 ),
                               ),
@@ -137,7 +137,7 @@ class IssueCard extends StatelessWidget {
               ),
               // Chevron
               if (onTap != null)
-                const Icon(Icons.chevron_right, color: AppColors.red, size: 20),
+                const Icon(Icons.chevron_right, color: AppColors.error, size: 20),
             ],
           ),
         ),
@@ -171,13 +171,13 @@ class IssueCard extends StatelessWidget {
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.blue),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.link),
               ),
             ),
             errorWidget: (context, url, error) => const Icon(
               Icons.person,
               size: 16,
-              color: AppColors.blue,
+              color: AppColors.link,
             ),
             imageBuilder: (context, imageProvider) => Container(
               width: 16,
@@ -195,7 +195,7 @@ class IssueCard extends StatelessWidget {
           Text(
             issue.assigneeLogin!,
             style: const TextStyle(
-              color: AppColors.blue,
+              color: AppColors.link,
               fontSize: 11,
             ),
           ),
@@ -209,13 +209,13 @@ class IssueCard extends StatelessWidget {
           const Icon(
             Icons.person,
             size: 12,
-            color: AppColors.blue,
+            color: AppColors.link,
           ),
           const SizedBox(width: 4),
           Text(
             issue.assigneeLogin!,
             style: const TextStyle(
-              color: AppColors.blue,
+              color: AppColors.link,
               fontSize: 11,
             ),
           ),

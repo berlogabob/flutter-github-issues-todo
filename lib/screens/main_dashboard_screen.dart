@@ -139,10 +139,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         title: const Row(
           children: [
-            Icon(Icons.sync, color: AppColors.orangePrimary),
+            Icon(Icons.sync, color: AppColors.primary),
             SizedBox(width: 8),
             Text('Sync Local Issues', style: TextStyle(color: Colors.white)),
           ],
@@ -171,7 +171,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                   return ListTile(
                     leading: const Icon(
                       Icons.folder,
-                      color: AppColors.orangePrimary,
+                      color: AppColors.primary,
                     ),
                     title: Text(
                       repo.fullName,
@@ -232,7 +232,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 const Text('Failed to sync issues'),
               ],
             ),
-            backgroundColor: AppColors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -304,7 +304,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$pendingCount changes pending sync'),
-          backgroundColor: AppColors.orangePrimary,
+          backgroundColor: AppColors.primary,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -692,7 +692,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                           vertical: 2.h,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.orangePrimary,
+                          color: AppColors.primary,
                           borderRadius: BorderRadius.circular(10.r),
                         ),
                         child: Text(
@@ -786,7 +786,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                   ? const Center(child: BrailleLoader(size: 32))
                   : RefreshIndicator(
                       onRefresh: _fetchRepositories,
-                      color: AppColors.orangePrimary,
+                      color: AppColors.primary,
                       child: _buildTaskList(displayedRepos, pinnedRepos),
                     ),
             ),
@@ -794,7 +794,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.orangePrimary,
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.black,
         icon: const Icon(Icons.add),
         label: const Text('New Issue'),
@@ -813,13 +813,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppColors.red.withValues(alpha: 0.15),
+        color: AppColors.error.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.red.withValues(alpha: 0.5)),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: AppColors.red, size: 20),
+          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -828,7 +828,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 const Text(
                   'Could not fetch repositories',
                   style: TextStyle(
-                    color: AppColors.red,
+                    color: AppColors.error,
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
@@ -836,7 +836,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 Text(
                   _errorMessage!,
                   style: TextStyle(
-                    color: AppColors.red.withValues(alpha: 0.8),
+                    color: AppColors.error.withValues(alpha: 0.8),
                     fontSize: 11,
                   ),
                   maxLines: 2,
@@ -849,7 +849,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             onPressed: _fetchRepositories,
             child: const Text(
               'Retry',
-              style: TextStyle(color: AppColors.orangePrimary),
+              style: TextStyle(color: AppColors.primary),
             ),
           ),
         ],
@@ -1008,7 +1008,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               ),
             ],
           ),
-          backgroundColor: AppColors.red,
+          backgroundColor: AppColors.error,
           duration: const Duration(seconds: 4),
           action: SnackBarAction(
             label: 'FETCH',
@@ -1074,7 +1074,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No valid repository found'),
-            backgroundColor: AppColors.red,
+            backgroundColor: AppColors.error,
           ),
         );
         return;
@@ -1090,7 +1090,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No valid repository found'),
-          backgroundColor: AppColors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -1132,7 +1132,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         title: const Text(
           'Create Local Issue',
           style: TextStyle(color: Colors.white),
@@ -1153,7 +1153,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                     borderSide: BorderSide(color: Color(0x4DFFFFFF)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.orangePrimary),
+                    borderSide: BorderSide(color: AppColors.primary),
                   ),
                 ),
                 autofocus: true,
@@ -1170,7 +1170,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                     borderSide: BorderSide(color: Color(0x4DFFFFFF)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.orangePrimary),
+                    borderSide: BorderSide(color: AppColors.primary),
                   ),
                 ),
                 maxLines: 5,
@@ -1217,7 +1217,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                           const Text('Local issue created'),
                         ],
                       ),
-                      backgroundColor: AppColors.orangePrimary,
+                      backgroundColor: AppColors.primary,
                       duration: const Duration(seconds: 3),
                     ),
                   );
@@ -1228,7 +1228,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orangePrimary,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.black,
             ),
             child: const Text('Create'),

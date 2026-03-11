@@ -95,7 +95,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
         title: const Text('Edit Issue', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.check, color: AppColors.orangePrimary),
+            icon: const Icon(Icons.check, color: AppColors.primary),
             onPressed: _isSaving ? null : _saveChanges,
             tooltip: 'Save Changes',
           ),
@@ -148,12 +148,12 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(
-                            color: AppColors.orangePrimary,
+                            color: AppColors.primary,
                             width: 2,
                           ),
                         ),
                         filled: true,
-                        fillColor: AppColors.cardBackground,
+                        fillColor: AppColors.card,
                       ),
                       maxLines: null,
                       textInputAction: TextInputAction.next,
@@ -216,12 +216,12 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(
-                            color: AppColors.orangePrimary,
+                            color: AppColors.primary,
                             width: 2,
                           ),
                         ),
                         filled: true,
-                        fillColor: AppColors.cardBackground,
+                        fillColor: AppColors.card,
                       ),
                       maxLines: 15,
                       minLines: 10,
@@ -243,7 +243,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.cardBackground,
+                        color: AppColors.card,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: MarkdownBody(
@@ -269,7 +269,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                           code: const TextStyle(
-                            color: AppColors.orangePrimary,
+                            color: AppColors.primary,
                             backgroundColor: Color(0xFF2D2D2D),
                             fontSize: 12,
                           ),
@@ -307,7 +307,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
         label,
         style: const TextStyle(fontSize: 12, color: Colors.white),
       ),
-      backgroundColor: AppColors.orangePrimary.withValues(alpha: 0.3),
+      backgroundColor: AppColors.primary.withValues(alpha: 0.3),
       deleteIcon: const Icon(Icons.close, size: 16, color: Colors.white),
       onDeleted: () => _removeLabel(label),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -320,20 +320,20 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.cardBackground,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.orangePrimary.withValues(alpha: 0.5),
+            color: AppColors.primary.withValues(alpha: 0.5),
           ),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, size: 16, color: AppColors.orangePrimary),
+            Icon(Icons.add, size: 16, color: AppColors.primary),
             SizedBox(width: 4),
             Text(
               'Add Label',
-              style: TextStyle(color: AppColors.orangePrimary, fontSize: 12),
+              style: TextStyle(color: AppColors.primary, fontSize: 12),
             ),
           ],
         ),
@@ -353,7 +353,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         title: const Text('Add Label', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: labelController,
@@ -384,7 +384,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orangePrimary,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.black,
             ),
             child: const Text('Add'),
@@ -408,7 +408,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Title is required'),
-          backgroundColor: AppColors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -420,7 +420,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No repository selected'),
-          backgroundColor: AppColors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -431,7 +431,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Invalid repository name'),
-          backgroundColor: AppColors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -496,7 +496,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                         Text('Issue queued for sync'),
                       ],
                     ),
-              backgroundColor: AppColors.orangePrimary,
+              backgroundColor: AppColors.primary,
             ),
           );
           Navigator.pop(context, updatedIssue);
@@ -523,7 +523,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
               content: Text(
                 'Issue #${updatedIssue.number} updated successfully',
               ),
-              backgroundColor: AppColors.orangePrimary,
+              backgroundColor: AppColors.primary,
             ),
           );
           Navigator.pop(context, updatedIssue);

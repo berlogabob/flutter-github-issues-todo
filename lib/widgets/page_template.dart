@@ -124,19 +124,19 @@ class PageTemplate extends StatelessWidget {
     
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         border: Border(
           top: BorderSide(
-            color: AppColors.borderColor,
+            color: AppColors.border,
             width: 1,
           ),
         ),
       ),
       child: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        backgroundColor: AppColors.cardBackground,
-        selectedItemColor: AppColors.orangePrimary,
-        unselectedItemColor: AppColors.secondaryText,
+        backgroundColor: AppColors.card,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: AppColors.textSecondary,
         selectedFontSize: 12,
         unselectedFontSize: 12,
         currentIndex: bottomNavIndex ?? 0,
@@ -179,7 +179,7 @@ class PageTemplate extends StatelessWidget {
       title: Text(
         title,
         style: const TextStyle(
-          color: AppColors.white,
+          color: AppColors.text,
           fontSize: AppTypography.titleMedium,
           fontWeight: FontWeight.bold,
         ),

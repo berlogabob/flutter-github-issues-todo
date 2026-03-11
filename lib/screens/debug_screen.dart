@@ -28,7 +28,7 @@ class _DebugScreenState extends State<DebugScreen> {
         title: const Text('Debug Diagnostics'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.orangePrimary),
+            icon: const Icon(Icons.refresh, color: AppColors.primary),
             onPressed: _isTesting ? null : _runDiagnostics,
           ),
           IconButton(
@@ -51,7 +51,7 @@ class _DebugScreenState extends State<DebugScreen> {
                 label: Text(_isTesting ? 'Testing...' : 'Run Full Diagnostics'),
                 onPressed: _isTesting ? null : _runDiagnostics,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangePrimary,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -63,10 +63,10 @@ class _DebugScreenState extends State<DebugScreen> {
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: AppColors.cardBackground,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: AppColors.orangePrimary.withValues(alpha: 0.3),
+                  color: AppColors.primary.withValues(alpha: 0.3),
                 ),
               ),
               child: _logs.isEmpty
@@ -101,11 +101,11 @@ class _DebugScreenState extends State<DebugScreen> {
                                   log.substring(3),
                                   style: TextStyle(
                                     color: isError
-                                        ? AppColors.red
+                                        ? AppColors.error
                                         : isSuccess
                                         ? Colors.green
                                         : isWarning
-                                        ? AppColors.orangePrimary
+                                        ? AppColors.primary
                                         : Colors.white70,
                                     fontSize: 12,
                                     fontFamily: 'monospace',
@@ -296,7 +296,7 @@ class _DebugScreenState extends State<DebugScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Logs copied to clipboard'),
-          backgroundColor: AppColors.orangePrimary,
+          backgroundColor: AppColors.primary,
         ),
       );
     }

@@ -26,7 +26,7 @@ class DashboardFilters extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.2),
@@ -87,10 +87,10 @@ class DashboardFilters extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.orangePrimary.withValues(alpha: 0.2),
+        color: AppColors.primary.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.orangePrimary,
+          color: AppColors.primary,
           width: 1,
         ),
       ),
@@ -100,13 +100,13 @@ class DashboardFilters extends StatelessWidget {
           const Icon(
             Icons.cloud_upload_outlined,
             size: 14,
-            color: AppColors.orangePrimary,
+            color: AppColors.primary,
           ),
           const SizedBox(width: 4),
           Text(
             '$pendingOperationsCount',
             style: const TextStyle(
-              color: AppColors.orangePrimary,
+              color: AppColors.primary,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -120,7 +120,7 @@ class DashboardFilters extends StatelessWidget {
     return IconButton(
       icon: Icon(
         hideUsernameInRepo ? Icons.visibility_off : Icons.visibility,
-        color: hideUsernameInRepo ? Colors.white54 : AppColors.orangePrimary,
+        color: hideUsernameInRepo ? Colors.white54 : AppColors.primary,
         size: 20,
       ),
       onPressed: () {
@@ -138,11 +138,11 @@ class DashboardFilters extends StatelessWidget {
       label: Text(label, style: const TextStyle(fontSize: 13)),
       selected: isSelected,
       backgroundColor: AppColors.background,
-      selectedColor: AppColors.orangePrimary.withValues(alpha: 0.3),
-      checkmarkColor: AppColors.orangePrimary,
+      selectedColor: AppColors.primary.withValues(alpha: 0.3),
+      checkmarkColor: AppColors.primary,
       labelStyle: TextStyle(
         color: isSelected
-            ? AppColors.orangePrimary
+            ? AppColors.primary
             : Colors.white.withValues(alpha: 0.8),
         fontSize: 13,
       ),

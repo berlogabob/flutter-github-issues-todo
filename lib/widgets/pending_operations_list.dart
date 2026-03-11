@@ -48,7 +48,7 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
           Icon(
             Icons.check_circle_outline,
             size: 64.w,
-            color: AppColors.orangePrimary.withValues(alpha: 0.5),
+            color: AppColors.primary.withValues(alpha: 0.5),
           ),
           SizedBox(height: 16.h),
           Text(
@@ -75,7 +75,7 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: _getStatusColor(operation).withValues(alpha: 0.3),
@@ -111,7 +111,7 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
                     'Error: ${operation.errorMessage}',
                     style: TextStyle(
                       fontSize: 11.sp,
-                      color: AppColors.red.withValues(alpha: 0.8),
+                      color: AppColors.error.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -135,7 +135,7 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
         break;
       case OperationStatus.syncing:
         icon = Icons.sync;
-        color = AppColors.orangePrimary;
+        color = AppColors.primary;
         break;
       case OperationStatus.completed:
         icon = Icons.check_circle;
@@ -143,7 +143,7 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
         break;
       case OperationStatus.failed:
         icon = Icons.error;
-        color = AppColors.red;
+        color = AppColors.error;
         break;
     }
 
@@ -188,7 +188,7 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
 
     return IconButton(
       icon: const Icon(Icons.refresh, size: 20),
-      color: AppColors.orangePrimary,
+      color: AppColors.primary,
       onPressed: () async {
         // Reset status to pending for retry
         operation.status = OperationStatus.pending;
@@ -208,11 +208,11 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
       case OperationStatus.pending:
         return Colors.grey;
       case OperationStatus.syncing:
-        return AppColors.orangePrimary;
+        return AppColors.primary;
       case OperationStatus.completed:
         return Colors.green;
       case OperationStatus.failed:
-        return AppColors.red;
+        return AppColors.error;
     }
   }
 }

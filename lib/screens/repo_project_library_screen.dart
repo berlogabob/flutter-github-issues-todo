@@ -74,7 +74,7 @@ class _RepoProjectLibraryScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('No repositories found'),
-              backgroundColor: AppColors.orangePrimary,
+              backgroundColor: AppColors.primary,
             ),
           );
         }
@@ -85,7 +85,7 @@ class _RepoProjectLibraryScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No internet connection'),
-            backgroundColor: AppColors.orangePrimary,
+            backgroundColor: AppColors.primary,
           ),
         );
       }
@@ -93,7 +93,7 @@ class _RepoProjectLibraryScreenState
       if (mounted) setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
         );
       }
     }
@@ -105,7 +105,7 @@ class _RepoProjectLibraryScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$fullName will appear on main page'),
-          backgroundColor: AppColors.orangePrimary,
+          backgroundColor: AppColors.primary,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -118,7 +118,7 @@ class _RepoProjectLibraryScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Cannot unpin main repository'),
-          backgroundColor: AppColors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -128,7 +128,7 @@ class _RepoProjectLibraryScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$fullName removed from main page'),
-          backgroundColor: AppColors.red,
+          backgroundColor: AppColors.error,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -169,7 +169,7 @@ class _RepoProjectLibraryScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Use format: owner/repository'),
-            backgroundColor: AppColors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -192,7 +192,7 @@ class _RepoProjectLibraryScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${repo.fullName} added to main page'),
-              backgroundColor: AppColors.orangePrimary,
+              backgroundColor: AppColors.primary,
             ),
           );
         }
@@ -201,7 +201,7 @@ class _RepoProjectLibraryScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Repository not found'),
-              backgroundColor: AppColors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -209,7 +209,7 @@ class _RepoProjectLibraryScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -298,7 +298,7 @@ class _RepoProjectLibraryScreenState
       background: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 20),
-        color: AppColors.orangePrimary,
+        color: AppColors.primary,
         child: const Row(
           children: [
             Icon(Icons.add, color: Colors.white),
@@ -310,7 +310,7 @@ class _RepoProjectLibraryScreenState
       secondaryBackground: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        color: AppColors.red,
+        color: AppColors.error,
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
@@ -329,7 +329,7 @@ class _RepoProjectLibraryScreenState
         }
       },
       child: Card(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -338,12 +338,12 @@ class _RepoProjectLibraryScreenState
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: AppColors.orangePrimary.withValues(alpha: 0.15),
+              color: AppColors.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.folder,
-              color: AppColors.orangePrimary,
+              color: AppColors.primary,
               size: 24,
             ),
           ),
@@ -377,19 +377,19 @@ class _RepoProjectLibraryScreenState
                   ),
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                    color: AppColors.primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
                     'main',
                     style: TextStyle(
-                      color: AppColors.orangePrimary,
+                      color: AppColors.primary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              const Icon(Icons.chevron_right, color: AppColors.red, size: 20),
+              const Icon(Icons.chevron_right, color: AppColors.error, size: 20),
             ],
           ),
           onTap: () async {
@@ -435,7 +435,7 @@ class _RepoProjectLibraryScreenState
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${repo.fullName} set as main repository'),
-                      backgroundColor: AppColors.orangePrimary,
+                      backgroundColor: AppColors.primary,
                     ),
                   );
                 }

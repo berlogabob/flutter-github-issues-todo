@@ -14,7 +14,7 @@ class SearchResultItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: StatusBadge(status: issue.status),
@@ -42,18 +42,18 @@ class SearchResultItem extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.person, size: 12, color: AppColors.blue),
+                  const Icon(Icons.person, size: 12, color: AppColors.link),
                   const SizedBox(width: 4),
                   Text(
                     issue.assigneeLogin!,
-                    style: const TextStyle(color: AppColors.blue, fontSize: 11),
+                    style: const TextStyle(color: AppColors.link, fontSize: 11),
                   ),
                 ],
               ),
             ],
           ],
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.error),
         onTap: onTap,
       ),
     );

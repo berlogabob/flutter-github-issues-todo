@@ -169,16 +169,16 @@ class _SearchScreenState extends State<SearchScreen> {
         title: TextField(
           controller: _searchController,
           focusNode: _focusNode,
-          style: const TextStyle(color: AppColors.white, fontSize: 16),
+          style: const TextStyle(color: AppColors.text, fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Search issues...',
             hintStyle: TextStyle(
-              color: AppColors.white.withValues(alpha: 0.54),
+              color: AppColors.text.withValues(alpha: 0.54),
             ),
             border: InputBorder.none,
             suffixIcon: const Icon(
               Icons.search,
-              color: AppColors.orangePrimary,
+              color: AppColors.primary,
             ),
           ),
           onChanged: _onSearchChanged,
@@ -186,7 +186,7 @@ class _SearchScreenState extends State<SearchScreen> {
           onSubmitted: _performSearch,
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.text),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -279,7 +279,7 @@ class _SearchScreenState extends State<SearchScreen> {
             Text(
               'Searching...',
               style: TextStyle(
-                color: AppColors.white.withValues(alpha: 0.54),
+                color: AppColors.text.withValues(alpha: 0.54),
                 fontSize: 14,
               ),
             ),
@@ -302,7 +302,7 @@ class _SearchScreenState extends State<SearchScreen> {
             Text(
               'Search Error',
               style: TextStyle(
-                color: AppColors.white.withValues(alpha: 0.5),
+                color: AppColors.text.withValues(alpha: 0.5),
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -313,7 +313,7 @@ class _SearchScreenState extends State<SearchScreen> {
               child: Text(
                 _searchError!,
                 style: TextStyle(
-                  color: AppColors.white.withValues(alpha: 0.3),
+                  color: AppColors.text.withValues(alpha: 0.3),
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -350,7 +350,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         Text(
                           'Recent Searches',
                           style: TextStyle(
-                            color: AppColors.white.withValues(alpha: 0.7),
+                            color: AppColors.text.withValues(alpha: 0.7),
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -363,7 +363,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           },
                           child: const Text(
                             'Clear',
-                            style: TextStyle(color: AppColors.orangePrimary),
+                            style: TextStyle(color: AppColors.primary),
                           ),
                         ),
                       ],
@@ -425,13 +425,13 @@ class _SearchScreenState extends State<SearchScreen> {
           Icon(
             Icons.search,
             size: 80,
-            color: AppColors.white.withValues(alpha: 0.2),
+            color: AppColors.text.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 24),
           Text(
             'Search Issues',
             style: TextStyle(
-              color: AppColors.white.withValues(alpha: 0.5),
+              color: AppColors.text.withValues(alpha: 0.5),
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -440,7 +440,7 @@ class _SearchScreenState extends State<SearchScreen> {
           Text(
             'Search by title, labels, or body',
             style: TextStyle(
-              color: AppColors.white.withValues(alpha: 0.3),
+              color: AppColors.text.withValues(alpha: 0.3),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -458,13 +458,13 @@ class _SearchScreenState extends State<SearchScreen> {
           Icon(
             Icons.search_off,
             size: 80,
-            color: AppColors.white.withValues(alpha: 0.2),
+            color: AppColors.text.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 24),
           Text(
             'No results found',
             style: TextStyle(
-              color: AppColors.white.withValues(alpha: 0.5),
+              color: AppColors.text.withValues(alpha: 0.5),
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -473,7 +473,7 @@ class _SearchScreenState extends State<SearchScreen> {
           Text(
             'Try different keywords or filters',
             style: TextStyle(
-              color: AppColors.white.withValues(alpha: 0.3),
+              color: AppColors.text.withValues(alpha: 0.3),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,

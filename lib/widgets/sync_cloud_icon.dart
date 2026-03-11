@@ -30,11 +30,11 @@ class _SyncCloudIconState extends State<SyncCloudIcon> {
         cloudIcon,
         // Status badges - static, no rotation
         if (widget.state == SyncCloudState.offline)
-          _buildStatusBadge(Icons.cloud_off, AppColors.secondaryText),
+          _buildStatusBadge(Icons.cloud_off, AppColors.textSecondary),
         if (widget.state == SyncCloudState.synced)
           _buildStatusBadge(Icons.check_circle, Colors.green),
         if (widget.state == SyncCloudState.error)
-          _buildStatusBadge(Icons.error, AppColors.red),
+          _buildStatusBadge(Icons.error, AppColors.error),
         // For syncing state, just show orange dot (no rotation)
         if (widget.state == SyncCloudState.syncing) _buildSyncingIndicator(),
       ],
@@ -47,11 +47,11 @@ class _SyncCloudIconState extends State<SyncCloudIcon> {
       case SyncCloudState.offline:
         return Colors.grey;
       case SyncCloudState.syncing:
-        return AppColors.orangePrimary;
+        return AppColors.primary;
       case SyncCloudState.synced:
         return Colors.green;
       case SyncCloudState.error:
-        return AppColors.red;
+        return AppColors.error;
     }
   }
 
@@ -78,7 +78,7 @@ class _SyncCloudIconState extends State<SyncCloudIcon> {
         width: widget.size * 0.3,
         height: widget.size * 0.3,
         decoration: BoxDecoration(
-          color: AppColors.orangePrimary,
+          color: AppColors.primary,
           shape: BoxShape.circle,
         ),
       ),

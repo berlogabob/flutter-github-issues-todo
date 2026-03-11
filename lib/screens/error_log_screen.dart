@@ -57,10 +57,10 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.red),
+            Icon(Icons.warning_amber_rounded, color: AppColors.error),
             SizedBox(width: 8),
             Text('Clear Error Log', style: TextStyle(color: Colors.white)),
           ],
@@ -77,7 +77,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.red,
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
             ),
             child: const Text('Clear'),
@@ -93,7 +93,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error log cleared'),
-            backgroundColor: AppColors.orangePrimary,
+            backgroundColor: AppColors.primary,
           ),
         );
       }
@@ -133,7 +133,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Failed to export error log'),
-            backgroundColor: AppColors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -153,13 +153,13 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
         actions: [
           // Export button
           IconButton(
-            icon: const Icon(Icons.share, color: AppColors.orangePrimary),
+            icon: const Icon(Icons.share, color: AppColors.primary),
             onPressed: _isLoading ? null : _exportErrors,
             tooltip: 'Export Error Log',
           ),
           // Clear button
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.red),
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
             onPressed: _isLoading ? null : _clearErrors,
             tooltip: 'Clear Error Log',
           ),
@@ -237,7 +237,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
         // Summary bar
         Container(
           padding: const EdgeInsets.all(16),
-          color: AppColors.cardBackground,
+          color: AppColors.card,
           child: Row(
             children: [
               Icon(
@@ -285,7 +285,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: _getLevelColor(entry.level).withValues(alpha: 0.3),
@@ -461,7 +461,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Error details copied'),
-                                backgroundColor: AppColors.orangePrimary,
+                                backgroundColor: AppColors.primary,
                                 duration: Duration(seconds: 1),
                               ),
                             );
@@ -491,7 +491,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
                                   content: Text(
                                     'Error report feature coming soon',
                                   ),
-                                  backgroundColor: AppColors.orangePrimary,
+                                  backgroundColor: AppColors.primary,
                                 ),
                               );
                             },
@@ -518,7 +518,7 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
       case ErrorLevel.warning:
         return Colors.orange;
       case ErrorLevel.error:
-        return AppColors.red;
+        return AppColors.error;
       case ErrorLevel.critical:
         return Colors.purple;
     }

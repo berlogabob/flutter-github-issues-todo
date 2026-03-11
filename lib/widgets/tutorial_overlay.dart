@@ -177,9 +177,9 @@ class _TutorialStepCard extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 400),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surfaceColor,
+        color: AppColors.dark,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.borderColor),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -203,8 +203,8 @@ class _TutorialStepCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: index <= currentStep
-                      ? AppColors.orangeSecondary
-                      : AppColors.borderColor,
+                      ? AppColors.primary
+                      : AppColors.border,
                 ),
               ),
             ),
@@ -214,13 +214,13 @@ class _TutorialStepCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.orangeSecondary.withValues(alpha: 0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               step.icon,
               size: 48,
-              color: AppColors.orangeSecondary,
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 20),
@@ -240,7 +240,7 @@ class _TutorialStepCard extends StatelessWidget {
             step.description,
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.secondaryText,
+              color: AppColors.textSecondary,
               height: 1.5,
             ),
             textAlign: TextAlign.center,
@@ -256,7 +256,7 @@ class _TutorialStepCard extends StatelessWidget {
                   child: Text(
                     'BACK',
                     style: TextStyle(
-                      color: AppColors.secondaryText,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -267,7 +267,7 @@ class _TutorialStepCard extends StatelessWidget {
                   child: Text(
                     'SKIP',
                     style: TextStyle(
-                      color: AppColors.secondaryText,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -275,7 +275,7 @@ class _TutorialStepCard extends StatelessWidget {
               ElevatedButton(
                 onPressed: onNext,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeSecondary,
+                  backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
@@ -336,9 +336,9 @@ class TutorialTooltip extends StatelessWidget {
           margin: const EdgeInsets.all(24),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.surfaceColor,
+            color: AppColors.dark,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderColor),
+            border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.5),
@@ -353,7 +353,7 @@ class TutorialTooltip extends StatelessWidget {
               Icon(
                 icon,
                 size: 48,
-                color: AppColors.orangeSecondary,
+                color: AppColors.primary,
               ),
               const SizedBox(height: 16),
               Text(
@@ -370,7 +370,7 @@ class TutorialTooltip extends StatelessWidget {
                 description,
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.secondaryText,
+                  color: AppColors.textSecondary,
                   height: 1.4,
                 ),
                 textAlign: TextAlign.center,
@@ -379,7 +379,7 @@ class TutorialTooltip extends StatelessWidget {
               ElevatedButton(
                 onPressed: onDismiss ?? () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orangeSecondary,
+                  backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 32,
                     vertical: 12,

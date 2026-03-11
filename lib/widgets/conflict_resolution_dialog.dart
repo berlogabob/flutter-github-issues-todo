@@ -26,7 +26,7 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppColors.cardBackground,
+      backgroundColor: AppColors.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.r),
       ),
@@ -59,14 +59,14 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppColors.orangePrimary.withValues(alpha: 0.1),
+        color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
       ),
       child: Row(
         children: [
           Icon(
             Icons.warning_amber_rounded,
-            color: AppColors.orangePrimary,
+            color: AppColors.primary,
             size: 24.w,
           ),
           SizedBox(width: 12.w),
@@ -136,17 +136,17 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
             return Container(
               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
               decoration: BoxDecoration(
-                color: AppColors.red.withValues(alpha: 0.2),
+                color: AppColors.error.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(16.r),
                 border: Border.all(
-                  color: AppColors.red.withValues(alpha: 0.5),
+                  color: AppColors.error.withValues(alpha: 0.5),
                 ),
               ),
               child: Text(
                 _getFieldName(field),
                 style: TextStyle(
                   fontSize: 12.sp,
-                  color: AppColors.red,
+                  color: AppColors.error,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -288,7 +288,7 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
             value,
             style: TextStyle(
               fontSize: 12.sp,
-              color: isConflict ? AppColors.orangePrimary : Colors.white,
+              color: isConflict ? AppColors.primary : Colors.white,
               fontWeight: isConflict ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
@@ -321,7 +321,7 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
                 child: _buildChoiceButton(
                   'Use Local',
                   Icons.cloud_upload,
-                  AppColors.orangePrimary,
+                  AppColors.primary,
                   'Keep your changes',
                   ResolutionChoice.useLocal,
                 ),
@@ -366,7 +366,7 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
       child: Container(
         padding: EdgeInsets.all(12.w),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.2) : AppColors.cardBackground,
+          color: isSelected ? color.withValues(alpha: 0.2) : AppColors.card,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
             color: isSelected ? color : Colors.grey.withValues(alpha: 0.3),

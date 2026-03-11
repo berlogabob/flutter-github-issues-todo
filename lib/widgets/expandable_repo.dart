@@ -178,7 +178,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Issue closed'),
-            backgroundColor: AppColors.orangePrimary,
+            backgroundColor: AppColors.primary,
             duration: Duration(seconds: 1),
           ),
         );
@@ -213,7 +213,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to close issue: ${e.toString()}'),
-          backgroundColor: AppColors.red,
+          backgroundColor: AppColors.error,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -244,7 +244,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
     // NOTE: Swipe disabled for repo cards on main dashboard (Issue #20)
     // Pin/Unpin only via repo_project_library_screen
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +264,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                       duration: const Duration(milliseconds: 200),
                       child: const Icon(
                         Icons.arrow_right,
-                        color: AppColors.red,
+                        color: AppColors.error,
                         size: 24,
                       ),
                     ),
@@ -274,12 +274,12 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                        color: AppColors.primary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.folder,
-                        color: AppColors.orangePrimary,
+                        color: AppColors.primary,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -287,7 +287,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                     if (widget.isPinned)
                       const Icon(
                         Icons.push_pin,
-                        color: AppColors.orangePrimary,
+                        color: AppColors.primary,
                         size: 16,
                       ),
                     if (widget.isPinned) const SizedBox(width: 4),
@@ -328,10 +328,10 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                          color: AppColors.primary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppColors.orangePrimary.withValues(alpha: 0.5),
+                            color: AppColors.primary.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Text(
@@ -339,7 +339,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                               ? '${_issues.whereType<IssueItem>().length} issues'
                               : '${widget.repo.children.whereType<IssueItem>().length} issues',
                           style: const TextStyle(
-                            color: AppColors.orangePrimary,
+                            color: AppColors.primary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -416,25 +416,25 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.red.withValues(alpha: 0.15),
+          color: AppColors.error.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.red.withValues(alpha: 0.3)),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.error_outline, color: AppColors.red, size: 20),
+            const Icon(Icons.error_outline, color: AppColors.error, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Failed to load issues: $_errorMessage',
-                style: const TextStyle(color: AppColors.red, fontSize: 12),
+                style: const TextStyle(color: AppColors.error, fontSize: 12),
               ),
             ),
             TextButton(
               onPressed: _loadIssues,
               child: const Text(
                 'Retry',
-                style: TextStyle(color: AppColors.orangePrimary),
+                style: TextStyle(color: AppColors.primary),
               ),
             ),
           ],

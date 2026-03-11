@@ -234,7 +234,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bug_report, color: AppColors.orangePrimary),
+            icon: const Icon(Icons.bug_report, color: AppColors.primary),
             onPressed: () {
               Navigator.push(
                 context,
@@ -302,7 +302,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Text(
         title,
         style: TextStyle(
-          color: isDanger ? AppColors.red : Colors.white54,
+          color: isDanger ? AppColors.error : Colors.white54,
           fontSize: 12,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
@@ -313,7 +313,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildUserTile() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
         leading: _isLoadingUser
@@ -328,31 +328,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   fadeInDuration: Duration(milliseconds: 200),
                   fadeOutDuration: Duration(milliseconds: 200),
                   placeholder: (context, url) => CircleAvatar(
-                    backgroundColor: AppColors.orangePrimary.withValues(
+                    backgroundColor: AppColors.primary.withValues(
                       alpha: 0.2,
                     ),
                     child: const BrailleLoader(size: 20),
                   ),
                   errorWidget: (context, error, stackTrace) {
                     return CircleAvatar(
-                      backgroundColor: AppColors.orangePrimary.withValues(
+                      backgroundColor: AppColors.primary.withValues(
                         alpha: 0.2,
                       ),
                       child: Text(
                         (_user['login'] as String)
                             .substring(0, 1)
                             .toUpperCase(),
-                        style: const TextStyle(color: AppColors.orangePrimary),
+                        style: const TextStyle(color: AppColors.primary),
                       ),
                     );
                   },
                 ),
               )
             : CircleAvatar(
-                backgroundColor: AppColors.orangePrimary.withValues(alpha: 0.2),
+                backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                 child: Text(
                   (_user['login'] as String).substring(0, 1).toUpperCase(),
-                  style: const TextStyle(color: AppColors.orangePrimary),
+                  style: const TextStyle(color: AppColors.primary),
                 ),
               ),
         title: Text(
@@ -373,19 +373,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
         trailing: _isLoadingUser
             ? null
-            : const Icon(Icons.verified_user, color: AppColors.blue, size: 24),
+            : const Icon(Icons.verified_user, color: AppColors.link, size: 24),
       ),
     );
   }
 
   Widget _buildLogoutTile() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.logout, color: AppColors.orangePrimary),
+        leading: const Icon(Icons.logout, color: AppColors.primary),
         title: const Text('Logout', style: TextStyle(color: Colors.white)),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.error),
         onTap: _confirmLogout,
       ),
     );
@@ -393,10 +393,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildDefaultRepoTile() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.folder, color: AppColors.orangePrimary),
+        leading: const Icon(Icons.folder, color: AppColors.primary),
         title: const Text(
           'Default Repository',
           style: TextStyle(color: Colors.white),
@@ -408,7 +408,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.error),
         onTap: _changeDefaultRepo,
       ),
     );
@@ -416,10 +416,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildDefaultProjectTile() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.view_kanban, color: AppColors.blue),
+        leading: const Icon(Icons.view_kanban, color: AppColors.link),
         title: const Text(
           'Default Project',
           style: TextStyle(color: Colors.white),
@@ -431,7 +431,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.error),
         onTap: _changeDefaultProject,
       ),
     );
@@ -439,10 +439,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildAutoSyncWifiTile() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: SwitchListTile(
-        secondary: const Icon(Icons.wifi, color: AppColors.orangePrimary),
+        secondary: const Icon(Icons.wifi, color: AppColors.primary),
         title: const Text(
           'Auto-sync on WiFi',
           style: TextStyle(color: Colors.white),
@@ -455,7 +455,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         value: _autoSyncWifi,
-        activeThumbColor: AppColors.orangePrimary,
+        activeThumbColor: AppColors.primary,
         onChanged: (value) async {
           setState(() {
             _autoSyncWifi = value;
@@ -470,12 +470,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildAutoSyncAnyTile() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: SwitchListTile(
         secondary: const Icon(
           Icons.network_cell,
-          color: AppColors.orangePrimary,
+          color: AppColors.primary,
         ),
         title: const Text(
           'Auto-sync on any network',
@@ -489,7 +489,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         value: _autoSyncAny,
-        activeThumbColor: AppColors.orangePrimary,
+        activeThumbColor: AppColors.primary,
         onChanged: (value) async {
           setState(() {
             _autoSyncAny = value;
@@ -504,10 +504,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildSyncNowTile() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.sync, color: AppColors.orangePrimary),
+        leading: const Icon(Icons.sync, color: AppColors.primary),
         title: const Text('Sync Now', style: TextStyle(color: Colors.white)),
         subtitle: Text(
           'Manually trigger sync',
@@ -516,7 +516,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.error),
         onTap: _syncNow,
       ),
     );
@@ -524,10 +524,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildTestConnectionTile() {
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.wifi, color: AppColors.blue),
+        leading: const Icon(Icons.wifi, color: AppColors.link),
         title: const Text(
           'Test Connection',
           style: TextStyle(color: Colors.white),
@@ -539,7 +539,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.error),
         onTap: _testConnection,
       ),
     );
@@ -551,12 +551,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context, snapshot) {
         final errorCount = snapshot.data ?? 0;
         return Card(
-          color: AppColors.cardBackground,
+          color: AppColors.card,
           margin: const EdgeInsets.symmetric(horizontal: 16),
           child: ListTile(
             leading: Icon(
               Icons.bug_report,
-              color: errorCount > 0 ? AppColors.red : AppColors.orangePrimary,
+              color: errorCount > 0 ? AppColors.error : AppColors.primary,
             ),
             title: const Text(
               'View Error Log',
@@ -568,7 +568,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   : 'No errors logged',
               style: TextStyle(
                 color: errorCount > 0
-                    ? AppColors.red.withValues(alpha: 0.7)
+                    ? AppColors.error.withValues(alpha: 0.7)
                     : Colors.white.withValues(alpha: 0.5),
                 fontSize: 12,
               ),
@@ -583,7 +583,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.red.withValues(alpha: 0.2),
+                      color: AppColors.error.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -591,12 +591,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.red,
+                        color: AppColors.error,
                       ),
                     ),
                   ),
                 if (errorCount > 0) const SizedBox(width: 8),
-                const Icon(Icons.chevron_right, color: AppColors.red),
+                const Icon(Icons.chevron_right, color: AppColors.error),
               ],
             ),
             onTap: () {
@@ -616,7 +616,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final pendingCount = pendingOps.getPendingCount();
     
     return Card(
-      color: AppColors.cardBackground,
+      color: AppColors.card,
       child: Padding(
         padding: EdgeInsets.all(16.w),
         child: Column(
@@ -636,7 +636,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
-                      color: AppColors.orangePrimary.withValues(alpha: 0.2),
+                      color: AppColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Text(
@@ -644,7 +644,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: TextStyle(
                         fontSize: 12.sp,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.orangePrimary,
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
@@ -670,8 +670,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   );
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.orangePrimary,
-                  side: BorderSide(color: AppColors.orangePrimary),
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(color: AppColors.primary),
                   padding: EdgeInsets.symmetric(vertical: 12.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.r),
@@ -692,7 +692,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -773,12 +773,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         title: Row(
           children: [
             Icon(
               success ? Icons.check_circle : Icons.error,
-              color: success ? Colors.green : AppColors.red,
+              color: success ? Colors.green : AppColors.error,
             ),
             const SizedBox(width: 8),
             Text(
@@ -800,22 +800,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildClearCacheTile() {
     return Card(
-      color: AppColors.cardBackground.withValues(alpha: 0.5),
+      color: AppColors.card.withValues(alpha: 0.5),
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.delete_forever, color: AppColors.red),
+        leading: const Icon(Icons.delete_forever, color: AppColors.error),
         title: const Text(
           'Clear Local Cache',
-          style: TextStyle(color: AppColors.red),
+          style: TextStyle(color: AppColors.error),
         ),
         subtitle: Text(
           'Delete all locally stored data',
           style: TextStyle(
-            color: AppColors.red.withValues(alpha: 0.7),
+            color: AppColors.error.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.error),
         onTap: _confirmClearCache,
       ),
     );
@@ -823,22 +823,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildResetTokenTile() {
     return Card(
-      color: AppColors.cardBackground.withValues(alpha: 0.5),
+      color: AppColors.card.withValues(alpha: 0.5),
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: const Icon(Icons.key_off, color: AppColors.red),
+        leading: const Icon(Icons.key_off, color: AppColors.error),
         title: const Text(
           'Reset Token',
-          style: TextStyle(color: AppColors.red),
+          style: TextStyle(color: AppColors.error),
         ),
         subtitle: Text(
           'Clear saved GitHub token (use if token is corrupted)',
           style: TextStyle(
-            color: AppColors.red.withValues(alpha: 0.7),
+            color: AppColors.error.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.red),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.error),
         onTap: _confirmResetToken,
       ),
     );
@@ -848,7 +848,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         title: const Text('Reset Token', style: TextStyle(color: Colors.white)),
         content: Text(
           'This will delete your saved GitHub token and return you to the login screen.\n\nUse this if your token is corrupted or not working.',
@@ -865,7 +865,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _resetToken();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.red,
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
             ),
             child: const Text('Reset'),
@@ -893,7 +893,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Token reset. Please login again.'),
-          backgroundColor: AppColors.orangePrimary,
+          backgroundColor: AppColors.primary,
         ),
       );
     }
@@ -907,7 +907,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Icon(
             Icons.checklist_rounded,
             size: 48,
-            color: AppColors.orangePrimary.withValues(alpha: 0.5),
+            color: AppColors.primary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 8),
           Text(
@@ -944,7 +944,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         title: const Text('Logout', style: TextStyle(color: Colors.white)),
         content: Text(
           'Are you sure you want to logout? You will need to authenticate again.',
@@ -961,7 +961,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _logout();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.red,
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
             ),
             child: const Text('Logout'),
@@ -992,7 +992,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Logged out successfully'),
-          backgroundColor: AppColors.orangePrimary,
+          backgroundColor: AppColors.primary,
         ),
       );
     }
@@ -1027,7 +1027,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.cardBackground,
+          backgroundColor: AppColors.card,
           title: const Text(
             'Select Default Repository',
             style: TextStyle(color: Colors.white),
@@ -1044,7 +1044,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   hintStyle: TextStyle(color: Colors.white38),
                   prefixIcon: const Icon(
                     Icons.search,
-                    color: AppColors.orangePrimary,
+                    color: AppColors.primary,
                   ),
                   filled: true,
                   fillColor: AppColors.background,
@@ -1103,13 +1103,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           return ListTile(
                             leading: const Icon(
                               Icons.folder,
-                              color: AppColors.orangePrimary,
+                              color: AppColors.primary,
                             ),
                             title: Text(
                               repo.fullName,
                               style: TextStyle(
                                 color: isSelected
-                                    ? AppColors.orangePrimary
+                                    ? AppColors.primary
                                     : Colors.white,
                                 fontWeight: isSelected
                                     ? FontWeight.bold
@@ -1117,13 +1117,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ),
                             ),
                             selected: isSelected,
-                            selectedTileColor: AppColors.orangePrimary.withValues(
+                            selectedTileColor: AppColors.primary.withValues(
                               alpha: 0.2,
                             ),
                             trailing: isSelected
                                 ? const Icon(
                                     Icons.check,
-                                    color: AppColors.orangePrimary,
+                                    color: AppColors.primary,
                                   )
                                 : null,
                             onTap: () {
@@ -1152,7 +1152,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                       ),
                                     ],
                                   ),
-                                  backgroundColor: AppColors.orangePrimary,
+                                  backgroundColor: AppColors.primary,
                                   duration: const Duration(seconds: 2),
                                 ),
                               );
@@ -1199,7 +1199,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.cardBackground,
+          backgroundColor: AppColors.card,
           title: const Text(
             'Select Default Project',
             style: TextStyle(color: Colors.white),
@@ -1216,7 +1216,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   hintStyle: TextStyle(color: Colors.white38),
                   prefixIcon: const Icon(
                     Icons.search,
-                    color: AppColors.blue,
+                    color: AppColors.link,
                   ),
                   filled: true,
                   fillColor: AppColors.background,
@@ -1282,13 +1282,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               return ListTile(
                                 leading: const Icon(
                                   Icons.view_kanban,
-                                  color: AppColors.blue,
+                                  color: AppColors.link,
                                 ),
                                 title: Text(
                                   title,
                                   style: TextStyle(
                                     color: isSelected
-                                        ? AppColors.blue
+                                        ? AppColors.link
                                         : Colors.white,
                                     fontWeight: isSelected
                                         ? FontWeight.bold
@@ -1296,13 +1296,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   ),
                                 ),
                                 selected: isSelected,
-                                selectedTileColor: AppColors.blue.withValues(
+                                selectedTileColor: AppColors.link.withValues(
                                   alpha: 0.2,
                                 ),
                                 trailing: isSelected
                                     ? const Icon(
                                         Icons.check,
-                                        color: AppColors.blue,
+                                        color: AppColors.link,
                                       )
                                     : null,
                                 onTap: () {
@@ -1331,7 +1331,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                           ),
                                         ],
                                       ),
-                                      backgroundColor: AppColors.blue,
+                                      backgroundColor: AppColors.link,
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
@@ -1362,7 +1362,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Syncing...'),
-        backgroundColor: AppColors.orangePrimary,
+        backgroundColor: AppColors.primary,
       ),
     );
   }
@@ -1371,7 +1371,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
+        backgroundColor: AppColors.card,
         title: const Text('Clear Cache', style: TextStyle(color: Colors.white)),
         content: Text(
           'This will delete all locally stored data. This action cannot be undone.',
@@ -1388,7 +1388,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _clearCache();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.red,
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
             ),
             child: const Text('Clear'),
@@ -1404,7 +1404,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Cache cleared'),
-          backgroundColor: AppColors.orangePrimary,
+          backgroundColor: AppColors.primary,
         ),
       );
     }

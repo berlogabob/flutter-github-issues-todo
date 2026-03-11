@@ -302,25 +302,65 @@ Generate token with scopes:
 
 ## 🤖 Agent System
 
-GitDoIt uses a unique **multi-agent system** for parallel development:
+GitDoIt uses a unique **multi-agent system** for parallel development with proactive compliance checking.
 
-| Agent | Role | Responsibilities |
-|-------|------|------------------|
-| **PMA** | Project Manager | Coordinates team, assigns tasks |
-| **FDA** | Flutter Developer | Writes code, implements features |
-| **UDA** | UI/UX Designer | Designs interface, ensures style compliance |
-| **TQA** | Testing & Quality | Validates code, runs tests |
-| **DDA** | Documentation | Maintains docs, prepares releases |
+### Agent Team
+
+| Agent | Role | Status |
+|-------|------|--------|
+| **PMA** | Project Manager | ✅ Active |
+| **FDA** | Flutter Developer | ✅ Active |
+| **UDA** | UI/UX Designer | ✅ Active |
+| **TQA** | Testing & Quality | ✅ Active |
+| **DDA** | Documentation | ✅ Active |
+| **RCA** | Rules & Compliance | 🆕 **PROACTIVE** |
+| **COORD** | Agent Coordinator | 🆕 **CONTROLLER** |
+
+### Agent Responsibilities
+
+- **PMA (ProjectManagerAgent)**: Coordinates team, assigns tasks, tracks sprint progress
+- **FDA (FlutterDeveloperAgent)**: Writes code, implements features, runs build_runner
+- **UDA (UiDesignerAgent)**: Designs interfaces, ensures design system compliance
+- **TQA (TestingQualityAgent)**: Validates code, runs tests, enforces linting
+- **DDA (DocumentationAgent)**: Maintains docs, prepares releases, manages changelog
+- **RCA (RulesComplianceAgent)**: 🆕 **PROACTIVE** - Continuously monitors project rules, conventions, offline-first compliance, security
+- **COORD (AgentCoordinator)**: 🆕 **CONTROLLER** - Central control, manages all agents, health monitoring
 
 ### Parallel Execution
+
 All agents work concurrently and communicate through a message bus:
+
 ```dart
-final coordinator = AgentCoordinator();
-coordinator.registerAgent(ProjectManagerAgent());
-coordinator.registerAgent(FlutterDeveloperAgent());
-// ... register other agents
+import 'package:gitdoit/agents/agents.dart';
+
+final coordinator = get coordinator; // Singleton
 await coordinator.startAll();
+
+// Check status
+print(coordinator.getAgentStatus());
+print(coordinator.getComplianceStatus());
+
+await coordinator.stopAll();
 ```
+
+### Project Rules (Enforced by RCA)
+
+The Rules & Compliance Agent proactively checks:
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| `offline_first` | **Critical** | All features must work offline |
+| `error_handling` | **Critical** | All async ops need error handling |
+| `secure_storage` | **Critical** | Tokens in flutter_secure_storage |
+| `no_env_commit` | **Critical** | Never commit .env file |
+| `naming_convention` | Warning | PascalCase classes, camelCase variables |
+| `dark_theme_only` | Warning | Use only dark theme colors |
+| `no_shortcuts` | Error | No quick and dirty solutions |
+| `trailing_commas` | Warning | Use trailing commas |
+| `single_quotes` | Warning | Use single quotes |
+| `responsive_design` | Warning | Use ScreenUtil |
+
+📚 **Full Documentation:** See [AGENTS.md](AGENTS.md)
 
 ---
 

@@ -1,66 +1,97 @@
 import 'package:flutter/material.dart';
 
-/// Application color palette following the brief's visual style.
+/// Application color palette - SIMPLIFIED & FLATTENED
 ///
-/// All colors are optimized for dark theme with orange as primary accent.
-/// Used throughout the app for consistent branding and UI elements.
+/// Reduced from 19 to 12 colors by removing duplicates and using opacity variants.
+/// All colors optimized for dark theme with orange as primary accent.
 class AppColors {
-  /// Dark background color (#121212) for main app surfaces.
+  // ========== BACKGROUNDS (3 colors) ==========
+
+  /// Main background (#121212) - replaced backgroundGradientStart
   static const Color background = Color(0xFF121212);
 
-  /// Gradient start color for background transitions.
-  static const Color backgroundGradientStart = Color(0xFF121212);
+  /// Card/surface background (#1E1E1E) - replaced backgroundGradientEnd, cardBackground
+  static const Color card = Color(0xFF1E1E1E);
 
-  /// Gradient end color for background transitions.
-  static const Color backgroundGradientEnd = Color(0xFF1E1E1E);
+  /// Deep background (#0A0A0A) - replaced surfaceColor, darkBackground
+  static const Color dark = Color(0xFF0A0A0A);
 
-  /// Card background color (#1E1E1E) for elevated surfaces.
-  static const Color cardBackground = Color(0xFF1E1E1E);
+  // ========== ACCENTS (3 colors) ==========
 
-  /// Primary orange accent color (#FF6200) for main actions and highlights.
-  static const Color orangePrimary = Color(0xFFFF6200);
+  /// Primary orange (#FF6200) - use withOpacity() for variants instead of orangeLight
+  static const Color primary = Color(0xFFFF6200);
 
-  /// Secondary orange color for variations and hover states.
-  static const Color orangeLight = Color(0xFFFF8A33);
+  /// Blue for links/projects (#0A84FF)
+  static const Color link = Color(0xFF0A84FF);
 
-  /// Red color (#FF3B30) for errors, destructive actions, and closed states.
-  static const Color red = Color(0xFFFF3B30);
-
-  /// Blue color (#0A84FF) for links, info, and project-related elements.
-  static const Color blue = Color(0xFF0A84FF);
-
-  /// White color (#FFFFFF) for primary text on dark backgrounds.
-  static const Color white = Color(0xFFFFFFFF);
-
-  /// Green color (#4CAF50) for success states and confirmations.
-  static const Color success = Color(0xFF4CAF50);
-
-  /// Error color (#FF3B30) matching red for consistency.
+  /// Red for errors/closed (#FF3B30) - replaced error (was duplicate)
   static const Color error = Color(0xFFFF3B30);
 
-  /// Warning color (#FFC107) for caution indicators.
+  // ========== STATUS (3 colors) ==========
+
+  /// Success/open state (#4CAF50) - replaced issueOpen
+  static const Color success = Color(0xFF4CAF50);
+
+  /// Warning (#FFC107)
   static const Color warning = Color(0xFFFFC107);
 
-  /// Open issue status color (#238636) - GitHub-style green.
-  static const Color issueOpen = Color(0xFF238636);
+  /// Closed/merged state (#6E7781) - replaced issueClosed
+  static const Color muted = Color(0xFF6E7781);
 
-  /// Closed issue status color (#6E7781) - GitHub-style gray.
-  static const Color issueClosed = Color(0xFF6E7781);
+  // ========== TEXT & BORDERS (3 colors) ==========
 
-  /// Secondary orange color from new design (#FF5E00).
-  static const Color orangeSecondary = Color(0xFFFF5E00);
+  /// Primary text (#FFFFFF)
+  static const Color text = Color(0xFFFFFFFF);
 
-  /// Secondary text color (#A0A0A5) for less prominent text.
-  static const Color secondaryText = Color(0xFFA0A0A5);
+  /// Secondary text (#A0A0A5)
+  static const Color textSecondary = Color(0xFFA0A0A5);
 
-  /// Surface color (#111111) for elevated components.
-  static const Color surfaceColor = Color(0xFF111111);
+  /// Borders/dividers (#333333)
+  static const Color border = Color(0xFF333333);
 
-  /// Border color (#333333) for dividers and outlines.
-  static const Color borderColor = Color(0xFF333333);
+  // ========== DEPRECATED (for backward compatibility - remove in next major version) ==========
 
-  /// Dark background color (#0A0A0A) for deepest surfaces.
-  static const Color darkBackground = Color(0xFF0A0A0A);
+  @Deprecated('Use background instead')
+  static Color get backgroundGradientStart => background;
+
+  @Deprecated('Use card instead')
+  static Color get backgroundGradientEnd => card;
+
+  @Deprecated('Use card instead')
+  static Color get cardBackground => card;
+
+  @Deprecated('Use primary instead')
+  static Color get orangePrimary => primary;
+
+  @Deprecated('Use primary.withOpacity(0.8) instead')
+  static Color get orangeLight => primary.withValues(alpha: 0.8);
+
+  @Deprecated('Use primary instead')
+  static Color get orangeSecondary => primary;
+
+  @Deprecated('Use error instead')
+  static Color get red => error;
+
+  @Deprecated('Use text instead')
+  static Color get white => text;
+
+  @Deprecated('Use success instead')
+  static Color get issueOpen => success;
+
+  @Deprecated('Use muted instead')
+  static Color get issueClosed => muted;
+
+  @Deprecated('Use dark instead')
+  static Color get surfaceColor => dark;
+
+  @Deprecated('Use dark instead')
+  static Color get darkBackground => dark;
+
+  @Deprecated('Use border instead')
+  static Color get borderColor => border;
+
+  @Deprecated('Use textSecondary instead')
+  static Color get secondaryText => textSecondary;
 }
 
 /// Application typography constants.

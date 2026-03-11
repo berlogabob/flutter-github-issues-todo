@@ -64,7 +64,7 @@ class _RepoProjectLibraryScreenState
       }
 
       final repos = await _githubApi.fetchMyRepositories(perPage: 30);
-      
+
       // Update Riverpod state
       ref.read(repositoriesProvider.notifier).setRepos(repos);
 
@@ -93,10 +93,7 @@ class _RepoProjectLibraryScreenState
       if (mounted) setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.red),
         );
       }
     }
@@ -138,6 +135,90 @@ class _RepoProjectLibraryScreenState
     }
   }
 
+  Future<void> _showAddRepoDialog(BuildContext context) async {
+    final controller = TextEditingController();
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Repository'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'owner/repository',
+            labelText: 'Repository (e.g., flutter/flutter)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || result.isEmpty) return;
+
+    if (!result.contains('/')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Use format: owner/repository'),
+            backgroundColor: AppColors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final parts = result.split('/');
+      final repo = await _githubApi.fetchRepoByUrl(parts[0], parts[1]);
+
+      if (repo != null) {
+        // Add to repositories list
+        ref.read(repositoriesProvider.notifier).addRepo(repo);
+        // Pin to main screen
+        await ref.read(pinnedReposProvider.notifier).pin(repo.fullName);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${repo.fullName} added to main page'),
+              backgroundColor: AppColors.orangePrimary,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Repository not found'),
+              backgroundColor: AppColors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final repos = ref.watch(repositoriesProvider);
@@ -148,6 +229,11 @@ class _RepoProjectLibraryScreenState
       appBar: AppBar(
         title: const Text('Library'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_link),
+            tooltip: 'Add repo by URL',
+            onPressed: () => _showAddRepoDialog(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _fetchRepositories,
@@ -186,18 +272,18 @@ class _RepoProjectLibraryScreenState
             child: _isLoading
                 ? const Center(child: BrailleLoader(size: 32))
                 : repos.isEmpty
-                    ? const Center(child: Text('No repositories'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: repos.length,
-                        itemBuilder: (context, index) {
-                          final repo = repos[index];
-                          final isPinned = pinned.contains(repo.fullName);
-                          final isMain = repo.fullName == mainRepo;
+                ? const Center(child: Text('No repositories'))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: repos.length,
+                    itemBuilder: (context, index) {
+                      final repo = repos[index];
+                      final isPinned = pinned.contains(repo.fullName);
+                      final isMain = repo.fullName == mainRepo;
 
-                          return _buildRepoItem(repo, isPinned, isMain);
-                        },
-                      ),
+                      return _buildRepoItem(repo, isPinned, isMain);
+                    },
+                  ),
           ),
         ],
       ),
@@ -255,29 +341,53 @@ class _RepoProjectLibraryScreenState
               color: AppColors.orangePrimary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.folder, color: AppColors.orangePrimary, size: 24),
+            child: const Icon(
+              Icons.folder,
+              color: AppColors.orangePrimary,
+              size: 24,
+            ),
           ),
           title: Text(
             repo.fullName,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           subtitle: repo.description != null && repo.description!.isNotEmpty
-              ? Text(repo.description!, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12))
+              ? Text(
+                  repo.description!,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 12,
+                  ),
+                )
               : null,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isMain)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
                     color: AppColors.orangePrimary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('main', style: TextStyle(color: AppColors.orangePrimary, fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'main',
+                    style: TextStyle(
+                      color: AppColors.orangePrimary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               const Icon(Icons.chevron_right, color: AppColors.red, size: 20),
             ],
@@ -287,8 +397,49 @@ class _RepoProjectLibraryScreenState
             if (parts.length == 2) {
               await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => RepoDetailScreen(owner: parts[0], repo: parts[1])),
+                MaterialPageRoute(
+                  builder: (context) =>
+                      RepoDetailScreen(owner: parts[0], repo: parts[1]),
+                ),
               );
+            }
+          },
+          onLongPress: () async {
+            final currentMainRepo = ref.read(mainRepoProvider);
+            if (repo.fullName != currentMainRepo) {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Set as Main Repository?'),
+                  content: Text(
+                    '${repo.fullName} will become your default repo.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Set as Main'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                await ref
+                    .read(mainRepoProvider.notifier)
+                    .setMain(repo.fullName);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${repo.fullName} set as main repository'),
+                      backgroundColor: AppColors.orangePrimary,
+                    ),
+                  );
+                }
+              }
             }
           },
         ),

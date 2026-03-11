@@ -2,13 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/local_storage_service.dart';
 
 /// Provider for pinned repositories list
-final pinnedReposProvider = NotifierProvider<PinnedReposNotifier, List<String>>(() {
-  return PinnedReposNotifier();
-});
+final pinnedReposProvider = NotifierProvider<PinnedReposNotifier, List<String>>(
+  () {
+    return PinnedReposNotifier();
+  },
+);
 
 class PinnedReposNotifier extends Notifier<List<String>> {
   PinnedReposNotifier();
-  
+
   @override
   List<String> build() {
     return [];
@@ -43,7 +45,7 @@ final mainRepoProvider = NotifierProvider<MainRepoNotifier, String?>(() {
 
 class MainRepoNotifier extends Notifier<String?> {
   MainRepoNotifier();
-  
+
   @override
   String? build() {
     return null;
@@ -52,5 +54,11 @@ class MainRepoNotifier extends Notifier<String?> {
   Future<void> load() async {
     final storage = LocalStorageService();
     state = await storage.getDefaultRepo();
+  }
+
+  Future<void> setMain(String fullName) async {
+    state = fullName;
+    final storage = LocalStorageService();
+    await storage.saveDefaultRepo(fullName);
   }
 }

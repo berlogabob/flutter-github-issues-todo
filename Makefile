@@ -48,7 +48,7 @@ help:
 
 # Clear terminal and show current status
 init:
-	@$(CLEAR)
+	@$(CLEAR) 2>/dev/null || true
 	@echo "🚀 GitDoIt Build System"
 	@echo "Current version: $(CURRENT_VERSION)"
 	@echo "Next build: $(NEW_VERSION)"
@@ -57,7 +57,7 @@ init:
 
 # Increment build number in pubspec.yaml (robust method)
 version-increment:
-	@$(CLEAR)
+	@$(CLEAR) 2>/dev/null || true
 	@echo "🔄 Incrementing build number..."
 	@echo "Old version: $(CURRENT_VERSION)"
 	@echo "New version: $(NEW_VERSION)"
@@ -100,8 +100,9 @@ run-with-env: validate-env
 # Build Android APK
 build-android: init version-increment
 	@echo "📱 Building Android APK..."
-	@# Clean Gradle cache and stale generated plugin files
-	@rm -rf android/.gradle android/app/build
+	@# Clean all caches to avoid stale plugin references
+	@flutter clean >/dev/null 2>&1
+	@flutter pub get >/dev/null 2>&1
 	@rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 	@flutter build apk --release
 	@echo "✅ Android APK built successfully"
@@ -152,7 +153,7 @@ release: init version-increment build-android build-web git-commit-tag git-push-
 
 # Clean build directories
 clean:
-	@$(CLEAR)
+	@$(CLEAR) 2>/dev/null || true
 	@echo "🧹 Cleaning build directories..."
 	@rm -rf build/
 	@rm -rf docs/

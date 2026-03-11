@@ -274,6 +274,23 @@ class CacheService {
     return get(key) != null;
   }
 
+  /// Get cached value with async initialization.
+  ///
+  /// This method properly awaits cache initialization before reading.
+  /// Use this method when you need guaranteed cache access.
+  ///
+  /// [key] The cache key to retrieve.
+  /// [T] The expected type of the cached value.
+  ///
+  /// Returns the cached value of type `T`, or `null` if not found/expired.
+  Future<T?> getAsync<T>(String key) async {
+    // Ensure initialization
+    if (!_isInitialized) {
+      await init();
+    }
+    return get<T>(key);
+  }
+
   /// Invalidate cache entry immediately.
   ///
   /// Similar to [remove] but with explicit logging for cache invalidation events.

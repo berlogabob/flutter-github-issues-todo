@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'secure_storage_service.dart';
 import 'cache_service.dart';
+import 'local_storage_service.dart';
 import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
@@ -211,9 +212,27 @@ class GitHubApiService {
         'Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}',
       );
     } on TimeoutException catch (e) {
+      // Try to return cached data on timeout
+      final reposCacheKey = 'repos_page_$page';
+      final cachedData = _cache.get<List>(reposCacheKey);
+      if (cachedData != null) {
+        debugPrint('Returning cached repos due to timeout');
+        return cachedData
+            .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
       debugPrint('Request timeout: $e');
       throw Exception('Request timeout. Check your internet connection.');
     } on SocketException catch (e) {
+      // Try to return cached data on socket exception
+      final reposCacheKey = 'repos_page_$page';
+      final cachedData = _cache.get<List>(reposCacheKey);
+      if (cachedData != null) {
+        debugPrint('Returning cached repos due to socket exception');
+        return cachedData
+            .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
       debugPrint('SocketException: $e');
       throw Exception(
         'No internet connection. Please check your network settings.\n\nDetails: ${e.message}',
@@ -223,11 +242,52 @@ class GitHubApiService {
       if (e.toString().contains('SocketException') ||
           e.toString().contains('Network') ||
           e.toString().contains('failed host lookup')) {
+        // Try to return cached data
+        final reposCacheKey = 'repos_page_$page';
+        final cachedData = _cache.get<List>(reposCacheKey);
+        if (cachedData != null) {
+          debugPrint('Returning cached repos due to network error');
+          return cachedData
+              .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
         throw Exception(
           'Cannot connect to GitHub. Check your internet connection.\n\nError: ${e.toString()}',
         );
       }
       throw Exception('Unexpected error: ${e.toString()}');
+    }
+  }
+
+  /// Fetch a single repository by owner/repo name
+  /// Does not require authentication for public repos
+  Future<RepoItem?> fetchRepoByUrl(String owner, String repo) async {
+    try {
+      debugPrint('fetchRepoByUrl() called - $owner/$repo');
+
+      final headers = await _headers;
+      final uri = Uri.parse('https://api.github.com/repos/$owner/$repo');
+
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final repoItem = _parseRepo(data);
+        debugPrint('Successfully fetched repo: $owner/$repo');
+        return repoItem;
+      } else if (response.statusCode == 404) {
+        debugPrint('Repository not found: $owner/$repo');
+        return null;
+      } else {
+        debugPrint('Failed to fetch repo: ${response.statusCode}');
+        return null;
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error fetching repo by URL: $e');
+      return null;
     }
   }
 
@@ -310,9 +370,45 @@ class GitHubApiService {
       }
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      if (e.toString().contains('SocketException') ||
-          e.toString().contains('Network')) {
-        throw Exception('No internet connection. Working offline.');
+
+      // Try to return cached data on network failure
+      if (e is SocketException ||
+          e is TimeoutException ||
+          e.toString().contains('SocketException') ||
+          e.toString().contains('Network') ||
+          e.toString().contains('TimeoutException')) {
+        debugPrint('Network error, trying to return cached data for issues');
+
+        // Build cache key for this request
+        final issuesCacheKey = 'issues_${owner}_${repo}_$state';
+
+        // Try cache first
+        final cachedData = _cache.get<List>(issuesCacheKey);
+        if (cachedData != null) {
+          debugPrint('Returning cached issues due to network error');
+          return cachedData
+              .map((json) => IssueItem.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
+
+        // Try persistent storage as fallback
+        try {
+          final localStorage = LocalStorageService();
+          final persistentIssues = await localStorage.getSyncedIssues(
+            '$owner/$repo',
+          );
+          if (persistentIssues.isNotEmpty) {
+            debugPrint(
+              'Returning persistent storage issues due to network error',
+            );
+            return persistentIssues;
+          }
+        } catch (persistError) {
+          debugPrint('Persistent storage fallback failed: $persistError');
+        }
+
+        // Only throw if no cached data available
+        throw Exception('No internet connection and no cached data available.');
       }
       rethrow;
     }

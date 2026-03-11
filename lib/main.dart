@@ -9,6 +9,7 @@ import 'services/secure_storage_service.dart';
 import 'services/network_service.dart';
 import 'services/sync_service.dart';
 import 'services/local_storage_service.dart';
+import 'services/cache_service.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/main_dashboard_screen.dart';
 
@@ -62,6 +63,10 @@ void main() async {
 
   // Initialize Hive for caching
   await Hive.initFlutter();
+
+  // Initialize CacheService for API response caching
+  await CacheService().init();
+  debugPrint('CacheService initialized');
 
   // Initialize NetworkService
   await NetworkService().init();

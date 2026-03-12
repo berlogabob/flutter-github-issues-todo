@@ -26,7 +26,7 @@ class DocumentationAgent extends BaseAgent {
   
   @override
   Future<void> start() async {
-    _isActive = true;
+    isActive = true;
     debugPrint('$name: Started - Monitoring documentation...');
     await execute();
   }

@@ -51,7 +51,7 @@ class RulesComplianceAgent extends BaseAgent {
   
   @override
   Future<void> start() async {
-    _isActive = true;
+    isActive = true;
     debugPrint('$name: Started - PROACTIVELY monitoring rules...');
     await execute();
   }

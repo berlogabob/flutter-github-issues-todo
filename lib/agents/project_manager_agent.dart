@@ -26,7 +26,7 @@ class ProjectManagerAgent extends BaseAgent {
   
   @override
   Future<void> start() async {
-    _isActive = true;
+    isActive = true;
     debugPrint('$name: Started - Coordinating team...');
     await execute();
   }

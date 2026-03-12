@@ -6,17 +6,20 @@ abstract class BaseAgent {
   final String name;
   final String role;
   final List<String> responsibilities;
-  
+
+  /// Protected setter for active state - subclasses can set this
   bool _isActive = false;
   final _messageController = StreamController<AgentMessage>.broadcast();
-  
+
   BaseAgent({
     required this.name,
     required this.role,
     required this.responsibilities,
   });
-  
+
   bool get isActive => _isActive;
+  /// Protected setter for subclasses to update active state
+  set isActive(bool value) => _isActive = value;
   Stream<AgentMessage> get messageStream => _messageController.stream;
   
   Future<void> init();

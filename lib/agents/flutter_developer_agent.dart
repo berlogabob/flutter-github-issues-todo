@@ -27,7 +27,7 @@ class FlutterDeveloperAgent extends BaseAgent {
   
   @override
   Future<void> start() async {
-    _isActive = true;
+    isActive = true;
     debugPrint('$name: Started - Waiting for tasks...');
     await execute();
   }

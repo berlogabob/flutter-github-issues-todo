@@ -35,7 +35,7 @@ class UiDesignerAgent extends BaseAgent {
   
   @override
   Future<void> start() async {
-    _isActive = true;
+    isActive = true;
     debugPrint('$name: Started - Monitoring design compliance...');
     await execute();
   }

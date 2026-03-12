@@ -73,7 +73,9 @@ class AgentCoordinator {
   Future<void> stopAll() async {
     debugPrint('AgentCoordinator: Stopping all agents...');
     _isRunning = false;
-    for (final agent in _agents.values) await agent.stop();
+    // Create a copy of the values to avoid concurrent modification
+    final agentsToStop = _agents.values.toList();
+    for (final agent in agentsToStop) await agent.stop();
     debugPrint('AgentCoordinator: All agents stopped');
   }
   

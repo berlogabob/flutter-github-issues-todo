@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.5.0+107
+version: 0.5.0+108
 
 environment:
   sdk: ^3.11.0
@@ -31,21 +31,25 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # State management
-  flutter_riverpod: ^3.2.1
-  riverpod_annotation: ^4.0.2
-  riverpod: ^3.2.1
+  # State management - Modern Riverpod
+  flutter_riverpod: ^3.3.1
+
+  # Navigation (NEW - GoRouter)
+  go_router: ^14.0.0
 
   # Local storage - using hive_ce (community edition, actively maintained)
   hive_ce: ^2.10.1
   hive_ce_flutter: ^2.2.0
   path_provider: ^2.1.5
 
-  # Network
-  http: ^1.6.0
+  # Network - Upgraded to Dio for better error handling and offline support
+  dio: ^5.7.0
+
+  # UI helpers (NEW)
+  gap: ^3.0.0
 
   # Secure storage
-  flutter_secure_storage: ^10.0.0
+  flutter_secure_storage: ^9.2.0
 
   # Markdown rendering
   flutter_markdown_plus: ^1.0.6
@@ -78,16 +82,16 @@ dependencies:
   # Package info for dynamic version reading
   package_info_plus: ^9.0.0
 
-  # Image caching (Task 16.2)
+  # Image caching
   cached_network_image: ^3.3.1
 
-  # Background sync (Task 16.3) - Updated to latest compatible version
+  # Background sync
   workmanager: ^0.9.0+3
 
-  # Shimmer effect for loading skeletons (Task 16.5)
+  # Shimmer effect for loading skeletons
   shimmer: ^3.0.0
 
-  # Share plugin for exporting error logs (Task 18.4)
+  # Share plugin for exporting error logs
   share_plus: ^12.0.1
 
 dev_dependencies:
@@ -95,17 +99,19 @@ dev_dependencies:
     sdk: flutter
 
   # Code generation
-  build_runner: ^2.11.1
-  riverpod_generator: ^4.0.3
+  build_runner: ^2.4.12
 
   # Linting
-  flutter_lints: ^6.0.0
+  lints: ^4.0.0
+
+  # Linting (upgraded)
+  very_good_analysis: ^6.0.0
 
   # Testing
   # (test, test_api, test_core, matcher provided by flutter_test SDK)
 
   # Build tools
-  build_config: ^1.2.0
+  build_config: ^1.1.0
 
   # Integration testing
   integration_test:
@@ -138,7 +144,7 @@ flutter:
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
   # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
+  # list giving the asset and other descriptors for the font.
   # example:
   # fonts:
   #   - family: Schyler
@@ -148,7 +154,7 @@ flutter:
   #         style: italic
   #   - family: Trajan Pro
   #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TraitanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #

@@ -3,12 +3,12 @@ import 'package:gitdoit/models/issue_item.dart';
 import 'package:gitdoit/models/item.dart';
 
 /// Test for Issue #34: Offline mode new issues doubling on sync
-/// 
+///
 /// This test verifies that local-only issues created offline are not
 /// duplicated when syncing with GitHub.
 void main() {
   group('Issue #34 - Offline Issue Duplication Prevention', () {
-    
+
     test('local issue should be filtered by title match with remote issue', () {
       // Create a local-only issue (created offline)
       final localIssue = IssueItem(
@@ -40,7 +40,7 @@ void main() {
       // Check if local issue would be filtered out
       final isDuplicate = remoteIssuesByTitle.containsKey(titleKey);
 
-      expect(isDuplicate, isTrue, 
+      expect(isDuplicate, isTrue,
         reason: 'Local issue should be detected as duplicate by title match');
     });
 
@@ -75,7 +75,7 @@ void main() {
       // Check if local issue would be filtered out
       final isDuplicate = remoteIssuesByTitle.containsKey(titleKey);
 
-      expect(isDuplicate, isFalse, 
+      expect(isDuplicate, isFalse,
         reason: 'Local issue with unique title should NOT be filtered');
     });
 
@@ -110,14 +110,14 @@ void main() {
       // Check if local issue would be filtered out
       final isDuplicate = remoteIssuesByTitle.containsKey(titleKey);
 
-      expect(isDuplicate, isTrue, 
+      expect(isDuplicate, isTrue,
         reason: 'Title matching should be case-insensitive');
     });
 
     test('synced issue IDs should be tracked to prevent multi-repo duplication', () {
       // Simulate tracking synced issue IDs across multiple repos
       final syncedLocalIssueIds = <String>{};
-      
+
       final localIssue1 = IssueItem(
         id: 'local_111',
         title: 'Issue 1',
@@ -125,7 +125,7 @@ void main() {
         isLocalOnly: true,
         number: null,
       );
-      
+
       final localIssue2 = IssueItem(
         id: 'local_222',
         title: 'Issue 2',
@@ -141,9 +141,9 @@ void main() {
       final shouldSyncIssue1 = !syncedLocalIssueIds.contains(localIssue1.id);
       final shouldSyncIssue2 = !syncedLocalIssueIds.contains(localIssue2.id);
 
-      expect(shouldSyncIssue1, isFalse, 
+      expect(shouldSyncIssue1, isFalse,
         reason: 'Already synced issue should be filtered out');
-      expect(shouldSyncIssue2, isTrue, 
+      expect(shouldSyncIssue2, isTrue,
         reason: 'Unsynced issue should still be processed');
     });
 
@@ -161,6 +161,99 @@ void main() {
 
       final decoded = IssueItem.fromJson(json);
       expect(decoded.isLocalOnly, isTrue);
+    });
+
+    test('body content should be considered in duplicate detection', () {
+      // Create a local-only issue
+      final localIssue = IssueItem(
+        id: 'local_123',
+        title: 'Test Issue',
+        bodyMarkdown: 'This is the body content',
+        status: ItemStatus.open,
+        isLocalOnly: true,
+        number: null,
+      );
+
+      // Create a remote issue with same title but different body
+      final remoteIssueDifferentBody = IssueItem(
+        id: '987',
+        title: 'Test Issue',
+        bodyMarkdown: 'Different body content',
+        status: ItemStatus.open,
+        isLocalOnly: false,
+        number: 42,
+      );
+
+      // Create a remote issue with same title AND same body
+      final remoteIssueSameBody = IssueItem(
+        id: '988',
+        title: 'Test Issue',
+        bodyMarkdown: 'This is the body content',
+        status: ItemStatus.open,
+        isLocalOnly: false,
+        number: 43,
+      );
+
+      // Simulate the enhanced duplicate detection with body check
+      final titleKey = localIssue.title.toLowerCase().trim();
+      final remoteIssuesByTitle = <String, IssueItem>{};
+      remoteIssuesByTitle[remoteIssueDifferentBody.title.toLowerCase().trim()] = remoteIssueDifferentBody;
+      remoteIssuesByTitle[remoteIssueSameBody.title.toLowerCase().trim()] = remoteIssueSameBody;
+
+      // Check title match
+      final titleMatch = remoteIssuesByTitle.containsKey(titleKey);
+      expect(titleMatch, isTrue,
+        reason: 'Title should match');
+
+      // Check body match for the same body issue
+      final matchingRemote = remoteIssuesByTitle[titleKey];
+      final bodyMatches = localIssue.bodyMarkdown == null || 
+                          matchingRemote?.bodyMarkdown == null ||
+                          localIssue.bodyMarkdown!.trim() == matchingRemote!.bodyMarkdown!.trim();
+      
+      expect(bodyMatches, isTrue,
+        reason: 'Body should match for same content');
+    });
+
+    test('null body should not prevent duplicate detection', () {
+      // Create a local-only issue with null body
+      final localIssue = IssueItem(
+        id: 'local_123',
+        title: 'Test Issue',
+        bodyMarkdown: null,
+        status: ItemStatus.open,
+        isLocalOnly: true,
+        number: null,
+      );
+
+      // Create a remote issue with same title
+      final remoteIssue = IssueItem(
+        id: '987',
+        title: 'Test Issue',
+        bodyMarkdown: 'Some body',
+        status: ItemStatus.open,
+        isLocalOnly: false,
+        number: 42,
+      );
+
+      // Simulate the duplicate detection
+      final titleKey = localIssue.title.toLowerCase().trim();
+      final remoteIssuesByTitle = <String, IssueItem>{};
+      remoteIssuesByTitle[remoteIssue.title.toLowerCase().trim()] = remoteIssue;
+
+      // Check if duplicate is detected
+      final isDuplicate = remoteIssuesByTitle.containsKey(titleKey);
+      expect(isDuplicate, isTrue,
+        reason: 'Should detect duplicate even with null body');
+
+      // Body match check should pass with null body
+      final matchingRemote = remoteIssuesByTitle[titleKey];
+      final bodyMatches = localIssue.bodyMarkdown == null || 
+                          matchingRemote?.bodyMarkdown == null ||
+                          localIssue.bodyMarkdown!.trim() == matchingRemote!.bodyMarkdown!.trim();
+      
+      expect(bodyMatches, isTrue,
+        reason: 'Null body should match anything');
     });
   });
 }

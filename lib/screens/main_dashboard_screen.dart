@@ -89,6 +89,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // Set up callback for when internet becomes available with local issues
     _syncService.onSyncNeeded = _showSyncLocalIssuesDialog;
+    
+    // FIX (#34): Set up callback for when local issues are synced - refresh vault
+    _syncService.onLocalIssuesSynced = _onLocalIssuesSynced;
 
     // Listen to sync service changes to update cloud icon
     _syncListener = () {
@@ -245,6 +248,19 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
     }
   }
+  
+  /// FIX (#34): Callback invoked when local issues are synced to GitHub
+  /// This refreshes the vault repo to remove synced issues and prevent duplication
+  void _onLocalIssuesSynced() {
+    debugPrint('[Dashboard] Local issues synced - refreshing vault repo');
+    // Schedule the refresh for after the current frame
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        await _loadLocalIssues();
+        debugPrint('[Dashboard] Vault repo refreshed');
+      }
+    });
+  }
 
   Future<void> _checkOfflineMode() async {
     try {
@@ -279,6 +295,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   @override
   void dispose() {
     _syncService.removeListener(_syncListener);
+    // FIX (#34): Clean up callback
+    _syncService.onLocalIssuesSynced = null;
     super.dispose();
   }
 

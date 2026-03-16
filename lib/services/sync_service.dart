@@ -50,6 +50,9 @@ class SyncService {
 
   // Callback for when sync is needed (has local issues + internet)
   Function()? onSyncNeeded;
+  
+  // Callback for when local issues have been synced (UI should refresh vault)
+  Function()? onLocalIssuesSynced;
 
   // Connectivity subscription
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -308,7 +311,7 @@ class SyncService {
 
     try {
       final localIssues = await _localStorage.getLocalIssues();
-      final syncedIds = await _syncLocalIssuesToGitHub(owner, repo, localIssues);
+      await _syncLocalIssuesToGitHub(owner, repo, localIssues);
 
       // FIX (#34): Cancel any pending auto-sync to prevent duplicate processing
       _autoSyncTimer?.cancel();
@@ -521,6 +524,12 @@ class SyncService {
 
       _syncedIssuesCount = totalSynced;
       debugPrint('SyncService: Issues sync completed ($totalSynced issues)');
+      
+      // FIX (#34): Notify UI to refresh vault repo after local issues are synced
+      if (syncedLocalIssueIds.isNotEmpty && onLocalIssuesSynced != null) {
+        debugPrint('SyncService: Notifying UI to refresh vault (${syncedLocalIssueIds.length} issues synced)');
+        onLocalIssuesSynced!();
+      }
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('SyncService: Issues sync failed: $e');
@@ -617,11 +626,19 @@ class SyncService {
         // the local file wasn't removed yet
         final titleKey = issue.title.toLowerCase().trim();
         if (remoteIssuesByTitle.containsKey(titleKey)) {
-          debugPrint(
-            'SyncService: ⚠️ SKIP local issue "${issue.title}" - '
-            'already exists on GitHub (matched by title)',
-          );
-          return false;
+          final matchingRemote = remoteIssuesByTitle[titleKey];
+          // Additional verification: check if body also matches (if available)
+          final bodyMatches = issue.bodyMarkdown == null || 
+                              matchingRemote?.bodyMarkdown == null ||
+                              issue.bodyMarkdown!.trim() == matchingRemote!.bodyMarkdown!.trim();
+          
+          if (bodyMatches) {
+            debugPrint(
+              'SyncService: ⚠️ SKIP local issue "${issue.title}" - '
+              'already exists on GitHub (matched by title${bodyMatches ? ' + body' : ''})',
+            );
+            return false;
+          }
         }
 
         return true;
@@ -682,6 +699,28 @@ class SyncService {
 
     for (final issue in localOnlyIssues) {
       try {
+        // FIX (#34): Check if issue already exists on GitHub by title before creating
+        // This prevents duplication if the issue was already synced in a previous run
+        final existingIssues = await _githubApi.fetchIssues(
+          owner,
+          repo,
+          state: 'all',
+        );
+        
+        final alreadyExists = existingIssues.any(
+          (existing) => existing.title.trim().toLowerCase() == issue.title.trim().toLowerCase(),
+        );
+
+        if (alreadyExists) {
+          debugPrint(
+            'SyncService: ⚠️ SKIP creating "${issue.title}" - already exists on GitHub',
+          );
+          // Still remove the local file since it exists on GitHub
+          await _localStorage.removeLocalIssue(issue.id);
+          syncedIds.add(issue.id);
+          continue;
+        }
+
         // Create the issue on GitHub
         final createdIssue = await _githubApi.createIssue(
           owner,
@@ -699,7 +738,7 @@ class SyncService {
         await _localStorage.removeLocalIssue(issue.id);
 
         debugPrint('SyncService: Removed local issue ${issue.id}');
-        
+
         // Track successfully synced issue
         syncedIds.add(issue.id);
       } catch (e, stackTrace) {
@@ -710,7 +749,7 @@ class SyncService {
         // Keep the local issue for next sync attempt - don't add to syncedIds
       }
     }
-    
+
     return syncedIds;
   }
 

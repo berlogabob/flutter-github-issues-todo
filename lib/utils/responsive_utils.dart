@@ -63,6 +63,7 @@ class AppResponsive {
   }
 
   /// Get responsive horizontal padding
+  /// FIX (#31): Reduce padding on mobile for more content width
   static double horizontalPadding(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
@@ -71,11 +72,12 @@ class AppResponsive {
     } else if (width >= AppBreakpoints.tablet) {
       return 24;
     } else {
-      return 16;
+      return 8; // Reduced from 16 to 8 on mobile for more space
     }
   }
 
   /// Get max content width for readability on large screens
+  /// FIX (#31): Use full screen width on mobile for better readability
   static double maxContentWidth(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
@@ -86,7 +88,7 @@ class AppResponsive {
     } else if (width >= AppBreakpoints.tablet) {
       return 600;
     } else {
-      return width - 32; // Full width with padding
+      return width; // Full width on mobile (no reduction)
     }
   }
 

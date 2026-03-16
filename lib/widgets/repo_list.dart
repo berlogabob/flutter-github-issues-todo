@@ -57,10 +57,14 @@ class RepoList extends StatelessWidget {
         ? 8.0
         : 0.0;
 
+    // FIX (#31): Use minimal padding on mobile for full-width appearance
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth < 600 ? 4.0 : screenWidth * 0.02;
+
     return ListView.builder(
       padding: EdgeInsets.only(
-        left: MediaQuery.of(context).size.width * 0.02,
-        right: MediaQuery.of(context).size.width * 0.02,
+        left: horizontalPadding,
+        right: horizontalPadding,
         top: topPadding,
       ),
       itemCount: sortedFilteredRepos.length,

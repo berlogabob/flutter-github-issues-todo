@@ -1064,22 +1064,27 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               hideUsernameInRepo: _hideUsernameInRepo,
               pendingOperationsCount: _pendingOps.getPendingCount(),
             ),
-            
-            // OFFLINE-FIRST: Last updated indicator
-            if (_cachedDataTimestamp != null && allRepos.isNotEmpty)
-              _buildLastUpdatedIndicator(),
-            
+
+            // FIX (#32): Removed duplicate "Last updated" indicator
+            // FIX (#32): Removed "Refreshing in background" indicator
+            // SyncStatusWidget in AppBar already shows sync status with animation
             // Error message if any
             if (_errorMessage != null) _buildErrorMessage(),
             
-            // Fetching indicator (only show if refreshing in background)
-            if (_isRefreshingInBackground && _repositories.isNotEmpty)
-              _buildBackgroundRefreshingIndicator(),
-            
             // Task List
             Expanded(
-              child: (allRepos.isEmpty && _isLoadingCachedData)
-                  ? const Center(child: BrailleLoader(size: 32))
+              child: allRepos.isEmpty && _isLoadingCachedData
+                  // FIX (#32): Show single loading indicator (full-screen already shows loading)
+                  // Don't show duplicate BrailleLoader in RefreshIndicator
+                  ? const Center(
+                      child: Text(
+                        'Loading...',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
                   : RefreshIndicator(
                       onRefresh: _fetchRepositories,
                       color: AppColors.primary,
@@ -1191,75 +1196,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         ],
       ),
     );
-  }
-
-  /// OFFLINE-FIRST: Build last updated indicator
-  Widget _buildLastUpdatedIndicator() {
-    if (_cachedDataTimestamp == null) return const SizedBox.shrink();
-    
-    final lastUpdated = _formatLastUpdated(_cachedDataTimestamp!);
-    
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: Row(
-        children: [
-          Icon(
-            _isRefreshingInBackground ? Icons.sync : Icons.check_circle,
-            size: 14.w,
-            color: _isRefreshingInBackground
-                ? AppColors.primary
-                : Colors.green,
-          ),
-          SizedBox(width: 8.w),
-          Text(
-            'Last updated: $lastUpdated',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 11.sp,
-            ),
-          ),
-          if (_isRefreshingInBackground) ...[
-            SizedBox(width: 8.w),
-            SizedBox(
-              width: 12.w,
-              height: 12.w,
-              child: BrailleLoader(size: 12),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// OFFLINE-FIRST: Build background refreshing indicator
-  Widget _buildBackgroundRefreshingIndicator() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          BrailleLoader(size: 12),
-          SizedBox(width: 8.w),
-          Text(
-            'Refreshing in background...',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 11.sp,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Format last updated timestamp
-  String _formatLastUpdated(DateTime timestamp) {
-    final now = DateTime.now();
-    final diff = now.difference(timestamp);
-    
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
   }
 
   /// Build the task list with pagination support (Task 16.1)

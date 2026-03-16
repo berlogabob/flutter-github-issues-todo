@@ -308,7 +308,13 @@ class SyncService {
 
     try {
       final localIssues = await _localStorage.getLocalIssues();
-      await _syncLocalIssuesToGitHub(owner, repo, localIssues);
+      final syncedIds = await _syncLocalIssuesToGitHub(owner, repo, localIssues);
+
+      // FIX (#34): Cancel any pending auto-sync to prevent duplicate processing
+      _autoSyncTimer?.cancel();
+      
+      // FIX (#34): Wait a bit to ensure files are deleted before any other sync
+      await Future.delayed(const Duration(milliseconds: 500));
 
       _syncStatus = 'success';
       _notifyListeners();
@@ -439,6 +445,9 @@ class SyncService {
       final localIssues = await _localStorage.getLocalIssues();
       debugPrint('SyncService: Found ${localIssues.length} local issues');
 
+      // FIX (#34): Track synced local issues to prevent duplicate sync attempts
+      final syncedLocalIssueIds = <String>{};
+
       // Fetch repositories
       final repos = await _githubApi.fetchMyRepositories(perPage: 30);
       debugPrint('SyncService: Fetched ${repos.length} repositories');
@@ -479,11 +488,16 @@ class SyncService {
             'SyncService: Fetched ${remoteIssues.length} issues for ${repo.fullName}',
           );
 
+          // FIX (#34): Filter out already-synced local issues before conflict resolution
+          final unsyncedLocalIssues = localIssues.where((issue) {
+            return !syncedLocalIssueIds.contains(issue.id);
+          }).toList();
+
           // Resolve conflicts and merge data
           final mergedIssues = await _resolveIssuesConflict(
             repo.fullName,
             remoteIssues,
-            localIssues,
+            unsyncedLocalIssues,
           );
 
           // Save synced issues to local storage
@@ -491,8 +505,13 @@ class SyncService {
 
           totalSynced += mergedIssues.length;
 
-          // Remove synced local-only issues
-          await _syncLocalIssuesToGitHub(owner, repoName, localIssues);
+          // FIX (#34): Sync local issues and track which ones were successfully synced
+          final newlySyncedIds = await _syncLocalIssuesToGitHub(
+            owner,
+            repoName,
+            unsyncedLocalIssues,
+          );
+          syncedLocalIssueIds.addAll(newlySyncedIds);
         } catch (e, stackTrace) {
           AppErrorHandler.handle(e, stackTrace: stackTrace);
           debugPrint('SyncService: Failed to sync ${repo.fullName}: $e');
@@ -547,12 +566,14 @@ class SyncService {
   /// - Remote issues always win for existing issues (by issue number)
   /// - Local-only issues (isLocalOnly=true) are kept for sync to GitHub
   /// - Merged list includes all remote issues + local-only issues
+  /// - FIX (#34): Prevent duplication by detecting already-synced issues
   Future<List<IssueItem>> _resolveIssuesConflict(
     String repoFullName,
     List<IssueItem> remoteIssues,
     List<IssueItem> localIssues,
   ) async {
     debugPrint('SyncService: Resolving conflicts for $repoFullName');
+    debugPrint('SyncService: Remote issues: ${remoteIssues.length}, Local issues: ${localIssues.length}');
 
     // Detect conflicts between local and remote issues
     final conflicts = _conflictDetector.detectConflicts(
@@ -576,19 +597,41 @@ class SyncService {
       }
     }
 
+    // FIX (#34): Create a map of remote issues by title for duplicate detection
+    // This prevents offline-created issues from appearing twice after sync
+    final remoteIssuesByTitle = <String, IssueItem>{};
+    for (final issue in remoteIssues) {
+      final titleKey = issue.title.toLowerCase().trim();
+      remoteIssuesByTitle[titleKey] = issue;
+    }
+
     // Find local-only issues that don't exist on GitHub yet
     final localOnlyIssues = localIssues.where((issue) {
-      // Keep if it's marked as local-only
-      if (issue.isLocalOnly) return true;
+      // Skip if it doesn't have a GitHub number yet
+      if (issue.number == null) {
+        // Only keep if it's marked as local-only
+        if (!issue.isLocalOnly) return false;
 
-      // Keep if it doesn't have a GitHub number yet
-      if (issue.number == null) return true;
+        // FIX (#34): Check if this local issue matches a remote issue by title
+        // This prevents duplication when an issue was already synced but
+        // the local file wasn't removed yet
+        final titleKey = issue.title.toLowerCase().trim();
+        if (remoteIssuesByTitle.containsKey(titleKey)) {
+          debugPrint(
+            'SyncService: ⚠️ SKIP local issue "${issue.title}" - '
+            'already exists on GitHub (matched by title)',
+          );
+          return false;
+        }
+
+        return true;
+      }
 
       return false;
     }).toList();
 
     debugPrint(
-      'SyncService: Found ${localOnlyIssues.length} local-only issues',
+      'SyncService: Found ${localOnlyIssues.length} local-only issues to sync',
     );
 
     // Merge: remote issues + local-only issues
@@ -604,7 +647,7 @@ class SyncService {
       }
     }
 
-    debugPrint('SyncService: Merged ${unique.length} total issues');
+    debugPrint('SyncService: Merged ${unique.length} total issues (remote: ${remoteIssues.length}, local-only: ${localOnlyIssues.length})');
     return unique;
   }
 
@@ -620,15 +663,17 @@ class SyncService {
 
   /// Sync local-only issues to GitHub
   /// After successful sync, removes them from local storage
-  Future<void> _syncLocalIssuesToGitHub(
+  /// Returns list of successfully synced issue IDs
+  Future<List<String>> _syncLocalIssuesToGitHub(
     String owner,
     String repo,
     List<IssueItem> localIssues,
   ) async {
     final localOnlyIssues = localIssues.where((i) => i.isLocalOnly).toList();
+    final syncedIds = <String>[];
 
     if (localOnlyIssues.isEmpty) {
-      return;
+      return syncedIds;
     }
 
     debugPrint(
@@ -654,14 +699,19 @@ class SyncService {
         await _localStorage.removeLocalIssue(issue.id);
 
         debugPrint('SyncService: Removed local issue ${issue.id}');
+        
+        // Track successfully synced issue
+        syncedIds.add(issue.id);
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace);
         debugPrint(
           'SyncService: Failed to sync local issue "${issue.title}": $e',
         );
-        // Keep the local issue for next sync attempt
+        // Keep the local issue for next sync attempt - don't add to syncedIds
       }
     }
+    
+    return syncedIds;
   }
 
   /// Get comprehensive sync status for UI

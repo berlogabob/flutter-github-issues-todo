@@ -15,6 +15,7 @@ import '../models/item.dart';
 class GitHubApiService {
   String? _token;
   final CacheService _cache = CacheService();
+  final LocalStorageService _localStorage = LocalStorageService();
 
   GitHubApiService({GitHubApiService? githubApi}) {
     // Allow passing instance for inheritance
@@ -191,6 +192,13 @@ class GitHubApiService {
           ttl: const Duration(minutes: 5),
         );
 
+        // Also save to persistent storage for offline fallback
+        try {
+          await _localStorage.saveRepos(repos.map((r) => r.toJson()).toList());
+        } catch (e) {
+          debugPrint('Failed to save repos to persistent storage: $e');
+        }
+
         return repos;
       } else if (response.statusCode == 401) {
         debugPrint('401 Unauthorized - Token invalid or expired');
@@ -221,6 +229,18 @@ class GitHubApiService {
             .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
             .toList();
       }
+
+      // Try persistent storage as fallback for repos
+      try {
+        final persistentRepos = await _localStorage.getRepos();
+        if (persistentRepos.isNotEmpty) {
+          debugPrint('Returning persistent storage repos due to timeout');
+          return persistentRepos.map((r) => RepoItem.fromJson(r)).toList();
+        }
+      } catch (persistError) {
+        debugPrint('Persistent storage fallback failed: $persistError');
+      }
+
       debugPrint('Request timeout: $e');
       throw Exception('Request timeout. Check your internet connection.');
     } on SocketException catch (e) {
@@ -233,6 +253,20 @@ class GitHubApiService {
             .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
             .toList();
       }
+
+      // Try persistent storage as fallback for repos
+      try {
+        final persistentRepos = await _localStorage.getRepos();
+        if (persistentRepos.isNotEmpty) {
+          debugPrint(
+            'Returning persistent storage repos due to socket exception',
+          );
+          return persistentRepos.map((r) => RepoItem.fromJson(r)).toList();
+        }
+      } catch (persistError) {
+        debugPrint('Persistent storage fallback failed: $persistError');
+      }
+
       debugPrint('SocketException: $e');
       throw Exception(
         'No internet connection. Please check your network settings.\n\nDetails: ${e.message}',
@@ -251,6 +285,20 @@ class GitHubApiService {
               .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
               .toList();
         }
+
+        // Try persistent storage as fallback for repos
+        try {
+          final persistentRepos = await _localStorage.getRepos();
+          if (persistentRepos.isNotEmpty) {
+            debugPrint(
+              'Returning persistent storage repos due to network error',
+            );
+            return persistentRepos.map((r) => RepoItem.fromJson(r)).toList();
+          }
+        } catch (persistError) {
+          debugPrint('Persistent storage fallback failed: $persistError');
+        }
+
         throw Exception(
           'Cannot connect to GitHub. Check your internet connection.\n\nError: ${e.toString()}',
         );
@@ -363,6 +411,13 @@ class GitHubApiService {
           issues.map((i) => i.toJson()).toList(),
           ttl: const Duration(minutes: 5),
         );
+
+        // Also save to persistent storage for offline fallback
+        try {
+          await _localStorage.saveSyncedIssues('$owner/$repo', issues);
+        } catch (e) {
+          debugPrint('Failed to save issues to persistent storage: $e');
+        }
 
         return issues;
       } else {

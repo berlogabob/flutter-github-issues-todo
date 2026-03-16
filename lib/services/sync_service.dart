@@ -77,12 +77,12 @@ class SyncService {
   }
 
   /// Initialize sync service
-  void init() {
+  Future<void> init() async {
     debugPrint('SyncService: Initializing...');
     _setupConnectivityListener();
     _checkNetworkStatus();
     _loadLastSyncTimes();
-    _initHistory();
+    await _initHistory();
   }
 
   /// Initialize sync history

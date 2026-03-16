@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/local_storage_service.dart';
 
@@ -11,9 +12,29 @@ final pinnedReposProvider = NotifierProvider<PinnedReposNotifier, List<String>>(
 class PinnedReposNotifier extends Notifier<List<String>> {
   PinnedReposNotifier();
 
+  bool _initialized = false;
+
   @override
   List<String> build() {
-    return [];
+    // Auto-load pinned repos from storage (once)
+    if (!_initialized) {
+      _initialized = true;
+      _loadAsync();
+    }
+    return state;
+  }
+
+  Future<void> _loadAsync() async {
+    try {
+      final storage = LocalStorageService();
+      final pinned = await storage.getPinnedRepos();
+      state = pinned;
+    } catch (e) {
+      developer.log(
+        'Error loading pinned repos: $e',
+        name: 'PinnedReposNotifier',
+      );
+    }
   }
 
   Future<void> load() async {
@@ -46,9 +67,26 @@ final mainRepoProvider = NotifierProvider<MainRepoNotifier, String?>(() {
 class MainRepoNotifier extends Notifier<String?> {
   MainRepoNotifier();
 
+  bool _initialized = false;
+
   @override
   String? build() {
-    return null;
+    // Auto-load main repo from storage (once)
+    if (!_initialized) {
+      _initialized = true;
+      _loadAsync();
+    }
+    return state;
+  }
+
+  Future<void> _loadAsync() async {
+    try {
+      final storage = LocalStorageService();
+      final mainRepo = await storage.getDefaultRepo();
+      state = mainRepo;
+    } catch (e) {
+      developer.log('Error loading main repo: $e', name: 'MainRepoNotifier');
+    }
   }
 
   Future<void> load() async {

@@ -114,7 +114,9 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     super.initState();
     _titleController = TextEditingController();
     _bodyController = TextEditingController();
-    _selectedRepoFullName = widget.repo;
+    // Use expandedRepoFullName if available (from expanded repo on main screen),
+    // otherwise fall back to repo parameter
+    _selectedRepoFullName = widget.expandedRepoFullName ?? widget.repo;
 
     // Load repo data after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -454,9 +456,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                           ),
                           Icon(
                             Icons.check_circle,
-                            color: AppColors.primary.withValues(
-                              alpha: 0.7,
-                            ),
+                            color: AppColors.primary.withValues(alpha: 0.7),
                             size: 18,
                           ),
                         ],
@@ -544,9 +544,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: AppColors.primary,
-                        ),
+                        borderSide: const BorderSide(color: AppColors.primary),
                       ),
                       errorText: _validateTitle(_titleController.text),
                       counterText:
@@ -585,9 +583,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: AppColors.primary,
-                        ),
+                        borderSide: const BorderSide(color: AppColors.primary),
                       ),
                       counterText:
                           '${_bodyController.text.length}/$_maxBodyLength',

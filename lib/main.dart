@@ -10,6 +10,7 @@ import 'services/network_service.dart';
 import 'services/sync_service.dart';
 import 'services/local_storage_service.dart';
 import 'services/cache_service.dart';
+import 'services/pending_operations_service.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/main_dashboard_screen.dart';
 
@@ -67,6 +68,15 @@ void main() async {
   // Initialize CacheService for API response caching
   await CacheService().init();
   debugPrint('CacheService initialized');
+
+  // Initialize PendingOperationsService for offline queue
+  await PendingOperationsService().init();
+  debugPrint('PendingOperationsService initialized');
+
+  // Initialize SyncService for data synchronization
+  final syncService = SyncService();
+  await syncService.init();
+  debugPrint('SyncService initialized');
 
   // Initialize NetworkService
   await NetworkService().init();
@@ -182,10 +192,7 @@ class GitDoItApp extends StatelessWidget {
               foregroundColor: Colors.white,
               elevation: 0,
             ),
-            cardTheme: CardThemeData(
-              color: AppColors.card,
-              elevation: 2,
-            ),
+            cardTheme: CardThemeData(color: AppColors.card, elevation: 2),
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,

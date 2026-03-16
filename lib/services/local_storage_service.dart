@@ -17,6 +17,9 @@ class LocalStorageService {
   static const String _userKey = 'local_user';
   static const String _filtersKey = 'local_filters';
   static const String _projectsKey = 'local_projects';
+  // For persistent offline storage of repositories
+  static const String _syncedReposKey = 'synced_repos';
+  static const String _syncedReposTimestampKey = 'synced_repos_timestamp';
   // PERFORMANCE OPTIMIZATION (Task 16.3): Auto-sync settings keys
   static const String _autoSyncWifiKey = 'auto_sync_wifi';
   static const String _autoSyncAnyKey = 'auto_sync_any';
@@ -426,6 +429,51 @@ class LocalStorageService {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting synced issues: $e');
       return [];
+    }
+  }
+
+  /// Save repositories persistently for offline access
+  Future<void> saveRepos(List<Map<String, dynamic>> repos) async {
+    try {
+      await _storage.write(key: _syncedReposKey, value: json.encode(repos));
+      await _storage.write(
+        key: _syncedReposTimestampKey,
+        value: DateTime.now().toIso8601String(),
+      );
+      debugPrint('Saved ${repos.length} repositories persistently');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error saving repos: $e');
+    }
+  }
+
+  /// Get saved repositories for offline access
+  Future<List<Map<String, dynamic>>> getRepos() async {
+    try {
+      final reposJson = await _storage.read(key: _syncedReposKey);
+      if (reposJson == null || reposJson.isEmpty) {
+        return [];
+      }
+
+      final List<dynamic> repos = json.decode(reposJson);
+      return repos.map((r) => r as Map<String, dynamic>).toList();
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error getting repos: $e');
+      return [];
+    }
+  }
+
+  /// Get last sync time for repositories
+  Future<DateTime?> getReposSyncTime() async {
+    try {
+      final timestamp = await _storage.read(key: _syncedReposTimestampKey);
+      if (timestamp == null) return null;
+      return DateTime.parse(timestamp);
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error getting repos sync time: $e');
+      return null;
     }
   }
 

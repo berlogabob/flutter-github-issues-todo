@@ -53,7 +53,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   String _filterStatus = 'open';
   bool _hideUsernameInRepo = true;
   bool _isOfflineMode = false;
-  bool _isFetchingRepos = false;
+  bool _isFetchingRepos = true; // Start as true to show loading on first build
   bool _isFetchingProjects = false;
   String? _errorMessage;
   String? _vaultFolderName;
@@ -72,8 +72,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
     _syncService.init();
-    _checkOfflineMode();
+    await _checkOfflineMode();
     _loadHideUsernameSetting();
     _loadDefaultRepoSetting();
 
@@ -169,10 +173,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 itemBuilder: (context, index) {
                   final repo = _repositories[index];
                   return ListTile(
-                    leading: const Icon(
-                      Icons.folder,
-                      color: AppColors.primary,
-                    ),
+                    leading: const Icon(Icons.folder, color: AppColors.primary),
                     title: Text(
                       repo.fullName,
                       style: const TextStyle(color: Colors.white),
@@ -285,12 +286,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Load saved filters
     await _loadSavedFilters();
     _isInitialLoad = false;
-    
-    // Load pinned repos
-    await _reloadPinnedRepos();
 
     // Load local issues
     await _loadLocalIssues();
+
+    // Load pinned repos BEFORE fetching repositories so UI shows correct results immediately
+    await _reloadPinnedRepos();
 
     // Then try to fetch from GitHub
     await _fetchRepositories();
@@ -327,17 +328,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           // Update Riverpod provider
           ref.read(pinnedReposProvider.notifier).load();
         });
-        debugPrint(
-          '[Dashboard] ✓ Loaded filters: status=$_filterStatus',
-        );
+        debugPrint('[Dashboard] ✓ Loaded filters: status=$_filterStatus');
       }
     } catch (e, stackTrace) {
       debugPrint('[Dashboard] ✗ Error loading filters: $e');
-      AppErrorHandler.handle(
-        e,
-        stackTrace: stackTrace,
-        showSnackBar: false,
-      );
+      AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
       // Set defaults on error
       if (mounted) {
         setState(() {
@@ -348,9 +343,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   Future<void> _autoPinDefaultRepo() async {
-    // If no pinned repos, auto-pin the default repo from settings
+    // If no pinned repos, auto-pin the default repo from settings OR first available repo
     final pinned = ref.read(pinnedReposProvider);
-    if (pinned.isEmpty) {
+    if (pinned.isEmpty && _repositories.isNotEmpty) {
+      // First, try to find the default repo from settings
       final defaultRepoName = await _localStorage.getDefaultRepo();
       if (defaultRepoName != null && mounted) {
         // Find repo by fullName and pin using Riverpod
@@ -358,9 +354,19 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           if (repo.fullName == defaultRepoName) {
             await ref.read(pinnedReposProvider.notifier).pin(repo.fullName);
             debugPrint('Auto-pinned default repo: $defaultRepoName');
-            break;
+            return;
           }
         }
+      }
+      // If no default repo set or not found, auto-pin the first available repo
+      // This ensures the main dashboard shows something on first launch
+      final firstRepo = _repositories.firstWhere(
+        (r) => r.id != 'vault',
+        orElse: () => _repositories.first,
+      );
+      if (mounted) {
+        await ref.read(pinnedReposProvider.notifier).pin(firstRepo.fullName);
+        debugPrint('Auto-pinned first available repo: ${firstRepo.fullName}');
       }
     }
   }
@@ -396,7 +402,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   /// Fetch repositories with pagination support (Task 16.1)
-  /// 
+  ///
   /// PERFORMANCE OPTIMIZATION:
   /// - Loads only first page initially (30 repos)
   /// - Caches each page for faster subsequent loads
@@ -408,32 +414,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     });
 
     try {
-      // Clear cache on manual refresh
-      await _cache.clear();
-
       debugPrint('=== Fetching Repositories (Page 1) ===');
-
-      // Check network connectivity first
-      debugPrint('Checking network connectivity...');
-      try {
-        final result = await InternetAddress.lookup('api.github.com');
-        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-          debugPrint('✓ Network OK - api.github.com reachable');
-        } else {
-          throw Exception('DNS lookup returned empty result');
-        }
-      } on SocketException catch (e) {
-        debugPrint('✗ Network check failed: $e');
-        throw Exception(
-          'No internet connection. Please check your network settings.\n\nCannot reach api.github.com\n\nDetails: ${e.message}',
-        );
-      } catch (e, stackTrace) {
-        debugPrint('✗ Network check error: $e');
-        if (mounted) {
-          AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-        }
-        throw Exception('Network error: $e');
-      }
 
       // Check if we have a token
       final hasToken = await _dashboardService.getToken();
@@ -442,79 +423,177 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       );
 
       if (hasToken == null || hasToken.isEmpty) {
-        debugPrint('No token found, showing demo data');
-        throw Exception('Not authenticated. Please login with a GitHub token.');
+        debugPrint('No token found, trying to load cached repos');
+        await _loadCachedRepositories();
+        return;
       }
 
-      debugPrint('Calling fetchMyRepositories()...');
-      final repos = await _dashboardService.fetchMyRepositories();
-      debugPrint('✓ Fetched ${repos.length} repositories from GitHub');
-
-      if (!mounted) return;
-      {
-        // Preserve vault repo if exists, but refresh its issues from local storage
-        final vaultRepoIndex = _repositories.indexWhere((r) => r.id == 'vault');
-        final existingVaultRepo = vaultRepoIndex != -1
-            ? _repositories[vaultRepoIndex]
-            : null;
-
-        // Always reload local issues
-        final localIssues = await _localStorage.getLocalIssues();
+      // Try to fetch from GitHub - let the API call determine network status
+      // Don't do DNS lookup first as it can be unreliable
+      try {
+        debugPrint('Calling fetchMyRepositories()...');
+        final repos = await _dashboardService.fetchMyRepositories();
+        debugPrint('✓ Fetched ${repos.length} repositories from GitHub');
 
         if (!mounted) return;
-        setState(() {
-          _repositories = repos; // Don't filter, show all repos
-
-          // Add vault repo back with updated local issues
-          if (existingVaultRepo != null ||
-              localIssues.isNotEmpty ||
-              _isOfflineMode) {
-            final vaultName = _vaultFolderName ?? 'Vault';
-            final vaultRepo = RepoItem(
-              id: 'vault',
-              title: vaultName,
-              fullName: 'local/$vaultName',
-              description: 'Local vault folder (will sync when online)',
-              children: localIssues,
-            );
-            _repositories.insert(0, vaultRepo);
-          }
-
-          _isFetchingRepos = false;
-          debugPrint('✓ UI updated with ${_repositories.length} repos');
-        });
-
-        // Auto-pin default repo if no pinned repos exist
-        await _autoPinDefaultRepo();
-
-        // Fetch issues for ALL repositories in parallel
-        if (_repositories.isNotEmpty) {
-          debugPrint(
-            'Fetching issues for all ${_repositories.length} repositories...',
+        {
+          // Preserve vault repo if exists, but refresh its issues from local storage
+          final vaultRepoIndex = _repositories.indexWhere(
+            (r) => r.id == 'vault',
           );
-          await _fetchIssuesForAllRepos();
+          final existingVaultRepo = vaultRepoIndex != -1
+              ? _repositories[vaultRepoIndex]
+              : null;
+
+          // Always reload local issues
+          final localIssues = await _localStorage.getLocalIssues();
+
+          if (!mounted) return;
+          // Update the repositories provider so the UI reflects the fetched data
+          ref.read(repositoriesProvider.notifier).setRepos(repos);
+
+          // Also update local state for vault repo handling and issue creation
+          if (!mounted) return;
+          setState(() {
+            // Preserve vault repo if exists, but refresh its issues from local storage
+            final vaultRepoIndex = _repositories.indexWhere(
+              (r) => r.id == 'vault',
+            );
+            final existingVaultRepo = vaultRepoIndex != -1
+                ? _repositories[vaultRepoIndex]
+                : null;
+
+            // Update local _repositories with fetched repos (excluding vault)
+            _repositories = repos.toList();
+
+            // Add vault repo back with updated local issues
+            if (existingVaultRepo != null ||
+                localIssues.isNotEmpty ||
+                _isOfflineMode) {
+              final vaultName = _vaultFolderName ?? 'Vault';
+              final vaultRepo = RepoItem(
+                id: 'vault',
+                title: vaultName,
+                fullName: 'local/$vaultName',
+                description: 'Local vault folder (will sync when online)',
+                children: localIssues,
+              );
+              // Remove any existing vault repo first to prevent duplicates
+              _repositories.removeWhere((r) => r.id == 'vault');
+              _repositories.insert(0, vaultRepo);
+            }
+
+            _isFetchingRepos = false;
+            debugPrint('✓ UI updated with ${_repositories.length} repos');
+          });
+
+          // Auto-pin default repo if no pinned repos exist
+          await _autoPinDefaultRepo();
+
+          // Fetch issues for ALL repositories in parallel
+          if (_repositories.isNotEmpty) {
+            debugPrint(
+              'Fetching issues for all ${_repositories.length} repositories...',
+            );
+            await _fetchIssuesForAllRepos();
+          }
         }
+      } on SocketException catch (e) {
+        // Network error - try to use cached data
+        debugPrint('✗ Network error during fetch: $e');
+        await _loadCachedRepositories();
+      } catch (e) {
+        // Other error during fetch - try to use cached data
+        debugPrint('✗ Fetch error: $e');
+        await _loadCachedRepositories();
       }
     } catch (e, stackTrace) {
       debugPrint('=== Fetch Error ===');
       debugPrint('Error: $e');
       debugPrint('Stack: $stackTrace');
 
+      // Try to load cached repos on any error
+      await _loadCachedRepositories();
+    }
+  }
+
+  /// Load cached repositories when network is unavailable (offline-first)
+  Future<void> _loadCachedRepositories() async {
+    debugPrint('=== Loading Cached Repositories (Offline Mode) ===');
+
+    try {
+      // Try to get cached repos from local storage (persistent storage)
+      final cachedReposData = await _localStorage.getRepos();
+      final localIssues = await _localStorage.getLocalIssues();
+
+      // Convert cached repo data to RepoItem objects
+      final cachedRepos = cachedReposData.map((data) {
+        return RepoItem(
+          id: data['id']?.toString() ?? '',
+          title: data['name']?.toString() ?? '',
+          fullName: data['full_name']?.toString() ?? '',
+          description: data['description']?.toString() ?? '',
+        );
+      }).toList();
+
+      debugPrint(
+        'Found ${cachedRepos.length} cached repos, ${localIssues.length} local issues',
+      );
+
       if (mounted) {
-        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() {
-          // In offline mode, don't show error - just show local issues if any
-          if (!_isOfflineMode) {
-            _errorMessage = e.toString();
-          }
           _isFetchingRepos = false;
+
+          // Start with cached repos
+          _repositories = cachedRepos.toList();
+
+          // Add vault repo if there are local issues or in offline mode
+          if (localIssues.isNotEmpty || _isOfflineMode) {
+            final vaultName = _vaultFolderName ?? 'Vault';
+            final vaultRepo = RepoItem(
+              id: 'vault',
+              title: vaultName,
+              fullName: 'local/$vaultName',
+              description: 'Local vault folder (offline mode)',
+              children: localIssues,
+            );
+            _repositories.insert(0, vaultRepo);
+          }
+
+          // Update the repositories provider
+          ref.read(repositoriesProvider.notifier).setRepos(_repositories);
+
+          debugPrint(
+            '✓ Loaded ${_repositories.length} repos from cache (offline)',
+          );
+        });
+
+        // Auto-pin default repo if no pinned repos exist
+        if (_repositories.isNotEmpty) {
+          await _autoPinDefaultRepo();
+        }
+
+        // Don't show error in offline mode - just show what we have
+        if (!_isOfflineMode) {
+          debugPrint('Network error - showing cached data');
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error loading cached repos: $e');
+      if (mounted) {
+        setState(() {
+          _isFetchingRepos = false;
+          if (!_isOfflineMode) {
+            _errorMessage =
+                'Unable to load repositories. Please check your connection.';
+          }
         });
       }
     }
   }
 
   /// Load more repositories for pagination (Task 16.1)
-  /// 
+  ///
   /// PERFORMANCE OPTIMIZATION:
   /// - Appends new repos to existing list
   /// - Shows loading indicator while fetching
@@ -609,7 +688,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
     }
 
-    final successCount = reposToFetch.length -
+    final successCount =
+        reposToFetch.length -
         _repoErrorState.values.where((e) => e != null).length;
     debugPrint(
       '[Dashboard] ✓ Finished fetching issues: $successCount/${reposToFetch.length} successful',
@@ -646,11 +726,19 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final pinnedRepos = ref.watch(pinnedReposProvider).toSet();
-    // Show only pinned repositories on main dashboard
-    final displayedRepos = ref.watch(repositoriesProvider)
-        .where((repo) => pinnedRepos.contains(repo.fullName))
-        .toList();
-    
+    // Show all repos if no pinned repos exist (first-time user experience)
+    // Otherwise, show only pinned repositories on main dashboard
+    List<RepoItem> displayedRepos;
+    if (pinnedRepos.isEmpty) {
+      // Show all repos if no pinned repos exist
+      displayedRepos = ref.watch(repositoriesProvider).toList();
+    } else {
+      displayedRepos = ref
+          .watch(repositoriesProvider)
+          .where((repo) => pinnedRepos.contains(repo.fullName))
+          .toList();
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -858,7 +946,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   /// Build fetching indicator with loading skeleton (Task 16.5)
-  /// 
+  ///
   /// PERFORMANCE OPTIMIZATION:
   /// - Uses LoadingSkeleton with shimmer effect
   /// - Replaces BrailleLoader for better visual feedback
@@ -902,7 +990,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   /// PERFORMANCE OPTIMIZATION:
   /// - Shows "Load More" button when more repos are available
   /// - Displays loading indicator while loading more repos
-  Widget _buildTaskList(List<RepoItem> displayedRepos, Set<String> pinnedRepos) {
+  Widget _buildTaskList(
+    List<RepoItem> displayedRepos,
+    Set<String> pinnedRepos,
+  ) {
     // Show empty state only if no repositories at all (not based on filter)
     if (displayedRepos.isEmpty && !_isFetchingRepos) {
       return const DashboardEmptyState();
@@ -950,9 +1041,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   void _navigateToProjectBoard() {
     HapticFeedback.selectionClick();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const ProjectBoardScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const ProjectBoardScreen()));
   }
 
   /// Toggle pin status for a repository with improved error handling.
@@ -961,10 +1052,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   void _togglePinRepo(String repoFullName) async {
     HapticFeedback.lightImpact();
     debugPrint('[Dashboard] Toggle pin for: $repoFullName');
-    
+
     final pinned = ref.read(pinnedReposProvider);
     final notifier = ref.read(pinnedReposProvider.notifier);
-    
+
     if (pinned.contains(repoFullName)) {
       await notifier.unpin(repoFullName);
       debugPrint('[Dashboard] Unpinned: $repoFullName');
@@ -994,7 +1085,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   void _createNewIssue() async {
     // Trigger haptic feedback
     HapticFeedback.selectionClick();
-    
+
     // In offline mode, check if Local Issues repo exists
     if (_repositories.isEmpty && !_isOfflineMode) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1241,7 +1332,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   void _openIssueDetail(IssueItem issue) {
     // Trigger haptic feedback
     HapticFeedback.selectionClick();
-    
+
     // Extract owner/repo from the repository that contains this issue
     String? owner;
     String? repo;

@@ -6,6 +6,7 @@ class RepoItem extends Item {
   String? description;
   bool isPinned;
   bool isMain;
+  int openIssuesCount; // FIX (#33): Store open issues count for display
 
   RepoItem({
     required super.id,
@@ -14,6 +15,7 @@ class RepoItem extends Item {
     this.description,
     this.isPinned = false,
     this.isMain = false,
+    this.openIssuesCount = 0, // FIX (#33): Default to 0
     ItemStatus? status,
     super.updatedAt,
     super.assigneeLogin,
@@ -39,6 +41,7 @@ class RepoItem extends Item {
       'description': description,
       'isPinned': isPinned,
       'isMain': isMain,
+      'openIssuesCount': openIssuesCount, // FIX (#33): Include in JSON
       'status': status.toString().split('.').last,
       'updatedAt': updatedAt?.toIso8601String(),
       'assigneeLogin': assigneeLogin,
@@ -58,6 +61,7 @@ class RepoItem extends Item {
       description: json['description'] as String?,
       isPinned: json['isPinned'] as bool? ?? false,
       isMain: json['isMain'] as bool? ?? false,
+      openIssuesCount: json['openIssuesCount'] as int? ?? 0, // FIX (#33): Read from JSON
       status: ItemStatus.values.firstWhere(
         (e) => e.toString().split('.').last == json['status'],
         orElse: () => ItemStatus.open,

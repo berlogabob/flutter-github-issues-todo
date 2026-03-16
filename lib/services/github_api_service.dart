@@ -1733,6 +1733,7 @@ class GitHubApiService {
       title: json['name'] as String,
       fullName: json['full_name'] as String,
       description: json['description'] as String?,
+      openIssuesCount: json['open_issues_count'] as int? ?? 0, // FIX (#33): Get open issues count from GitHub
       children: [], // Will be populated separately
     );
   }

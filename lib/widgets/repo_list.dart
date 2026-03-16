@@ -139,6 +139,7 @@ class RepoList extends StatelessWidget {
           fullName: repo.fullName,
           description: repo.description,
           status: repo.status,
+          openIssuesCount: repo.openIssuesCount, // FIX (#33): Preserve open issues count
           children: filteredIssues,
         );
         filteredRepos.add(filteredRepo);

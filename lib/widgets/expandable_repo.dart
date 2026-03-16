@@ -328,31 +328,29 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                         ],
                       ),
                     ),
-                    // Issue Count Badge
-                    if (_hasLoadedIssues || widget.repo.children.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Text(
-                          _issues.isNotEmpty
-                              ? '${_issues.whereType<IssueItem>().length} issues'
-                              : '${widget.repo.children.whereType<IssueItem>().length} issues',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+                    // Issue Count Badge - FIX (#33): Use openIssuesCount from repo (not filtered)
+                    // This ensures count is always visible and shows actual open issues count
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.5),
                         ),
                       ),
+                      child: Text(
+                        '${widget.repo.openIssuesCount} issues',
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                     // Loading Indicator
                     if (_isLoadingIssues) BrailleLoader(size: 20),
                   ],

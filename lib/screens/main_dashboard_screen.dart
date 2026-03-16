@@ -560,11 +560,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           // Add vault repo only if local issues exist OR offline mode
           if (localIssues.isNotEmpty || _isOfflineMode) {
             final vaultName = _vaultFolderName ?? 'Vault';
+            final openIssuesCount = localIssues.where((i) => i.status == ItemStatus.open).length;
             final vaultRepo = RepoItem(
               id: 'vault',
               title: vaultName,
               fullName: 'local/$vaultName',
               description: 'Local vault folder (will sync when online)',
+              openIssuesCount: openIssuesCount, // FIX (#33): Count open issues
               children: localIssues,
             );
             _repositories.insert(0, vaultRepo);
@@ -647,11 +649,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 localIssues.isNotEmpty ||
                 _isOfflineMode) {
               final vaultName = _vaultFolderName ?? 'Vault';
+              final openIssuesCount = localIssues.where((i) => i.status == ItemStatus.open).length;
               final vaultRepo = RepoItem(
                 id: 'vault',
                 title: vaultName,
                 fullName: 'local/$vaultName',
                 description: 'Local vault folder (will sync when online)',
+                openIssuesCount: openIssuesCount, // FIX (#33): Count open issues
                 children: localIssues,
               );
               // Remove any existing vault repo first to prevent duplicates
@@ -709,6 +713,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           title: data['name']?.toString() ?? '',
           fullName: data['full_name']?.toString() ?? '',
           description: data['description']?.toString() ?? '',
+          openIssuesCount: data['openIssuesCount'] as int? ?? 0, // FIX (#33): Read from cache
         );
       }).toList();
 
@@ -726,11 +731,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           // Add vault repo if there are local issues or in offline mode
           if (localIssues.isNotEmpty || _isOfflineMode) {
             final vaultName = _vaultFolderName ?? 'Vault';
+            final openIssuesCount = localIssues.where((i) => i.status == ItemStatus.open).length;
             final vaultRepo = RepoItem(
               id: 'vault',
               title: vaultName,
               fullName: 'local/$vaultName',
               description: 'Local vault folder (offline mode)',
+              openIssuesCount: openIssuesCount, // FIX (#33): Count open issues
               children: localIssues,
             );
             _repositories.insert(0, vaultRepo);

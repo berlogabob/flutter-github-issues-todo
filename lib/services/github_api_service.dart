@@ -371,13 +371,19 @@ class GitHubApiService {
   }
 
   /// Fetch issues from a repository
+  /// FIX (#25): Changed default state to 'all' to support filtering by closed/open
   Future<List<IssueItem>> fetchIssues(
     String owner,
     String repo, {
-    String state = 'open',
+    String state = 'all', // Changed from 'open' to 'all' for filter support
   }) async {
     try {
-      // Check cache first
+      // FIX (#25): Invalidate old cache entries that used state='open'
+      // This ensures users get fresh data with both open and closed issues
+      final oldCacheKey = 'issues_${owner}_${repo}_open';
+      await _cache.invalidate(oldCacheKey, reason: 'FIX #25: Fetch all issues');
+      
+      // Check cache first (with new 'all' state key)
       final cacheKey = 'issues_${owner}_${repo}_$state';
       final cachedIssues = _cache.get<List>(cacheKey);
       if (cachedIssues != null) {

@@ -78,6 +78,13 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
   @override
   void didUpdateWidget(ExpandableRepo oldWidget) {
     super.didUpdateWidget(oldWidget);
+    
+    // FIX (#25): Update issues when repo.children changes (e.g., when filter changes)
+    // This ensures filtered issues from parent widget are reflected in the UI
+    if (widget.repo.children != oldWidget.repo.children) {
+      _issues = widget.repo.children.whereType<IssueItem>().toList();
+    }
+    
     // Load issues when expanding externally for the first time
     if (_isExpanded && !_hasLoadedIssues && !_isLoadingIssues) {
       _loadIssues();
@@ -108,7 +115,8 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
       }
 
       debugPrint('Loading issues for ${widget.repo.fullName}...');
-      final issues = await widget.githubApi.fetchIssues(parts[0], parts[1]);
+      // FIX (#25): Fetch all issues (open + closed) to support filtering
+      final issues = await widget.githubApi.fetchIssues(parts[0], parts[1], state: 'all');
 
       if (mounted) {
         setState(() {

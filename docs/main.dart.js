@@ -31663,12 +31663,12 @@ ahp:function ahp(a){this.a=a},
 bom(a){var s=A.c0(a,null,t.w).w.a.a
 if(s>=1024)return 48
 else if(s>=600)return 24
-else return 16},
+else return 8},
 bon(a){var s=A.c0(a,null,t.w).w.a.a
 if(s>=1440)return 1200
 else if(s>=1024)return 900
 else if(s>=600)return 600
-else return s-32},
+else return s},
 a0L:function a0L(a,b,c,d){var _=this
 _.c=a
 _.d=b
@@ -120982,16 +120982,15 @@ return A.m(null,r)}})
 return A.n($async$$0,r)},
 $S:3}
 A.a0B.prototype={
-K(a){var s,r,q,p,o=this,n=null,m={},l=o.auS(o.ats())
-m.a=null
-for(s=o.y,r=0;r<l.length;++r)if(!s.n(0,l[r].z)){if(r>0)m.a=r
-break}if(m.a==null)s=l.length!==0&&s.n(0,B.b.ga1(l).z)
+K(a){var s,r,q,p,o,n=this,m=null,l={},k=n.auS(n.ats())
+l.a=null
+for(s=n.y,r=0;r<k.length;++r)if(!s.n(0,k[r].z)){if(r>0)l.a=r
+break}if(l.a==null)s=k.length!==0&&s.n(0,B.b.ga1(k).z)
 else s=!0
 q=s?8:0
-s=t.w
-p=A.c0(a,n,s).w
-s=A.c0(a,n,s).w
-return A.km(n,new A.aBb(m,o,l),l.length,n,new A.aa(p.a.a*0.02,q,s.a.a*0.02,0),n,B.U,!1)},
+p=A.c0(a,m,t.w).w.a.a
+o=p<600?4:p*0.02
+return A.km(m,new A.aBb(l,n,k),k.length,m,new A.aa(o,q,o,0),m,B.U,!1)},
 a4F(a,b){var s=this,r=a.a
 return new A.HC(a,s.d,s.r,s.e===r,s.x,b,new A.aB8(s,a),new A.d8("repo-"+r,t.kK))},
 ats(){var s,r,q,p,o,n,m,l=null,k=A.b([],t.b0)

@@ -80,59 +80,61 @@ class IssueCard extends StatelessWidget {
               const SizedBox(width: 12),
               // Issue Content
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title - show issue number for GitHub issues, nothing for local
-                    Text(
-                      issue.isLocalOnly
-                          ? issue.title
-                          : '#${issue.number} ${issue.title}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                child: Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title - show issue number for GitHub issues, nothing for local
+                      Text(
+                        issue.isLocalOnly
+                            ? issue.title
+                            : '#${issue.number} ${issue.title}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    // Metadata
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        // Labels
-                        if (issue.labels.isNotEmpty)
-                          ...issue.labels
-                              .take(3)
-                              .map((label) => LabelChipWidget(label: label)),
-                        // Assignee with cached image (Task 16.2)
-                        if (issue.assigneeLogin != null)
-                          _buildAssigneeWithAvatar(),
-                        // Local only indicator
-                        if (issue.isLocalOnly)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.cloud_off,
-                                size: 12,
-                                color: AppColors.primary,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Local',
-                                style: const TextStyle(
+                      // Metadata
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          // Labels
+                          if (issue.labels.isNotEmpty)
+                            ...issue.labels
+                                .take(3)
+                                .map((label) => LabelChipWidget(label: label)),
+                          // Assignee with cached image (Task 16.2)
+                          if (issue.assigneeLogin != null)
+                            _buildAssigneeWithAvatar(),
+                          // Local only indicator
+                          if (issue.isLocalOnly)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.cloud_off,
+                                  size: 12,
                                   color: AppColors.primary,
-                                  fontSize: 11,
                                 ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Local',
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
               // Chevron

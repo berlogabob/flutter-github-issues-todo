@@ -58,6 +58,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   String? _errorMessage;
   String? _vaultFolderName;
 
+  // OFFLINE-FIRST (Critical Fix): Cached data loading state
+  bool _isLoadingCachedData = false;
+  bool _isLoadingComplete = false;
+  DateTime? _cachedDataTimestamp;
+  bool _isRefreshingInBackground = false;
+
   // Large dataset optimization: Track issue loading per repo
   final Map<String, bool> _repoIssueLoadingState = {};
   final Map<String, String?> _repoErrorState = {};
@@ -241,22 +247,32 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   Future<void> _checkOfflineMode() async {
-    final authType = await SecureStorageService.instance.read(key: 'auth_type');
-    final vaultFolder = await SecureStorageService.instance.read(
-      key: 'vault_folder',
-    );
+    try {
+      final authType = await SecureStorageService.read(key: 'auth_type');
+      // Use LocalStorageService for vault_folder (not SecureStorageService)
+      final vaultFolder = await _localStorage.getVaultFolder();
 
-    if (mounted) {
-      setState(() {
-        _isOfflineMode = authType == 'offline';
-        // Extract folder name from path for display (e.g., "/storage/emulated/0/Notes" -> "Notes")
-        if (vaultFolder != null) {
-          final parts = vaultFolder.split('/');
-          _vaultFolderName = parts.isNotEmpty ? parts.last : 'Vault';
-        } else {
+      if (mounted) {
+        setState(() {
+          _isOfflineMode = authType == 'offline';
+          // Extract folder name from path for display (e.g., "/storage/emulated/0/Notes" -> "Notes")
+          if (vaultFolder != null) {
+            final parts = vaultFolder.split('/');
+            _vaultFolderName = parts.isNotEmpty ? parts.last : 'Vault';
+          } else {
+            _vaultFolderName = 'Vault';
+          }
+        });
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error checking offline mode: $e');
+      if (mounted) {
+        setState(() {
+          _isOfflineMode = false;
           _vaultFolderName = 'Vault';
-        }
-      });
+        });
+      }
     }
   }
 
@@ -271,6 +287,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     super.didChangeDependencies();
     // Reload filters when screen becomes visible (e.g., after returning from library)
     _reloadFiltersIfNeeded();
+    
+    // Force rebuild when dependencies change (fixes UI not updating after data load)
+    if (_isLoadingComplete && _repositories.isNotEmpty) {
+      setState(() {
+        // Trigger rebuild with loaded data
+      });
+    }
   }
 
   bool _isInitialLoad = true;
@@ -283,21 +306,25 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   Future<void> _loadData() async {
+    // STEP 1: Load cached data IMMEDIATELY (OFFLINE-FIRST)
+    await _loadCachedData();
+    
+    // STEP 2: Mark loading complete, show UI with cached data
+    if (mounted) {
+      setState(() {
+        _isLoadingComplete = true;
+      });
+    }
+    
+    // STEP 3: Refresh in background (non-blocking)
+    _refreshDataInBackground();
+
     // Load saved filters
     await _loadSavedFilters();
     _isInitialLoad = false;
 
-    // Load local issues
-    await _loadLocalIssues();
-
-    // Load pinned repos BEFORE fetching repositories so UI shows correct results immediately
+    // Load pinned repos AFTER cached data is loaded
     await _reloadPinnedRepos();
-
-    // Then try to fetch from GitHub
-    await _fetchRepositories();
-
-    // Fetch projects for issue creation
-    await _fetchProjects();
 
     // Show pending operations count
     final pendingCount = _pendingOps.getPendingCount();
@@ -310,6 +337,137 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         ),
       );
     }
+  }
+
+  /// Load cached data from local storage (OFFLINE-FIRST - Critical Fix)
+  Future<void> _loadCachedData() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoadingCachedData = true;
+    });
+
+    try {
+      debugPrint('[Dashboard] Loading cached data...');
+      
+      // Load cached repos with issues
+      final cachedRepos = await _localStorage.getRepos();
+      if (cachedRepos.isNotEmpty) {
+        final repos = cachedRepos.map((r) => RepoItem.fromJson(r)).toList();
+        
+        // Load cached issues for each repo
+        for (final repo in repos) {
+          try {
+            final issues = await _localStorage.getSyncedIssues(repo.fullName);
+            repo.children = issues;
+          } catch (e) {
+            debugPrint('Error loading issues for ${repo.fullName}: $e');
+          }
+        }
+        
+        // Load cached projects
+        final cachedProjects = await _localStorage.getSyncedProjects();
+        
+        if (mounted) {
+          setState(() {
+            _repositories = repos;
+            _projects = cachedProjects;
+            _isFetchingRepos = false; // Stop showing loading
+          });
+          
+          _cachedDataTimestamp = await _localStorage.getReposSyncTime();
+          
+          debugPrint(
+            '[Dashboard] ✓ Loaded cached data: '
+            '${repos.length} repos, ${cachedProjects.length} projects',
+          );
+        }
+      }
+      
+      // Load local issues (vault) - this will add vault repo if needed
+      await _loadLocalIssues();
+      
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
+      debugPrint('[Dashboard] ✗ Error loading cached data: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingCachedData = false;
+        _isLoadingComplete = true; // Mark as complete after loading cached data
+      });
+    }
+    
+    // Also update Riverpod provider with loaded repos
+    if (_repositories.isNotEmpty && mounted) {
+      ref.read(repositoriesProvider.notifier).setRepos(_repositories);
+      // Force rebuild after updating Riverpod
+      if (mounted) {
+        setState(() {
+          // Trigger rebuild to show loaded repos
+        });
+      }
+    }
+  }
+
+  /// Refresh data in background (non-blocking)
+  Future<void> _refreshDataInBackground() async {
+    // Check if we should refresh (data is stale or no data)
+    final shouldRefresh = _shouldRefreshData();
+    
+    if (!shouldRefresh) {
+      debugPrint('[Dashboard] Cached data is fresh, skipping background refresh');
+      return;
+    }
+    
+    debugPrint('[Dashboard] Starting background refresh...');
+    
+    if (mounted) {
+      setState(() {
+        _isRefreshingInBackground = true;
+      });
+    }
+    
+    // Refresh in background (non-blocking)
+    Future.delayed(Duration.zero, () async {
+      await _fetchRepositories();
+      await _fetchProjects();
+      
+      if (mounted) {
+        setState(() {
+          _isRefreshingInBackground = false;
+        });
+      }
+    });
+  }
+
+  /// Check if data should be refreshed
+  bool _shouldRefreshData() {
+    // Always refresh if no cached data
+    if (_repositories.isEmpty) {
+      debugPrint('[Dashboard] No cached data, should refresh');
+      return true;
+    }
+    
+    // Don't refresh in offline mode
+    if (_isOfflineMode) {
+      debugPrint('[Dashboard] Offline mode, skipping refresh');
+      return false;
+    }
+    
+    // Refresh if data is stale (>5 minutes old)
+    if (_cachedDataTimestamp == null) {
+      debugPrint('[Dashboard] No timestamp, should refresh');
+      return true;
+    }
+    
+    final age = DateTime.now().difference(_cachedDataTimestamp!);
+    final shouldRefresh = age.inMinutes > 5;
+    debugPrint(
+      '[Dashboard] Data age: ${age.inMinutes}m, should refresh: $shouldRefresh',
+    );
+    return shouldRefresh;
   }
 
   /// Load saved filters from local storage with improved error handling.
@@ -726,17 +884,41 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final pinnedRepos = ref.watch(pinnedReposProvider).toSet();
+    // Use Riverpod repositories provider directly (always up-to-date)
+    final allRepos = ref.watch(repositoriesProvider);
+    
     // Show all repos if no pinned repos exist (first-time user experience)
     // Otherwise, show only pinned repositories on main dashboard
     List<RepoItem> displayedRepos;
     if (pinnedRepos.isEmpty) {
-      // Show all repos if no pinned repos exist
-      displayedRepos = ref.watch(repositoriesProvider).toList();
+      displayedRepos = allRepos;
     } else {
-      displayedRepos = ref
-          .watch(repositoriesProvider)
+      displayedRepos = allRepos
           .where((repo) => pinnedRepos.contains(repo.fullName))
           .toList();
+    }
+
+    // OFFLINE-FIRST: Show loading only while loading cached data
+    if (_isLoadingCachedData) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const BrailleLoader(size: 48),
+              SizedBox(height: 16.h),
+              Text(
+                'Loading your tasks...',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return Scaffold(
@@ -864,13 +1046,21 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               hideUsernameInRepo: _hideUsernameInRepo,
               pendingOperationsCount: _pendingOps.getPendingCount(),
             ),
+            
+            // OFFLINE-FIRST: Last updated indicator
+            if (_cachedDataTimestamp != null && allRepos.isNotEmpty)
+              _buildLastUpdatedIndicator(),
+            
             // Error message if any
             if (_errorMessage != null) _buildErrorMessage(),
-            // Fetching indicator
-            if (_isFetchingRepos) _buildFetchingIndicator(),
+            
+            // Fetching indicator (only show if refreshing in background)
+            if (_isRefreshingInBackground && _repositories.isNotEmpty)
+              _buildBackgroundRefreshingIndicator(),
+            
             // Task List
             Expanded(
-              child: _isFetchingRepos
+              child: (allRepos.isEmpty && _isLoadingCachedData)
                   ? const Center(child: BrailleLoader(size: 32))
                   : RefreshIndicator(
                       onRefresh: _fetchRepositories,
@@ -985,6 +1175,75 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     );
   }
 
+  /// OFFLINE-FIRST: Build last updated indicator
+  Widget _buildLastUpdatedIndicator() {
+    if (_cachedDataTimestamp == null) return const SizedBox.shrink();
+    
+    final lastUpdated = _formatLastUpdated(_cachedDataTimestamp!);
+    
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      child: Row(
+        children: [
+          Icon(
+            _isRefreshingInBackground ? Icons.sync : Icons.check_circle,
+            size: 14.w,
+            color: _isRefreshingInBackground
+                ? AppColors.primary
+                : Colors.green,
+          ),
+          SizedBox(width: 8.w),
+          Text(
+            'Last updated: $lastUpdated',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 11.sp,
+            ),
+          ),
+          if (_isRefreshingInBackground) ...[
+            SizedBox(width: 8.w),
+            SizedBox(
+              width: 12.w,
+              height: 12.w,
+              child: BrailleLoader(size: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// OFFLINE-FIRST: Build background refreshing indicator
+  Widget _buildBackgroundRefreshingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          BrailleLoader(size: 12),
+          SizedBox(width: 8.w),
+          Text(
+            'Refreshing in background...',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 11.sp,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Format last updated timestamp
+  String _formatLastUpdated(DateTime timestamp) {
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+    
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
   /// Build the task list with pagination support (Task 16.1)
   ///
   /// PERFORMANCE OPTIMIZATION:
@@ -1083,11 +1342,32 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   void _createNewIssue() async {
+    debugPrint('[Dashboard] Create New Issue pressed - repos: ${_repositories.length}, isLoadingComplete: $_isLoadingComplete');
+
     // Trigger haptic feedback
     HapticFeedback.selectionClick();
 
+    // Use Riverpod state directly for more reliable check
+    final allRepos = ref.read(repositoriesProvider);
+    if (allRepos.isEmpty && !_isLoadingComplete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              BrailleLoader(size: 16),
+              const SizedBox(width: 12),
+              const Text('Loading repositories...'),
+            ],
+          ),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     // In offline mode, check if Local Issues repo exists
-    if (_repositories.isEmpty && !_isOfflineMode) {
+    if (allRepos.isEmpty && !_isOfflineMode) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -1112,13 +1392,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     }
 
     // In offline mode with no repos, create issue in Vault repo
-    if (_repositories.isEmpty && _isOfflineMode) {
+    if (allRepos.isEmpty && _isOfflineMode) {
       _createLocalIssue();
       return;
     }
 
     // Check if Vault repo exists for offline mode
-    final hasVaultRepo = _repositories.any((r) => r.id == 'vault');
+    final hasVaultRepo = allRepos.any((r) => r.id == 'vault');
     if (_isOfflineMode && !hasVaultRepo) {
       _createLocalIssue();
       return;
@@ -1129,7 +1409,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     if (_expandedRepoId != null) {
       // Find the expanded repo (skip vault)
       try {
-        final expandedRepo = _repositories.firstWhere(
+        final expandedRepo = allRepos.firstWhere(
           (r) => r.id == _expandedRepoId && r.id != 'vault',
         );
         selectedRepo = expandedRepo.fullName;
@@ -1145,7 +1425,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     if (selectedRepo == null) {
       final defaultRepoName = await _localStorage.getDefaultRepo();
       if (defaultRepoName != null &&
-          _repositories.any(
+          allRepos.any(
             (r) => r.fullName == defaultRepoName && r.id != 'vault',
           )) {
         selectedRepo = defaultRepoName;
@@ -1156,7 +1436,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Priority 3: Use first available repo (skip vault)
     if (selectedRepo == null) {
       try {
-        selectedRepo = _repositories
+        selectedRepo = allRepos
             .firstWhere((r) => r.id != 'vault')
             .fullName;
         debugPrint('Creating issue in first available repo: $selectedRepo');
@@ -1190,7 +1470,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Navigate to full-screen create issue screen
     if (mounted) {
       // Filter out vault repo from available repos for selection
-      final availableRepos = _repositories
+      final availableRepos = allRepos
           .where((r) => r.id != 'vault')
           .toList();
 

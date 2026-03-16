@@ -600,17 +600,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         return;
       }
 
-      // Save offline mode flag and vault folder path
-      await SecureStorageService.instance.write(
+      // Save offline mode flag
+      await SecureStorageService.write(
         key: 'auth_type',
         value: 'offline',
       );
-      await SecureStorageService.instance.write(
-        key: 'vault_folder',
-        value: folderPath,
-      );
 
-      // PERSIST PERMISSION
+      // PERSIST PERMISSION (use LocalStorageService for vault_folder)
       await _localStorage.saveVaultFolderPermission(folderPath);
 
       debugPrint('Offline mode saved with vault folder: $folderPath');

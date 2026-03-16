@@ -12,6 +12,7 @@ import '../utils/retry_helper.dart';
 import '../models/issue_item.dart';
 import '../models/pending_operation.dart';
 import '../models/sync_history_entry.dart';
+import '../models/cached_dashboard_data.dart';
 
 /// Sync Service - Handles synchronization between local storage and GitHub
 ///
@@ -38,6 +39,14 @@ class SyncService {
   String? _syncErrorMessage;
   int _syncedIssuesCount = 0;
   int _syncedProjectsCount = 0;
+
+  // OFFLINE-FIRST (Critical Fix): Cached data for instant startup
+  CachedDashboardData? _cachedData;
+  bool _cachedDataLoaded = false;
+
+  // Getters for cached data
+  CachedDashboardData? get cachedData => _cachedData;
+  bool get hasCachedData => _cachedData != null && _cachedData!.hasData;
 
   // Callback for when sync is needed (has local issues + internet)
   Function()? onSyncNeeded;
@@ -79,10 +88,39 @@ class SyncService {
   /// Initialize sync service
   Future<void> init() async {
     debugPrint('SyncService: Initializing...');
+    await _loadCachedData(); // OFFLINE-FIRST: Load cached data immediately
     _setupConnectivityListener();
     _checkNetworkStatus();
     _loadLastSyncTimes();
     await _initHistory();
+  }
+
+  /// Load cached data from local storage (OFFLINE-FIRST)
+  Future<void> _loadCachedData() async {
+    if (_cachedDataLoaded) {
+      debugPrint('SyncService: Cached data already loaded');
+      return;
+    }
+
+    try {
+      debugPrint('SyncService: Loading cached dashboard data...');
+      _cachedData = await _localStorage.getCachedDashboardData();
+      _cachedDataLoaded = true;
+
+      if (_cachedData != null && _cachedData!.hasData) {
+        debugPrint(
+          'SyncService: ✓ Loaded cached data: '
+          '${_cachedData!.repositories.length} repos, '
+          '${_cachedData!.localIssues.length} local issues',
+        );
+      } else {
+        debugPrint('SyncService: No cached data found');
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('SyncService: Failed to load cached data: $e');
+      // Don't fail initialization, just continue without cache
+    }
   }
 
   /// Initialize sync history
@@ -353,6 +391,9 @@ class SyncService {
       debugPrint('SyncService: Full sync completed successfully');
       debugPrint('  - Synced $_syncedIssuesCount issues');
       debugPrint('  - Synced $_syncedProjectsCount projects');
+
+      // OFFLINE-FIRST: Refresh cached data after successful sync
+      await _loadCachedData();
 
       // Record sync history
       await _recordSyncHistory(

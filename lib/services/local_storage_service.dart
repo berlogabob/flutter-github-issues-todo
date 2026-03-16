@@ -5,6 +5,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
+import '../models/repo_item.dart';
+import '../models/cached_dashboard_data.dart';
 
 /// Local Storage Service - Persists data between app sessions
 class LocalStorageService {
@@ -752,6 +754,81 @@ class LocalStorageService {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting boolean $key: $e');
       return null;
+    }
+  }
+
+  // ==================== CACHED DASHBOARD DATA ====================
+  // OFFLINE-FIRST (Critical Fix): Methods for loading cached data on startup
+
+  /// Check if cached dashboard data exists
+  Future<bool> hasCachedData() async {
+    try {
+      final repos = await getRepos();
+      return repos.isNotEmpty;
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error checking cached data: $e');
+      return false;
+    }
+  }
+
+  /// Get age of cached data in minutes
+  Future<int> getCachedDataAge() async {
+    try {
+      final timestamp = await getReposSyncTime();
+      if (timestamp == null) return -1;
+      return DateTime.now().difference(timestamp).inMinutes;
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error getting cached data age: $e');
+      return -1;
+    }
+  }
+
+  /// Load all cached dashboard data at once
+  Future<CachedDashboardData> getCachedDashboardData() async {
+    try {
+      final repos = await getRepos();
+      final projects = await getSyncedProjects();
+      final localIssues = await getLocalIssues();
+      
+      // Load issues for each repo
+      final reposWithIssues = <RepoItem>[];
+      for (final repoData in repos) {
+        try {
+          final repo = RepoItem.fromJson(repoData);
+          final issues = await getSyncedIssues(repo.fullName);
+          repo.children = issues;
+          reposWithIssues.add(repo);
+        } catch (e, stackTrace) {
+          AppErrorHandler.handle(e, stackTrace: stackTrace);
+          debugPrint('Error loading repo ${repoData['fullName']}: $e');
+        }
+      }
+      
+      final timestamp = await getReposSyncTime();
+      
+      debugPrint(
+        'Loaded cached dashboard data: ${reposWithIssues.length} repos, '
+        '${projects.length} projects, ${localIssues.length} local issues',
+      );
+      
+      return CachedDashboardData(
+        repositories: reposWithIssues,
+        projects: projects,
+        localIssues: localIssues,
+        timestamp: timestamp,
+      );
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error loading cached dashboard data: $e');
+      // Return empty data on error
+      return CachedDashboardData(
+        repositories: [],
+        projects: [],
+        localIssues: [],
+        timestamp: null,
+      );
     }
   }
 }

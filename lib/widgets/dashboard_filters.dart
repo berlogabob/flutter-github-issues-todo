@@ -48,37 +48,33 @@ class DashboardFilters extends StatelessWidget {
   }
 
   Widget _buildFiltersMobile() {
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _buildFilterChip('Open'),
-        const SizedBox(width: 8),
         _buildFilterChip('Closed'),
-        const SizedBox(width: 8),
         _buildFilterChip('All'),
-        const Spacer(),
         _buildHideUsernameButton(),
-        if (pendingOperationsCount > 0) ...[
-          const SizedBox(width: 8),
-          _buildPendingBadge(),
-        ],
+        if (pendingOperationsCount > 0) _buildPendingBadge(),
       ],
     );
   }
 
   Widget _buildFiltersTablet() {
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _buildFilterChip('Open'),
-        const SizedBox(width: 8),
         _buildFilterChip('Closed'),
-        const SizedBox(width: 8),
         _buildFilterChip('All'),
-        const Spacer(),
         _buildHideUsernameButton(),
-        if (pendingOperationsCount > 0) ...[
-          const SizedBox(width: 8),
-          _buildPendingBadge(),
-        ],
+        if (pendingOperationsCount > 0) _buildPendingBadge(),
       ],
     );
   }

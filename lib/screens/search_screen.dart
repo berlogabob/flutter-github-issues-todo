@@ -269,6 +269,15 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildResults() {
+    return RefreshIndicator(
+      onRefresh: () async => _performSearch(_lastQuery),
+      color: AppColors.primary,
+      backgroundColor: AppColors.card,
+      child: _buildResultsContent(),
+    );
+  }
+
+  Widget _buildResultsContent() {
     if (_isSearching) {
       return Center(
         child: Column(

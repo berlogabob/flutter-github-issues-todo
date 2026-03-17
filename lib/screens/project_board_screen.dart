@@ -187,18 +187,18 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.primary),
-            onPressed: _isLoading ? null : _loadProjectData,
-            tooltip: 'Refresh',
-          ),
-          IconButton(
             icon: const Icon(Icons.add, color: Colors.white),
             onPressed: _addNewIssue,
             tooltip: 'New Issue',
           ),
         ],
       ),
-      body: _buildBody(),
+      body: RefreshIndicator(
+        onRefresh: _loadProjectData,
+        color: AppColors.primary,
+        backgroundColor: AppColors.card,
+        child: _buildBody(),
+      ),
     );
   }
 

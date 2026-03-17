@@ -5,6 +5,8 @@ import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:workmanager/workmanager.dart';
 import 'constants/app_colors.dart';
 import 'utils/app_error_handler.dart';
+import 'widgets/error_boundary.dart';
+import 'widgets/optimistic_update_listener.dart';
 import 'services/secure_storage_service.dart';
 import 'services/network_service.dart';
 import 'services/sync_service.dart';
@@ -170,9 +172,18 @@ class GitDoItApp extends StatelessWidget {
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
-        return MaterialApp(
-          title: 'GitDoIt',
-          debugShowCheckedModeBanner: false,
+        return ErrorBoundary(
+          errorMessage: 'Something went wrong',
+          showRetryButton: true,
+          showGoBackButton: false,
+          onRetry: () {
+            // Rebuild the app
+            debugPrint('ErrorBoundary: Retrying app build');
+          },
+          child: OptimisticUpdateListener(
+            child: MaterialApp(
+              title: 'GitDoIt',
+              debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: Brightness.dark,
             scaffoldBackgroundColor: AppColors.background,
@@ -229,6 +240,8 @@ class GitDoItApp extends StatelessWidget {
           home: isLoggedIn
               ? const MainDashboardScreen()
               : const OnboardingScreen(),
+            ),
+          ),
         );
       },
     );

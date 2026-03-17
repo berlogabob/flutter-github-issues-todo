@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
+import '../utils/auth_error_handler.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
@@ -315,6 +316,24 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   bool _isInitialLoad = true;
+  
+  /// Handle authentication errors (401/403)
+  /// Triggers logout flow and navigates to onboarding
+  Future<void> _handleAuthError(Object error) async {
+    if (!AuthErrorHandler.isAuthError(error)) {
+      return; // Not an auth error
+    }
+
+    debugPrint('MainDashboardScreen: Auth error detected - $error');
+
+    if (!mounted) return;
+
+    final message = AuthErrorHandler.getAuthErrorMessage(error);
+    
+    // Show auth error dialog and trigger logout
+    await AuthErrorHandler.handle(context, message, forceLogout: false);
+  }
+
   Future<void> _reloadFiltersIfNeeded() async {
     // Only reload after initial load is complete
     if (!_isInitialLoad) {
@@ -408,6 +427,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
       debugPrint('[Dashboard] ✗ Error loading cached data: $e');
+      
+      // Check for authentication errors
+      await _handleAuthError(e);
     }
 
     if (mounted) {
@@ -873,6 +895,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               stackTrace: stackTrace,
               showSnackBar: false,
             );
+            
+            // Check for authentication errors
+            await _handleAuthError(e);
           }
         }
       }).toList();

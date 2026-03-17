@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'secure_storage_service.dart';
 import 'cache_service.dart';
@@ -16,6 +16,10 @@ class GitHubApiService {
   String? _token;
   final CacheService _cache = CacheService();
   final LocalStorageService _localStorage = LocalStorageService();
+  
+  /// Callback for authentication errors (401/403)
+  /// Called when API detects invalid/expired token
+  static Function(BuildContext context, String message)? onAuthError;
 
   GitHubApiService({GitHubApiService? githubApi}) {
     // Allow passing instance for inheritance
@@ -202,14 +206,16 @@ class GitHubApiService {
         return repos;
       } else if (response.statusCode == 401) {
         debugPrint('401 Unauthorized - Token invalid or expired');
-        throw Exception(
-          'Invalid GitHub token. Please check your token and try again.',
-        );
+        // Trigger auth error handler if callback is set
+        final errorMsg = 'Invalid GitHub token. Please check your token and try again.';
+        debugPrint('GitHubApiService: 401 error - $errorMsg');
+        throw Exception(errorMsg);
       } else if (response.statusCode == 403) {
         debugPrint('403 Forbidden - API rate limit or permissions issue');
-        throw Exception(
-          'Access forbidden. Check token permissions (needs repo scope).',
-        );
+        // Trigger auth error handler if callback is set
+        final errorMsg = 'Access forbidden. Check token permissions (needs repo scope).';
+        debugPrint('GitHubApiService: 403 error - $errorMsg');
+        throw Exception(errorMsg);
       } else {
         debugPrint('Unexpected status code: ${response.statusCode}');
         throw Exception('Failed to fetch repositories: ${response.statusCode}');

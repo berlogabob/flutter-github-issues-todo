@@ -80,10 +80,9 @@ class IssueCard extends StatelessWidget {
               const SizedBox(width: 12),
               // Issue Content
               Expanded(
-                child: Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                       // Title - show issue number for GitHub issues, nothing for local
                       Text(
                         issue.isLocalOnly
@@ -136,7 +135,6 @@ class IssueCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              ),
               // Chevron
               if (onTap != null)
                 const Icon(Icons.chevron_right, color: AppColors.error, size: 20),

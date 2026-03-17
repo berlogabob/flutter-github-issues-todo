@@ -129,6 +129,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
   /// Load repository labels and assignees with caching support.
   ///
   /// FIX (Task 19.4): Improved error handling and loading states
+  /// FIX (Offline): Skip loading when offline to avoid timeout
   Future<void> _loadRepoData() async {
     final repoFullName = _selectedRepoFullName ?? widget.repo;
     if (repoFullName == null) return;
@@ -141,6 +142,19 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
 
     final owner = parts[0];
     final repo = parts[1];
+
+    // FIX (Offline): Check network first, skip loading if offline
+    final isOnline = await _networkService.checkConnectivity();
+    if (!isOnline) {
+      debugPrint('Offline mode - skipping labels/assignees loading');
+      setState(() {
+        _isLoadingLabels = false;
+        _isLoadingAssignees = false;
+        _availableLabels = [];
+        _availableAssignees = [];
+      });
+      return;
+    }
 
     debugPrint('Loading repo data for: $owner/$repo');
 

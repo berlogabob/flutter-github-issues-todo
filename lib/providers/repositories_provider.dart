@@ -15,6 +15,7 @@ class RepositoriesNotifier extends Notifier<List<RepoItem>> {
   @override
   List<RepoItem> build() {
     // Load cached repos on provider initialization (OFFLINE-FIRST)
+    // FIX (Offline): Load async but return empty initially
     _loadCachedRepos();
     return [];
   }
@@ -24,7 +25,7 @@ class RepositoriesNotifier extends Notifier<List<RepoItem>> {
     try {
       final localStorage = LocalStorageService();
       final cachedRepos = await localStorage.getRepos();
-      
+
       if (cachedRepos.isNotEmpty) {
         state = cachedRepos.map((r) => RepoItem.fromJson(r)).toList();
         debugPrint('RepositoriesNotifier: Loaded ${state.length} cached repos');

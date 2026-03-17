@@ -416,16 +416,15 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         _isLoadingComplete = true; // Mark as complete after loading cached data
       });
     }
-    
-    // Also update Riverpod provider with loaded repos
-    if (_repositories.isNotEmpty && mounted) {
+
+    // FIX (Offline): ALWAYS update Riverpod provider, even if only vault repo exists
+    if (mounted) {
       ref.read(repositoriesProvider.notifier).setRepos(_repositories);
+      debugPrint('[Dashboard] Updated Riverpod with ${_repositories.length} repos');
       // Force rebuild after updating Riverpod
-      if (mounted) {
-        setState(() {
-          // Trigger rebuild to show loaded repos
-        });
-      }
+      setState(() {
+        // Trigger rebuild to show loaded repos
+      });
     }
   }
 
@@ -694,10 +693,18 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
       // Try to load cached repos on any error
       await _loadCachedRepositories();
+      
+      // Don't show error in offline mode
+      if (!_isOfflineMode && mounted) {
+        setState(() {
+          _errorMessage = 'Unable to load repositories. Using cached data.';
+        });
+      }
     }
   }
 
   /// Load cached repositories when network is unavailable (offline-first)
+  /// FIX (Offline): Preserve existing repos if cache is empty
   Future<void> _loadCachedRepositories() async {
     debugPrint('=== Loading Cached Repositories (Offline Mode) ===');
 
@@ -725,30 +732,38 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         setState(() {
           _isFetchingRepos = false;
 
-          // Start with cached repos
-          _repositories = cachedRepos.toList();
+          // FIX (Offline): Only update if we have cached repos OR local issues
+          // Don't clear existing repos if cache is empty
+          if (cachedRepos.isNotEmpty || localIssues.isNotEmpty) {
+            // Start with cached repos
+            _repositories = cachedRepos.toList();
 
-          // Add vault repo if there are local issues or in offline mode
-          if (localIssues.isNotEmpty || _isOfflineMode) {
-            final vaultName = _vaultFolderName ?? 'Vault';
-            final openIssuesCount = localIssues.where((i) => i.status == ItemStatus.open).length;
-            final vaultRepo = RepoItem(
-              id: 'vault',
-              title: vaultName,
-              fullName: 'local/$vaultName',
-              description: 'Local vault folder (offline mode)',
-              openIssuesCount: openIssuesCount, // FIX (#33): Count open issues
-              children: localIssues,
+            // Add vault repo if there are local issues or in offline mode
+            if (localIssues.isNotEmpty || _isOfflineMode) {
+              final vaultName = _vaultFolderName ?? 'Vault';
+              final openIssuesCount = localIssues.where((i) => i.status == ItemStatus.open).length;
+              final vaultRepo = RepoItem(
+                id: 'vault',
+                title: vaultName,
+                fullName: 'local/$vaultName',
+                description: 'Local vault folder (offline mode)',
+                openIssuesCount: openIssuesCount, // FIX (#33): Count open issues
+                children: localIssues,
+              );
+              // Remove any existing vault repo first to prevent duplicates
+              _repositories.removeWhere((r) => r.id == 'vault');
+              _repositories.insert(0, vaultRepo);
+            }
+
+            // Update the repositories provider
+            ref.read(repositoriesProvider.notifier).setRepos(_repositories);
+
+            debugPrint(
+              '✓ Loaded ${_repositories.length} repos from cache (offline)',
             );
-            _repositories.insert(0, vaultRepo);
+          } else {
+            debugPrint('⚠️ No cached repos or local issues - keeping existing repos');
           }
-
-          // Update the repositories provider
-          ref.read(repositoriesProvider.notifier).setRepos(_repositories);
-
-          debugPrint(
-            '✓ Loaded ${_repositories.length} repos from cache (offline)',
-          );
         });
 
         // Auto-pin default repo if no pinned repos exist

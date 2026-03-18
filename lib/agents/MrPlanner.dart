@@ -3,12 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
 /// Project Manager Agent (PMA) - Coordinates all agents
-class ProjectManagerAgent extends BaseAgent {
+class MrPlanner extends BaseAgent {
   final List<AgentTask> _taskBacklog = [];
   final Map<String, AgentTask> _activeTasks = {};
   
-  ProjectManagerAgent() : super(
-    name: 'ProjectManagerAgent',
+  MrPlanner() : super(
+    name: 'MrPlanner',
     role: 'Project Manager',
     responsibilities: [
       'Coordinate all agents',

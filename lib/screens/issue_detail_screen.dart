@@ -941,27 +941,33 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
 
   Future<void> _toggleStatus() async {
     if (_currentIssue.isLocalOnly) {
-      // Local issue - just update state
+      // Local issue - update state and save to file
+      final updatedIssue = IssueItem(
+        id: _currentIssue.id,
+        title: _currentIssue.title,
+        number: _currentIssue.number,
+        status: _currentIssue.status == ItemStatus.open
+            ? ItemStatus.closed
+            : ItemStatus.open,
+        updatedAt: DateTime.now(),
+        bodyMarkdown: _currentIssue.bodyMarkdown,
+        assigneeLogin: _currentIssue.assigneeLogin,
+        labels: _currentIssue.labels,
+        projectColumnName: _currentIssue.projectColumnName,
+        isLocalOnly: true,
+      );
+      
       setState(() {
-        _currentIssue = IssueItem(
-          id: _currentIssue.id,
-          title: _currentIssue.title,
-          number: _currentIssue.number,
-          status: _currentIssue.status == ItemStatus.open
-              ? ItemStatus.closed
-              : ItemStatus.open,
-          updatedAt: DateTime.now(),
-          bodyMarkdown: _currentIssue.bodyMarkdown,
-          assigneeLogin: _currentIssue.assigneeLogin,
-          labels: _currentIssue.labels,
-          projectColumnName: _currentIssue.projectColumnName,
-          isLocalOnly: true,
-        );
+        _currentIssue = updatedIssue;
       });
+      
+      // Save the status change to the local file
+      await _localStorage.saveLocalIssue(updatedIssue);
+      
       _showSnackBar(
-        _currentIssue.status == ItemStatus.open
-            ? 'Issue reopened'
-            : 'Issue closed',
+        updatedIssue.status == ItemStatus.open
+            ? 'Issue reopened (local)'
+            : 'Issue closed (local)',
       );
       return;
     }

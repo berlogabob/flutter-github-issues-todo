@@ -3,12 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
 /// Documentation & Deployment Agent (DDA) - Maintains docs and prepares releases
-class DocumentationAgent extends BaseAgent {
+class MrLogger extends BaseAgent {
   final List<String> _pendingDocs = [];
   final List<String> _changelogEntries = [];
   
-  DocumentationAgent() : super(
-    name: 'DocumentationAgent',
+  MrLogger() : super(
+    name: 'MrLogger',
     role: 'Documentation & Deployment',
     responsibilities: [
       'Maintain documentation',

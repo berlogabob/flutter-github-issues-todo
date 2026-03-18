@@ -1,4 +1,5 @@
 import 'item.dart';
+import 'issue_item.dart';
 
 /// Repository item representing a GitHub repository
 class RepoItem extends Item {
@@ -73,7 +74,7 @@ class RepoItem extends Item {
       labels: (json['labels'] as List?)?.cast<String>() ?? [],
       children:
           (json['children'] as List?)
-              ?.map((c) => Item.fromJson(c))
+              ?.map((c) => IssueItem.fromJson(c as Map<String, dynamic>))
               .cast<Item>()
               .toList() ??
           [],

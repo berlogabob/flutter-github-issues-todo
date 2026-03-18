@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
 /// UI/UX Designer Agent (UDA) - Designs interfaces and ensures compliance
-class UiDesignerAgent extends BaseAgent {
+class MrDesigner extends BaseAgent {
   static const Map<String, String> designTokens = {
     'background_primary': '#121212',
     'background_secondary': '#1E1E1E',
@@ -16,8 +16,8 @@ class UiDesignerAgent extends BaseAgent {
   
   final List<String> _designViolations = [];
   
-  UiDesignerAgent() : super(
-    name: 'UiDesignerAgent',
+  MrDesigner() : super(
+    name: 'MrDesigner',
     role: 'UI/UX Designer',
     responsibilities: [
       'Design interfaces',

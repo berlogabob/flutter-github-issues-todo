@@ -616,35 +616,51 @@ class SyncService {
 
     // Find local-only issues that don't exist on GitHub yet
     final localOnlyIssues = localIssues.where((issue) {
-      // Skip if it doesn't have a GitHub number yet
-      if (issue.number == null) {
-        // Only keep if it's marked as local-only
-        if (!issue.isLocalOnly) return false;
+      // Must be marked as local-only
+      if (!issue.isLocalOnly) return false;
 
-        // FIX (#34): Check if this local issue matches a remote issue by title
-        // This prevents duplication when an issue was already synced but
-        // the local file wasn't removed yet
-        final titleKey = issue.title.toLowerCase().trim();
-        if (remoteIssuesByTitle.containsKey(titleKey)) {
-          final matchingRemote = remoteIssuesByTitle[titleKey];
-          // Additional verification: check if body also matches (if available)
-          final bodyMatches = issue.bodyMarkdown == null || 
-                              matchingRemote?.bodyMarkdown == null ||
-                              issue.bodyMarkdown!.trim() == matchingRemote!.bodyMarkdown!.trim();
-          
-          if (bodyMatches) {
-            debugPrint(
-              'SyncService: ⚠️ SKIP local issue "${issue.title}" - '
-              'already exists on GitHub (matched by title${bodyMatches ? ' + body' : ''})',
-            );
-            return false;
-          }
+      // FIX (#34): Check if this local issue already exists on GitHub by number
+      // This prevents duplication when an issue was synced but local file still exists
+      if (issue.number != null) {
+        if (remoteIssuesByNumber.containsKey(issue.number)) {
+          debugPrint(
+            'SyncService: ⚠️ SKIP local issue "${issue.title}" (#${issue.number}) - '
+            'already exists on GitHub (matched by number)',
+          );
+          // Remove the local file since it exists on GitHub
+          _localStorage.removeLocalIssue(issue.id).then((_) {
+            debugPrint('SyncService: Removed local file for issue #${issue.number}');
+          });
+          return false;
         }
-
-        return true;
       }
 
-      return false;
+      // FIX (#34): Check if this local issue matches a remote issue by title
+      // This prevents duplication when an issue was already synced but
+      // the local file wasn't removed yet
+      final titleKey = issue.title.toLowerCase().trim();
+      if (remoteIssuesByTitle.containsKey(titleKey)) {
+        final matchingRemote = remoteIssuesByTitle[titleKey];
+        // Additional verification: check if body also matches (if available)
+        final bodyMatches = issue.bodyMarkdown == null ||
+                            matchingRemote?.bodyMarkdown == null ||
+                            issue.bodyMarkdown!.trim() == matchingRemote!.bodyMarkdown!.trim();
+
+        if (bodyMatches) {
+          debugPrint(
+            'SyncService: ⚠️ SKIP local issue "${issue.title}" - '
+            'already exists on GitHub (matched by title${bodyMatches ? ' + body' : ''})',
+          );
+          // Remove the local file since it exists on GitHub
+          _localStorage.removeLocalIssue(issue.id).then((_) {
+            debugPrint('SyncService: Removed local file for "${issue.title}"');
+          });
+          return false;
+        }
+      }
+
+      // Issue doesn't exist on GitHub yet, keep it for sync
+      return true;
     }).toList();
 
     debugPrint(
@@ -699,28 +715,6 @@ class SyncService {
 
     for (final issue in localOnlyIssues) {
       try {
-        // FIX (#34): Check if issue already exists on GitHub by title before creating
-        // This prevents duplication if the issue was already synced in a previous run
-        final existingIssues = await _githubApi.fetchIssues(
-          owner,
-          repo,
-          state: 'all',
-        );
-        
-        final alreadyExists = existingIssues.any(
-          (existing) => existing.title.trim().toLowerCase() == issue.title.trim().toLowerCase(),
-        );
-
-        if (alreadyExists) {
-          debugPrint(
-            'SyncService: ⚠️ SKIP creating "${issue.title}" - already exists on GitHub',
-          );
-          // Still remove the local file since it exists on GitHub
-          await _localStorage.removeLocalIssue(issue.id);
-          syncedIds.add(issue.id);
-          continue;
-        }
-
         // Create the issue on GitHub
         final createdIssue = await _githubApi.createIssue(
           owner,

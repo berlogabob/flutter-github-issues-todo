@@ -1394,14 +1394,14 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // In offline mode with no repos, create issue in Vault repo
     if (allRepos.isEmpty && _isOfflineMode) {
-      _createLocalIssue();
+      _createLocalIssue(repoFullName: null);
       return;
     }
 
     // Check if Vault repo exists for offline mode
     final hasVaultRepo = allRepos.any((r) => r.id == 'vault');
     if (_isOfflineMode && !hasVaultRepo) {
-      _createLocalIssue();
+      _createLocalIssue(repoFullName: null);
       return;
     }
 
@@ -1497,7 +1497,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     }
   }
 
-  void _createLocalIssue() {
+  void _createLocalIssue({String? repoFullName}) {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
 
@@ -1505,15 +1505,47 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: const Text(
-          'Create Local Issue',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          repoFullName != null
+              ? 'Create Issue (Offline)'
+              : 'Create Local Issue',
+          style: const TextStyle(color: Colors.white),
         ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (repoFullName != null)
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.folder, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Repository: $repoFullName',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                const Text(
+                  'This issue will be saved locally and synced when online',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              const SizedBox(height: 16),
               TextField(
                 controller: titleController,
                 style: const TextStyle(color: Colors.white),
@@ -1586,7 +1618,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                         children: [
                           const Icon(Icons.check_circle, color: Colors.white),
                           const SizedBox(width: 8),
-                          const Text('Local issue created'),
+                          Text(
+                            repoFullName != null
+                                ? 'Issue saved (will sync when online)'
+                                : 'Local issue created',
+                          ),
                         ],
                       ),
                       backgroundColor: AppColors.primary,

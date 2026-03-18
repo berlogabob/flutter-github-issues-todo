@@ -93,8 +93,12 @@ validate-env:
 # Run app with environment variables from .env file
 run-with-env: validate-env
 	@echo "🚀 Running app with environment variables..."
+	@echo ""
+	@echo "📱 Starting GitDoIt..."
+	@echo "   Using GITHUB_CLIENT_ID from .env file"
+	@echo ""
 	@export GITHUB_CLIENT_ID=$$(grep "^GITHUB_CLIENT_ID=" .env | cut -d'=' -f2) && \
-		echo "Using GITHUB_CLIENT_ID: $${GITHUB_CLIENT_ID:0:8}..." && \
+		echo "✓ Client ID: $${GITHUB_CLIENT_ID:0:8}..." && \
 		flutter run --dart-define=GITHUB_CLIENT_ID=$${GITHUB_CLIENT_ID}
 
 # Build Android APK

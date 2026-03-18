@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/app_error_handler.dart';
 
 /// OAuth Device Flow Service
@@ -21,14 +22,8 @@ class OAuthService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // GitHub OAuth credentials
-  // Security: Client ID must be provided via environment variable
-  // Never hardcode credentials in source code
-  //
-  // Build/run with: --dart-define=GITHUB_CLIENT_ID=your_client_id
-  static final String _clientId = const String.fromEnvironment(
-    'GITHUB_CLIENT_ID',
-    defaultValue: '',
-  );
+  // Loaded from .env file using flutter_dotenv
+  static String get _clientId => dotenv.env['GITHUB_CLIENT_ID'] ?? '';
 
   // Flag to ensure validation only happens once
   static bool _validated = false;
@@ -41,13 +36,18 @@ class OAuthService {
   static void _validateClientId() {
     if (_clientId.isEmpty) {
       throw Exception(
-        'GITHUB_CLIENT_ID environment variable is not set.\n'
+        'GITHUB_CLIENT_ID is not configured.\n\n'
         'To fix this:\n'
-        '  1. Copy .env.example to .env\n'
-        '  2. Add your GitHub OAuth Client ID to .env\n'
-        '  3. Run: flutter run --dart-define=GITHUB_CLIENT_ID=your_client_id\n'
-        'Or for release builds, update android/app/build.gradle or ios/Runner.xcconfig\n'
-        'See README.md for detailed setup instructions.',
+        '1. Copy .env.example to .env\n'
+        '   cp .env.example .env\n\n'
+        '2. Get your GitHub OAuth Client ID:\n'
+        '   - Go to https://github.com/settings/developers\n'
+        '   - Create a new OAuth App\n'
+        '   - Copy your Client ID\n\n'
+        '3. Edit .env file and add:\n'
+        '   GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxx\n\n'
+        '4. Restart the app\n\n'
+        'See README.md or OAUTH_SETUP.md for detailed instructions.',
       );
     }
   }

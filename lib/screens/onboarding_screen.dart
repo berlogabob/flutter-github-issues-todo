@@ -10,7 +10,6 @@ import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../services/secure_storage_service.dart';
 import '../services/local_storage_service.dart';
-import '../services/oauth_service.dart';
 import '../services/github_api_service.dart';
 import '../utils/responsive_utils.dart';
 import '../widgets/braille_loader.dart';
@@ -26,12 +25,9 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _patController = TextEditingController();
-  final OAuthService _oauthService = OAuthService();
   final LocalStorageService _localStorage = LocalStorageService();
-  bool _usePat = false;
   bool _isLoading = false;
   String? _errorMessage;
-  DeviceCodeResponse? _deviceCode;
 
   @override
   void dispose() {
@@ -75,81 +71,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ),
               ),
               const Spacer(),
-              // Login Options
-              if (!_usePat) ...[
-                _buildButton(
-                  'Login with GitHub',
-                  icon: Icons.login,
-                  onPressed: _isLoading ? null : _loginWithOAuth,
+              // Authentication Options
+              _buildButton(
+                'Use Personal Access Token',
+                icon: Icons.key,
+                onPressed: _isLoading ? null : _showPatInput,
+              ),
+              const SizedBox(height: 16),
+              _buildButton(
+                'Continue Offline',
+                icon: Icons.offline_pin,
+                onPressed: _isLoading ? null : _continueOffline,
+                isSecondary: true,
+              ),
+              const SizedBox(height: 24),
+              // Help text
+              Text(
+                'PAT is recommended for full functionality',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
-                const SizedBox(height: 16),
-                _buildButton(
-                  'Use Personal Access Token',
-                  icon: Icons.key,
-                  onPressed: _isLoading
-                      ? null
-                      : () => setState(() => _usePat = true),
-                ),
-                const SizedBox(height: 16),
-                _buildButton(
-                  'Continue Offline',
-                  icon: Icons.offline_pin,
-                  onPressed: _isLoading ? null : _continueOffline,
-                  isSecondary: true,
-                ),
-              ] else ...[
-                TextField(
-                  controller: _patController,
-                  obscureText: true,
-                  maxLines: 1,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  decoration: const InputDecoration(
-                    labelText: 'Personal Access Token',
-                    hintText: 'ghp_xxxxxxxxxxxxxxxxxxxx',
-                    hintStyle: TextStyle(color: Colors.white54, fontSize: 14),
-                    labelStyle: TextStyle(
-                      color: Color(0x4DFFFFFF),
-                      fontSize: 14,
-                    ),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0x4DFFFFFF)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFFF6200)),
-                    ),
-                    prefixIcon: Icon(Icons.key, color: Color(0xFFFF6200)),
-                  ),
-                  keyboardType: TextInputType.visiblePassword,
-                  textInputAction: TextInputAction.done,
-                  onChanged: (value) {
-                    // Rebuild to enable/disable Continue button
-                    setState(() {});
-                  },
-                  onSubmitted: (_) => _patController.text.isNotEmpty
-                      ? _loginWithPAT(_patController.text)
-                      : null,
-                ),
-                const SizedBox(height: 16),
-                _buildButton(
-                  'Continue',
-                  icon: Icons.arrow_forward,
-                  onPressed: _patController.text.isEmpty
-                      ? null
-                      : () => _loginWithPAT(_patController.text),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => setState(() => _usePat = false),
-                  child: const Text('Back to options'),
-                ),
-              ],
+              ),
+              const SizedBox(height: 24),
               if (_isLoading) ...[
-                const SizedBox(height: 16),
                 BrailleLoader(size: 24),
               ],
               if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -216,268 +164,87 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  Future<void> _loginWithOAuth() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      // Step 1: Request device code
-      debugPrint('OAuth: Requesting device code...');
-      _deviceCode = await _oauthService.requestDeviceCode();
-
-      if (_deviceCode == null) {
-        throw Exception('Failed to get device code from GitHub');
-      }
-
-      debugPrint('OAuth: Device code received: ${_deviceCode!.userCode}');
-
-      if (!mounted) return;
-
-      // Step 2: Show dialog with user code
-      await _showOAuthDeviceCodeDialog();
-    } catch (e, stackTrace) {
-      debugPrint('OAuth error: $e');
-      debugPrint('Stack trace: $stackTrace');
-      setState(() {
-        _errorMessage = 'OAuth failed: ${e.toString()}';
-        _isLoading = false;
-      });
-    }
-  }
-
-  /// Show dialog with device code and verification URL
-  Future<void> _showOAuthDeviceCodeDialog() async {
-    if (_deviceCode == null) return;
-
+  void _showPatInput() {
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.qr_code_2, color: AppColors.primary, size: 28),
-              const SizedBox(width: 8),
-              const Text(
-                'Authorize GitDoIt',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'To authorize GitDoIt, follow these steps:',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-
-                // Step 1
-                _buildStep('1', 'Visit:', value: _deviceCode!.verificationUri),
-                const SizedBox(height: 4),
-
-                // Step 2
-                _buildStep(
-                  '2',
-                  'Enter code:',
-                  value: _deviceCode!.userCode,
-                  isCode: true,
-                ),
-                const SizedBox(height: 4),
-
-                // Step 3
-                _buildStep('3', 'Authorize GitDoIt when prompted'),
-
-                const SizedBox(height: 16),
-
-                // Copy code button
-                Center(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.copy),
-                    label: const Text('Copy Code'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.black,
-                    ),
-                    onPressed: () {
-                      Clipboard.setData(
-                        ClipboardData(text: _deviceCode!.userCode),
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Code copied to clipboard'),
-                          backgroundColor: AppColors.primary,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Opening browser button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.open_in_browser),
-                    label: const Text('Open in Browser'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () async {
-                      await _oauthService.openVerificationUrl();
-                      // Start polling for token
-                      _startPollingForToken(setDialogState);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                _oauthService.stopPolling();
-                Navigator.pop(context);
-                setState(() => _isLoading = false);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.white70),
-              child: const Text('Cancel'),
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Row(
+          children: [
+            Icon(Icons.key, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text(
+              'Personal Access Token',
+              style: TextStyle(color: Colors.white),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStep(
-    String number,
-    String text, {
-    String? value,
-    bool isCode = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter your GitHub Personal Access Token:',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
             ),
-            child: Center(
-              child: Text(
-                number,
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+            const SizedBox(height: 16),
+            TextField(
+              controller: _patController,
+              obscureText: true,
+              maxLines: 1,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: const InputDecoration(
+                labelText: 'Token',
+                hintText: 'ghp_xxxxxxxxxxxxxxxxxxxx',
+                hintStyle: TextStyle(color: Colors.white54, fontSize: 14),
+                labelStyle: TextStyle(
+                  color: Color(0x4DFFFFFF),
+                  fontSize: 14,
                 ),
+                border: OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0x4DFFFFFF)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFFF6200)),
+                ),
+                prefixIcon: Icon(Icons.key, color: Color(0xFFFF6200)),
               ),
+              keyboardType: TextInputType.visiblePassword,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _patController.text.isNotEmpty
+                  ? _loginWithPAT(_patController.text)
+                  : null,
             ),
+            const SizedBox(height: 16),
+            const Text(
+              'Required scopes:\n• repo (Full control of private repositories)\n• read:user (Read user profile data)\n• user:email (Access user email addresses)\n• project (Read and write projects)',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _patController.clear();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.white70),
+            child: const Text('Cancel'),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  text,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                if (value != null) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        color: isCode ? AppColors.primary : Colors.white,
-                        fontWeight: isCode
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        fontSize: isCode ? 18 : 13,
-                        fontFamily: isCode ? 'monospace' : null,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ],
+          ElevatedButton(
+            onPressed: _patController.text.isEmpty
+                ? null
+                : () => _loginWithPAT(_patController.text),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.black,
             ),
+            child: const Text('Continue'),
           ),
         ],
       ),
     );
-  }
-
-  void _startPollingForToken(StateSetter setDialogState) async {
-    setDialogState(() => _isLoading = true);
-
-    try {
-      final token = await _oauthService.startPolling();
-
-      if (token != null && mounted) {
-        // Success! Navigate to dashboard
-        Navigator.pop(context); // Close dialog
-        await _handleOAuthSuccess();
-      } else if (mounted) {
-        // Failed or cancelled
-        setDialogState(() => _isLoading = false);
-      }
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-      debugPrint('Polling error: $e');
-      setDialogState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _handleOAuthSuccess() async {
-    debugPrint('OAuth: Token received successfully');
-
-    if (mounted) {
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.green),
-              const SizedBox(width: 8),
-              const Text('Authorization successful!'),
-            ],
-          ),
-          backgroundColor: Colors.green.withValues(alpha: 0.8),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-
-      // Save token and show repo picker
-      await _showDefaultRepoPicker();
-    }
   }
 
   Future<void> _loginWithPAT(String token) async {
@@ -559,6 +326,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         );
 
+        // Close dialog
+        Navigator.pop(context);
+        _patController.clear();
+
         // Show repo picker
         await _showDefaultRepoPicker();
       }
@@ -569,6 +340,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         setState(() {
           _errorMessage = 'Login failed: ${e.toString()}';
         });
+      }
+      // Close dialog if open
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -595,7 +370,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       final folderPath = await _showFolderSelectionDialog();
 
       if (folderPath == null) {
-        // User cancelled
+        // User cancels
         if (mounted) setState(() => _isLoading = false);
         return;
       }
@@ -742,205 +517,166 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             duration: const Duration(seconds: 2),
           ),
         );
-      }
-    }
 
-    // Navigate to dashboard
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const MainDashboardScreen()),
-      );
+        // Navigate to main dashboard
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainDashboardScreen()),
+        );
+      }
+    } else if (mounted) {
+      // User cancelled - show error
+      setState(() {
+        _errorMessage = 'Please select a default repository to continue';
+      });
     }
   }
 }
 
-/// Dialog widget for selecting default repository
+/// Dialog to select default repository
 class _RepoPickerDialog extends StatefulWidget {
-  final GitHubApiService githubApi;
-
   const _RepoPickerDialog({required this.githubApi});
+
+  final GitHubApiService githubApi;
 
   @override
   State<_RepoPickerDialog> createState() => _RepoPickerDialogState();
 }
 
 class _RepoPickerDialogState extends State<_RepoPickerDialog> {
-  List<RepoItem> repos = [];
-  bool isLoading = true;
-  String? error;
+  List<RepoItem> _repos = [];
+  bool _isLoading = true;
+  String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _loadRepos();
+    _fetchRepos();
   }
 
-  Future<void> _loadRepos() async {
+  Future<void> _fetchRepos() async {
     try {
-      debugPrint('Fetching repositories for repo picker...');
-      repos = await widget.githubApi.fetchMyRepositories(perPage: 50);
-      debugPrint('Fetched ${repos.length} repositories');
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-      debugPrint('Error fetching repositories: $e');
-      error = e.toString();
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      final repos = await widget.githubApi.fetchMyRepositories();
+      setState(() {
+        _repos = repos;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
     }
+  }
+
+  List<RepoItem> get _filteredRepos {
+    if (_searchQuery.isEmpty) return _repos;
+    return _repos
+        .where((repo) =>
+            repo.fullName.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return AlertDialog(
-        backgroundColor: AppColors.card,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            BrailleLoader(size: 24),
-            const SizedBox(height: 16),
-            const Text(
-              'Loading your repositories...',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (error != null) {
-      return AlertDialog(
-        backgroundColor: AppColors.card,
-        title: const Text(
-          'Error Loading Repositories',
-          style: TextStyle(color: AppColors.error),
-        ),
-        content: Text(error!, style: const TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Navigate to dashboard anyway
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const MainDashboardScreen(),
-                ),
-              );
-            },
-            child: const Text('Continue Anyway'),
-          ),
-        ],
-      );
-    }
-
     return AlertDialog(
       backgroundColor: AppColors.card,
-      title: Row(
+      title: const Row(
         children: [
-          const Icon(Icons.folder, color: AppColors.primary),
-          const SizedBox(width: 8),
-          const Text(
-            'Select Default Repository',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Icon(Icons.folder, color: AppColors.primary),
+          SizedBox(width: 8),
+          Text(
+            'Select Default Repo',
+            style: TextStyle(color: Colors.white),
           ),
         ],
       ),
       content: SizedBox(
         width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Choose a repository to use as default for creating issues:',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            if (repos.isEmpty)
-              const Text(
-                'No repositories found. You can create one on GitHub.',
-                style: TextStyle(color: Colors.white70),
-              )
-            else
-              Flexible(
-                child: SizedBox(
-                  height: 300,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: repos.length,
-                    itemBuilder: (context, index) {
-                      final repo = repos[index];
-                      return ListTile(
-                        leading: const Icon(
-                          Icons.folder,
-                          color: AppColors.primary,
+        child: _isLoading
+            ? const Center(child: BrailleLoader())
+            : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error, color: AppColors.error),
+                        const SizedBox(height: 8),
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.white70),
+                          textAlign: TextAlign.center,
                         ),
-                        title: Text(
-                          repo.fullName,
-                          style: const TextStyle(color: Colors.white),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _fetchRepos,
+                          child: const Text('Retry'),
                         ),
-                        subtitle: repo.description != null
-                            ? Text(
-                                repo.description!,
+                      ],
+                    ),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Search field
+                      TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Search repositories...',
+                          hintStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: AppColors.primary,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.1),
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value),
+                      ),
+                      const SizedBox(height: 16),
+                      // Repo list
+                      SizedBox(
+                        height: 300,
+                        child: ListView.builder(
+                          itemCount: _filteredRepos.length,
+                          itemBuilder: (context, index) {
+                            final repo = _filteredRepos[index];
+                            return ListTile(
+                              leading: const Icon(
+                                Icons.folder,
+                                color: AppColors.primary,
+                              ),
+                              title: Text(
+                                repo.title,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              subtitle: Text(
+                                repo.fullName,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                  fontSize: 11,
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 12,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              )
-                            : null,
-                        onTap: () => Navigator.pop(context, repo),
-                      );
-                    },
+                              ),
+                              onTap: () => Navigator.pop(context, repo),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            const SizedBox(height: 16),
-            // Create new repository button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.add, color: AppColors.primary),
-                label: const Text(
-                  'Create New Repository on GitHub',
-                  style: TextStyle(color: AppColors.primary),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.primary),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () async {
-                  // Open GitHub in browser
-                  final uri = Uri.parse('https://github.com/new');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
       ),
       actions: [
-        if (repos.isNotEmpty)
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Navigate to dashboard without selecting
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const MainDashboardScreen(),
-                ),
-              );
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.white54),
-            child: const Text('Skip'),
-          ),
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          style: TextButton.styleFrom(foregroundColor: Colors.white70),
+          child: const Text('Cancel'),
+        ),
       ],
     );
   }

@@ -1,9 +1,10 @@
 # GitDoIt - QWEN Context File
 
 **Project:** GitDoIt - Minimalist GitHub Issues & Projects TODO Manager  
-**Version:** 0.5.0+70  
+**Version:** 0.5.0+126  
 **Framework:** Flutter 3.24+ / Dart 3.11+  
-**Last Updated:** March 2, 2026
+**Last Updated:** March 18, 2026  
+**Total Codebase:** ~24,773 lines of Dart code
 
 ---
 
@@ -22,12 +23,14 @@ GitDoIt is a **cross-platform mobile application** (Android + iOS) that transfor
 | Category | Technology |
 |----------|------------|
 | **Framework** | Flutter 3.24+ |
-| **State Management** | Riverpod 3.0.3 |
-| **Local Storage** | Hive |
-| **Network** | http + graphql_flutter |
-| **Secure Storage** | flutter_secure_storage |
-| **Markdown** | flutter_markdown_plus |
-| **Drag & Drop** | reorderables |
+| **State Management** | Riverpod 3.3.1 |
+| **Navigation** | GoRouter 17.1.0 |
+| **Local Storage** | Hive CE 2.10.1 (Community Edition) |
+| **Network** | Dio 5.7.0 + http 1.2.0 |
+| **Secure Storage** | flutter_secure_storage 10.0.0 |
+| **Markdown** | flutter_markdown_plus 1.0.6 |
+| **Drag & Drop** | reorderables 0.6.0 |
+| **Background Sync** | workmanager 0.9.0+3 |
 
 ---
 
@@ -36,46 +39,87 @@ GitDoIt is a **cross-platform mobile application** (Android + iOS) that transfor
 ### Project Structure
 ```
 lib/
-├── main.dart                          # App entry point
-├── agents/                            # Multi-agent development system
-│   ├── agent_coordinator.dart
-│   ├── base_agent.dart
-│   ├── project_manager_agent.dart
-│   ├── flutter_developer_agent.dart
-│   ├── ui_designer_agent.dart
-│   ├── testing_quality_agent.dart
-│   └── documentation_deployment_agent.dart
+├── main.dart                          # App entry point with background sync
+├── agents/                            # Multi-agent development system (9 files)
+│   ├── agents.dart                    # Library exports
+│   ├── base_agent.dart                # Base agent class
+│   ├── coordinator_agent.dart         # Central coordinator (singleton)
+│   ├── project_manager_agent.dart     # Task coordination
+│   ├── flutter_developer_agent.dart   # Code implementation
+│   ├── ui_designer_agent.dart         # Design compliance
+│   ├── testing_quality_agent.dart     # Quality assurance
+│   ├── documentation_agent.dart       # Documentation & releases
+│   └── rules_compliance_agent.dart    # Proactive rule checking
 ├── constants/
-│   └── app_colors.dart                # Dark theme colors
-├── models/
+│   └── app_colors.dart                # Dark theme colors, typography, spacing
+├── models/                            # Data models (8 files)
 │   ├── item.dart                      # Abstract base class
 │   ├── repo_item.dart                 # Repository model
 │   ├── issue_item.dart                # Issue model
-│   └── project_item.dart              # Project model
-├── screens/                           # 7 MVP screens
-│   ├── onboarding_screen.dart
-│   ├── main_dashboard_screen.dart
-│   ├── issue_detail_screen.dart
-│   ├── project_board_screen.dart
-│   ├── edit_issue_screen.dart
-│   ├── search_screen.dart
-│   ├── settings_screen.dart
-│   └── repo_project_library_screen.dart
-├── providers/
-│   └── app_providers.dart             # Riverpod providers
-├── services/
+│   ├── project_item.dart              # Project model
+│   ├── cached_dashboard_data.dart     # Dashboard cache
+│   ├── pending_operation.dart         # Offline queue operations
+│   ├── sync_history_entry.dart        # Sync history tracking
+│   └── models.dart                    # Model exports
+├── screens/                           # 14 MVP screens
+│   ├── onboarding_screen.dart         # Login & offline mode
+│   ├── main_dashboard_screen.dart     # Main TODO view
+│   ├── repo_detail_screen.dart        # Repository issues
+│   ├── issue_detail_screen.dart       # Issue details & comments
+│   ├── edit_issue_screen.dart         # Edit issue
+│   ├── create_issue_screen.dart       # Create new issue
+│   ├── project_board_screen.dart      # Kanban board
+│   ├── search_screen.dart             # Global search
+│   ├── settings_screen.dart           # App settings
+│   ├── repo_project_library_screen.dart # Repo/project selector
+│   ├── sync_status_dashboard_screen.dart # Sync status
+│   ├── error_log_screen.dart          # Error logs
+│   ├── debug_screen.dart              # Debug utilities
+│   └── onboarding_screen.dart.backup  # Backup file
+├── providers/                         # Riverpod providers
+│   └── app_providers.dart             # All providers
+├── services/                          # Business logic (14 files)
 │   ├── github_api_service.dart        # REST + GraphQL API
 │   ├── sync_service.dart              # Auto-sync, conflict resolution
 │   ├── local_storage_service.dart     # Hive local storage
 │   ├── secure_storage_service.dart    # Token storage (singleton)
-│   └── oauth_service.dart             # OAuth Device Flow
-├── widgets/
-│   ├── expandable_repo.dart
-│   ├── issue_card.dart
-│   ├── error_boundary.dart
-│   └── sync_cloud_icon.dart
-└── utils/
-    └── responsive_utils.dart          # Responsive design utilities
+│   ├── oauth_service.dart             # OAuth Device Flow
+│   ├── network_service.dart           # Network connectivity
+│   ├── cache_service.dart             # API response caching
+│   ├── pending_operations_service.dart # Offline operation queue
+│   ├── issue_service.dart             # Issue CRUD operations
+│   ├── dashboard_service.dart         # Dashboard data
+│   ├── dashboard_data_service.dart    # Dashboard data fetching
+│   ├── conflict_detection_service.dart # Conflict detection
+│   ├── error_logging_service.dart     # Error logging
+│   └── search_history_service.dart    # Search history
+├── widgets/                           # Reusable components (20 files)
+│   ├── expandable_repo.dart           # Expandable repo list
+│   ├── issue_card.dart                # Issue card widget
+│   ├── error_boundary.dart            # Error boundary
+│   ├── sync_cloud_icon.dart           # Sync status icon
+│   ├── optimistic_update_listener.dart # Optimistic updates
+│   ├── loading_skeleton.dart          # Loading skeletons
+│   ├── label_chip.dart                # Label display
+│   ├── status_badge.dart              # Status badges
+│   ├── conflict_resolution_dialog.dart # Conflict resolution
+│   ├── pending_operations_list.dart   # Offline queue display
+│   ├── search_filters_panel.dart      # Search filters
+│   ├── search_result_item.dart        # Search results
+│   ├── repo_list.dart                 # Repo list widget
+│   ├── dashboard_empty_state.dart     # Empty state
+│   ├── dashboard_filters.dart         # Dashboard filters
+│   ├── empty_state_illustrations.dart # Empty state graphics
+│   ├── page_template.dart             # Page template
+│   ├── sync_status_widget.dart        # Sync status display
+│   ├── tutorial_overlay.dart          # Tutorial overlay
+│   └── braille_loader.dart            # Loading indicator
+└── utils/                             # Utilities (5 files)
+    ├── responsive_utils.dart          # Responsive design
+    ├── app_error_handler.dart         # Global error handling
+    ├── auth_error_handler.dart        # Auth error handling
+    ├── relative_time.dart             # Time formatting
+    └── retry_helper.dart              # Retry logic
 ```
 
 ### Design System
@@ -85,6 +129,29 @@ lib/
 - **Secondary Color:** Red `#FF3B30`
 - **Accent:** Blue `#0A84FF`
 - **Responsive:** Mobile (<600px), Tablet (600-1024px), Desktop (>1024px)
+
+### Color Palette (Simplified - 12 colors)
+```dart
+// Back grounds (3)
+static const Color background = Color(0xFF121212);
+static const Color card = Color(0xFF1E1E1E);
+static const Color dark = Color(0xFF0A0A0A);
+
+// Accents (3)
+static const Color primary = Color(0xFFFF6200);
+static const Color link = Color(0xFF0A84FF);
+static const Color error = Color(0xFFFF3B30);
+
+// Status (3)
+static const Color success = Color(0xFF4CAF50);
+static const Color warning = Color(0xFFFFC107);
+static const Color muted = Color(0xFF6E7781);
+
+// Text & Borders (3)
+static const Color text = Color(0xFFFFFFFF);
+static const Color textSecondary = Color(0xFFA0A0A5);
+static const Color border = Color(0xFF333333);
+```
 
 ---
 
@@ -106,7 +173,7 @@ flutter pub get
 flutter pub run build_runner build --delete-conflicting-outputs
 
 # 3. Configure OAuth (for GitHub login)
-cp .env.example .env
+cp .env.default .env
 # Edit .env and add your GITHUB_CLIENT_ID
 ```
 
@@ -170,25 +237,40 @@ make version-increment
 flutter test
 ```
 
-### Test Coverage
-- ✅ Model tests (24 tests)
-- ✅ Widget tests (42 tests)
-- ✅ ExpandableItem tests (14 tests)
-- ✅ Auth service tests (12 tests)
-- ✅ Sync service tests (18 tests)
-- ✅ User journey tests (5 tests)
-- ✅ Performance tests (6 tests)
-- ✅ Brief compliance (15 checks)
-
 ### Test Structure
 ```
 test/
-├── models/
-├── providers/
-├── screens/
-├── services/
-└── widgets/
+├── agents/                          # Agent system tests
+│   └── wake_agents_test.dart        # Wake all agents test
+├── models/                          # Model tests
+│   ├── issue_item_test.dart
+│   └── models_test.dart
+├── screens/                         # Screen tests
+│   ├── create_issue_screen_test.dart
+│   ├── edit_issue_screen_test.dart
+│   ├── error_log_screen_test.dart
+│   ├── issue_detail_screen_*.dart   # Issue detail tests
+│   ├── onboarding_screen_test.dart
+│   ├── repo_detail_screen_test.dart
+│   ├── search_screen_*.dart         # Search tests
+│   └── settings_screen_full_test.dart
+├── sprint16/                        # Sprint 16 tests
+│   ├── sprint16_background_sync_test.dart
+│   ├── sprint16_image_caching_test.dart
+│   ├── sprint16_list_optimization_test.dart
+│   ├── sprint16_loading_skeletons_test.dart
+│   └── sprint16_pagination_test.dart
+└── widget_test.dart                 # Widget tests
 ```
+
+### Test Coverage
+- ✅ Model tests
+- ✅ Widget tests
+- ✅ Screen tests (14+ screens)
+- ✅ Agent system tests (5 tests)
+- ✅ Sprint 16 integration tests (5 tests)
+- ✅ Background sync tests
+- ✅ Offline operation tests
 
 ---
 
@@ -249,54 +331,83 @@ Generate token with scopes:
 ## 📦 Key Dependencies
 
 ### Production
-- `flutter_riverpod` - State management
-- `hive` + `hive_flutter` - Local database
-- `http` - REST API client
-- `graphql_flutter` - GraphQL client
-- `flutter_secure_storage` - Secure token storage
-- `flutter_markdown_plus` - Markdown rendering
-- `reorderables` - Drag-and-drop lists
-- `url_launcher` - Open URLs
-- `connectivity_plus` - Network connectivity
-- `flutter_screenutil` - Responsive design
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `flutter_riverpod` | ^3.3.1 | State management |
+| `go_router` | ^17.1.0 | Navigation |
+| `hive_ce` | ^2.10.1 | Local database (CE) |
+| `hive_ce_flutter` | ^2.2.0 | Hive Flutter integration |
+| `dio` | ^5.7.0 | HTTP client (advanced) |
+| `http` | ^1.2.0 | HTTP client (basic) |
+| `flutter_secure_storage` | ^10.0.0 | Secure token storage |
+| `flutter_markdown_plus` | ^1.0.6 | Markdown rendering |
+| `reorderables` | ^0.6.0 | Drag-and-drop lists |
+| `url_launcher` | ^6.3.2 | Open URLs |
+| `connectivity_plus` | ^7.0.0 | Network connectivity |
+| `flutter_screenutil` | ^5.9.3 | Responsive design |
+| `flutter_svg` | ^2.0.17 | SVG support |
+| `cached_network_image` | ^3.3.1 | Image caching |
+| `workmanager` | ^0.9.0+3 | Background sync |
+| `shimmer` | ^3.0.0 | Loading skeletons |
+| `share_plus` | ^12.0.1 | Share functionality |
+| `flutter_dotenv` | ^5.1.0 | Environment variables |
+| `file_picker` | ^10.3.10 | File/folder selection |
+| `permission_handler` | ^12.0.1 | Permissions |
+| `package_info_plus` | ^9.0.0 | Package info |
+| `gap` | ^3.0.0 | Layout gaps |
+| `cupertino_icons` | ^1.0.8 | Icons |
 
 ### Development
-- `build_runner` - Code generation
-- `riverpod_generator` - Riverpod codegen
-- `flutter_lints` - Linting rules
-- `test` - Testing framework
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `build_runner` | ^2.4.12 | Code generation |
+| `lints` | ^6.1.0 | Linting rules |
+| `very_good_analysis` | ^10.2.0 | Strict linting |
+| `build_config` | ^1.1.0 | Build configuration |
+| `integration_test` | SDK | Integration testing |
+| `benchmark_harness` | ^2.3.1 | Performance testing |
+| `flutter_test` | SDK | Widget testing |
 
 ---
 
 ## 🎯 MVP Scope
 
 ### Included ✅
-- 7 MVP screens
+- 14 MVP screens (including debug & error log)
 - Dark theme only
 - OAuth + PAT authentication
-- Offline-first with Hive
+- Offline-first with Hive CE
 - Issues sync (REST)
 - Projects v2 board (GraphQL)
 - Drag-and-drop between columns
 - Hierarchical expandable items
-- Global search
+- Global search with history
 - Markdown rendering
-- Edit issues (title, body, labels)
+- Create/Edit issues
 - Close/Reopen issues
 - Filter by status and project
 - Auto-sync on network restore
 - Responsive design (mobile/tablet/desktop)
+- Background sync (every 15 min)
+- Error logging & sharing
+- Conflict detection & resolution
+- Pending operations queue
+- Optimistic updates
+- Loading skeletons
+- Image caching
+- Sync status dashboard
+- Tutorial overlay
 
 ### Explicitly Excluded ❌
 - Light theme
 - Push notifications
 - Home screen widgets
-- Share sheet
+- Share sheet (basic share only)
 - Other service integrations (Slack, Trello)
 - Custom icons/illustrations
 - Lottie animations
 - Inline editing in lists
-- Comments to issues
+- Comments to issues (read-only)
 
 ---
 
@@ -432,6 +543,8 @@ flutter analyze
 ## 📚 Documentation
 
 - **README.md** - User-facing documentation
+- **QWEN.md** - This file (project context)
+- **AGENTS.md** - Multi-agent system documentation
 - **PROJECT_MASTER.md** - Complete project architecture
 - **CONTRIBUTING.md** - Contribution guidelines
 - **CHANGELOG.md** - Version history
@@ -455,6 +568,11 @@ flutter analyze
 - Issues saved as Markdown files in vault folder
 - No network required for basic functionality
 - Sync happens automatically when network restored
+
+### Background Sync
+- Runs every 15 minutes when connected
+- Respects auto-sync settings (WiFi only / Any network)
+- Handles pending operations queue
 
 ---
 

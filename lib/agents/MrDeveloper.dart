@@ -3,12 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
 /// Flutter Developer Agent (FDA) - Writes code and implements features
-class FlutterDeveloperAgent extends BaseAgent {
+class MrDeveloper extends BaseAgent {
   String? _currentTask;
   final List<String> _completedTasks = [];
   
-  FlutterDeveloperAgent() : super(
-    name: 'FlutterDeveloperAgent',
+  MrDeveloper() : super(
+    name: 'MrDeveloper',
     role: 'Flutter Developer',
     responsibilities: [
       'Implement features',

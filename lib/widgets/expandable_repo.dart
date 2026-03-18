@@ -5,6 +5,7 @@ import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../services/issue_service.dart';
+import '../services/local_storage_service.dart';
 import '../screens/edit_issue_screen.dart';
 import 'braille_loader.dart';
 import 'loading_skeleton.dart'; // PERFORMANCE: Loading skeletons (Task 16.5)
@@ -49,6 +50,7 @@ class ExpandableRepo extends StatefulWidget {
 
 class _ExpandableRepoState extends State<ExpandableRepo> {
   final IssueService _issueService = IssueService();
+  final LocalStorageService _localStorage = LocalStorageService();
   bool _isLoadingIssues = false;
   bool _hasLoadedIssues = false;
   List<IssueItem> _issues = [];
@@ -179,15 +181,36 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
       final repo = parts[1];
 
       if (issue.isLocalOnly || issue.number == null) {
-        // Local issue - remove from list immediately
+        // Local issue - update status and save to file
+        final updatedIssue = IssueItem(
+          id: issue.id,
+          title: issue.title,
+          number: issue.number,
+          status: ItemStatus.closed,
+          updatedAt: DateTime.now(),
+          bodyMarkdown: issue.bodyMarkdown,
+          assigneeLogin: issue.assigneeLogin,
+          labels: issue.labels,
+          projectColumnName: issue.projectColumnName,
+          isLocalOnly: true,
+        );
+        
+        // Save the status change
+        await _localStorage.saveLocalIssue(updatedIssue);
+        
+        // Update the list
         setState(() {
-          _issues.removeWhere((i) => i.id == issue.id);
+          final index = _issues.indexWhere((i) => i.id == issue.id);
+          if (index != -1) {
+            _issues[index] = updatedIssue;
+          }
         });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Issue closed'),
+            content: Text('Issue closed (local)'),
             backgroundColor: AppColors.primary,
-            duration: Duration(seconds: 1),
+            duration: Duration(seconds: 2),
           ),
         );
       } else {

@@ -1,0 +1,21 @@
+{
+  "nanocoder": {
+    "providers": [
+      {
+        "name": "ollama",
+        "models": [
+          "gemma2:2b",
+          "glm-4.7-flash:latest",
+          "glm-ocr:latest",
+          "lfm2:latest",
+          "lfm2.5-thinking:latest",
+          "qwen3.5:0.8b",
+          "qwen3.5:2b",
+          "qwen3.5:4b",
+          "qwen3.5:latest"
+        ],
+        "baseUrl": "http://localhost:11434/v1"
+      }
+    ]
+  }
+}

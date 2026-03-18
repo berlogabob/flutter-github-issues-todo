@@ -3,14 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
 /// Testing & Quality Agent (TQA) - Validates code quality and runs tests
-class TestingQualityAgent extends BaseAgent {
+class MrTester extends BaseAgent {
   int _testsRun = 0;
   int _testsPassed = 0;
   int _testsFailed = 0;
   List<String> _issues = [];
   
-  TestingQualityAgent() : super(
-    name: 'TestingQualityAgent',
+  MrTester() : super(
+    name: 'MrTester',
     role: 'Testing & Quality',
     responsibilities: [
       'Run tests',

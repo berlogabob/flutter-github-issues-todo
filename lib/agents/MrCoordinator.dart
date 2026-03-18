@@ -1,33 +1,33 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
-import 'project_manager_agent.dart';
-import 'flutter_developer_agent.dart';
-import 'ui_designer_agent.dart';
-import 'testing_quality_agent.dart';
-import 'documentation_agent.dart';
-import 'rules_compliance_agent.dart';
+import 'MrPlanner.dart';
+import 'MrDeveloper.dart';
+import 'MrDesigner.dart';
+import 'MrTester.dart';
+import 'MrLogger.dart';
+import 'MrCompliance.dart';
 
 /// Agent Coordinator - CONTROLS ALL AGENTS
-class AgentCoordinator {
+class MrCoordinator {
   final Map<String, BaseAgent> _agents = {};
   final _messageBus = StreamController<AgentMessage>.broadcast();
   bool _isRunning = false;
   
-  late final ProjectManagerAgent _pma;
-  late final FlutterDeveloperAgent _fda;
-  late final UiDesignerAgent _uda;
-  late final TestingQualityAgent _tqa;
-  late final DocumentationAgent _dda;
-  late final RulesComplianceAgent _rca;
+  late final MrPlanner _pma;
+  late final MrDeveloper _fda;
+  late final MrDesigner _uda;
+  late final MrTester _tqa;
+  late final MrLogger _dda;
+  late final MrCompliance _rca;
   
-  AgentCoordinator() {
-    _pma = ProjectManagerAgent();
-    _fda = FlutterDeveloperAgent();
-    _uda = UiDesignerAgent();
-    _tqa = TestingQualityAgent();
-    _dda = DocumentationAgent();
-    _rca = RulesComplianceAgent();
+  MrCoordinator() {
+    _pma = MrPlanner();
+    _fda = MrDeveloper();
+    _uda = MrDesigner();
+    _tqa = MrTester();
+    _dda = MrLogger();
+    _rca = MrCompliance();
     
     registerAgent(_pma);
     registerAgent(_fda);
@@ -39,7 +39,7 @@ class AgentCoordinator {
   
   void registerAgent(BaseAgent agent) {
     _agents[agent.name] = agent;
-    debugPrint('AgentCoordinator: Registered ${agent.name}');
+    debugPrint('MrCoordinator: Registered ${agent.name}');
     agent.messageStream.listen(_handleAgentMessage);
   }
   
@@ -62,24 +62,24 @@ class AgentCoordinator {
   }
   
   Future<void> startAll() async {
-    debugPrint('AgentCoordinator: Starting all agents...');
+    debugPrint('MrCoordinator: Starting all agents...');
     _isRunning = true;
     for (final agent in _agents.values) await agent.init();
     for (final agent in _agents.values) await agent.start();
-    debugPrint('AgentCoordinator: All agents started');
-    _coordinatorLoop();
+    debugPrint('MrCoordinator: All agents started');
+    _MrCoordinatorLoop();
   }
   
   Future<void> stopAll() async {
-    debugPrint('AgentCoordinator: Stopping all agents...');
+    debugPrint('MrCoordinator: Stopping all agents...');
     _isRunning = false;
     // Create a copy of the values to avoid concurrent modification
     final agentsToStop = _agents.values.toList();
     for (final agent in agentsToStop) await agent.stop();
-    debugPrint('AgentCoordinator: All agents stopped');
+    debugPrint('MrCoordinator: All agents stopped');
   }
   
-  Future<void> _coordinatorLoop() async {
+  Future<void> _MrCoordinatorLoop() async {
     while (_isRunning) {
       await Future.delayed(const Duration(seconds: 5));
       await _checkAgentHealth();
@@ -90,7 +90,7 @@ class AgentCoordinator {
   Future<void> _checkAgentHealth() async {
     for (final agent in _agents.values) {
       if (!agent.isActive) {
-        debugPrint('AgentCoordinator: Warning - ${agent.name} is not active');
+        debugPrint('MrCoordinator: Warning - ${agent.name} is not active');
         await agent.start();
       }
     }
@@ -103,7 +103,7 @@ class AgentCoordinator {
     if ((complianceReport['violations'] as int) > 0) {
       _pma.addTask(AgentTask(
         id: 'fix_violations_${DateTime.now().millisecondsSinceEpoch}',
-        assignedTo: 'FlutterDeveloperAgent',
+        assignedTo: 'MrDeveloper',
         title: 'Fix Rule Violations',
         description: 'Fix ${complianceReport['violations']} rule violations',
         priority: TaskPriority.high,
@@ -113,7 +113,7 @@ class AgentCoordinator {
     if ((qualityReport['issues'] as int) > 0) {
       _pma.addTask(AgentTask(
         id: 'fix_quality_${DateTime.now().millisecondsSinceEpoch}',
-        assignedTo: 'FlutterDeveloperAgent',
+        assignedTo: 'MrDeveloper',
         title: 'Fix Quality Issues',
         description: 'Fix ${qualityReport['issues']} quality issues',
         priority: TaskPriority.high,
@@ -122,7 +122,7 @@ class AgentCoordinator {
   }
   
   void _handleAgentMessage(AgentMessage message) {
-    debugPrint('AgentCoordinator: Message from ${message.from}: ${message.subject}');
+    debugPrint('MrCoordinator: Message from ${message.from}: ${message.subject}');
     _messageBus.add(message);
     
     switch (message.type) {
@@ -141,7 +141,7 @@ class AgentCoordinator {
   }
   
   void _handleError(AgentMessage error) {
-    debugPrint('AgentCoordinator: Error from ${error.from}: ${error.content}');
+    debugPrint('MrCoordinator: Error from ${error.from}: ${error.content}');
     _pma.handleMessage(error);
     
     if (error.subject.contains('Design')) _uda.handleMessage(error);
@@ -154,11 +154,11 @@ class AgentCoordinator {
   }
   
   void _handleStatus(AgentMessage status) {
-    debugPrint('AgentCoordinator: Status update - ${status.content}');
+    debugPrint('MrCoordinator: Status update - ${status.content}');
   }
   
   void _handleRequest(AgentMessage request) {
-    debugPrint('AgentCoordinator: Request from ${request.from}');
+    debugPrint('MrCoordinator: Request from ${request.from}');
   }
   
   void sendMessageTo(String agentName, AgentMessage message) {
@@ -171,7 +171,7 @@ class AgentCoordinator {
   }
   
   Future<void> executeTask(AgentTask task) async {
-    debugPrint('AgentCoordinator: Executing task: ${task.title}');
+    debugPrint('MrCoordinator: Executing task: ${task.title}');
     _pma.addTask(task);
   }
   
@@ -187,9 +187,9 @@ class AgentCoordinator {
 }
 
 // Global singleton instance
-AgentCoordinator? _coordinatorInstance;
-AgentCoordinator get coordinator {
-  _coordinatorInstance ??= AgentCoordinator();
+MrCoordinator? _coordinatorInstance;
+MrCoordinator get coordinator {
+  _coordinatorInstance ??= MrCoordinator();
   return _coordinatorInstance!;
 }
 bool get isCoordinatorInitialized => _coordinatorInstance != null;

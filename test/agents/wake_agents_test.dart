@@ -3,10 +3,11 @@ import 'package:gitdoit/agents/agents.dart';
 
 void main() {
   group('Agent System Wake Up', () {
-    late AgentCoordinator coordinator;
+    late MrCoordinator coordinator;
 
-    setUp(() {
-      coordinator = AgentCoordinator();
+    setUp(() async {
+      coordinator = MrCoordinator();
+      await coordinator.startAll();
     });
 
     tearDown(() async {
@@ -27,12 +28,12 @@ void main() {
       
       // Verify each agent individually
       final agents = status['agents'] as Map<String, dynamic>;
-      expect(agents['ProjectManagerAgent']['active'], isTrue);
-      expect(agents['FlutterDeveloperAgent']['active'], isTrue);
-      expect(agents['UiDesignerAgent']['active'], isTrue);
-      expect(agents['TestingQualityAgent']['active'], isTrue);
-      expect(agents['DocumentationAgent']['active'], isTrue);
-      expect(agents['RulesComplianceAgent']['active'], isTrue);
+      expect(agents['MrPlanner']['active'], isTrue);
+      expect(agents['MrDeveloper']['active'], isTrue);
+      expect(agents['MrDesigner']['active'], isTrue);
+      expect(agents['MrTester']['active'], isTrue);
+      expect(agents['MrLogger']['active'], isTrue);
+      expect(agents['MrCompliance']['active'], isTrue);
     });
 
     test('Compliance status is available', () async {
@@ -80,7 +81,7 @@ void main() {
       // Create a test task
       final task = AgentTask(
         id: 'test_task_1',
-        assignedTo: 'FlutterDeveloperAgent',
+        assignedTo: 'MrDeveloper',
         title: 'Test Task',
         description: 'This is a test task',
         priority: TaskPriority.normal,

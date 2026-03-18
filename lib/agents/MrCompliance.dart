@@ -4,7 +4,7 @@ import 'base_agent.dart';
 
 /// Rules & Compliance Agent (RCA) - NEW PROACTIVE AGENT
 /// Proactively checks project rules, conventions, and politics
-class RulesComplianceAgent extends BaseAgent {
+class MrCompliance extends BaseAgent {
   final List<RuleViolation> _violations = [];
   final Map<String, bool> _ruleChecks = {};
   
@@ -31,8 +31,8 @@ class RulesComplianceAgent extends BaseAgent {
       description: 'Never commit .env file', severity: RuleSeverity.critical),
   ];
   
-  RulesComplianceAgent() : super(
-    name: 'RulesComplianceAgent',
+  MrCompliance() : super(
+    name: 'MrCompliance',
     role: 'Rules & Compliance',
     responsibilities: [
       'Check project rules',

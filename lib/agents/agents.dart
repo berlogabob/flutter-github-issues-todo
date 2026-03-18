@@ -1,27 +1,37 @@
-/// GitDoIt Multi-Agent System
-/// 
+/// GitDoIt Multi-Agent System - Mr* Series
+///
 /// This library provides a team of autonomous agents that work together
 /// to develop, maintain, and improve the GitDoIt application.
-/// 
-/// ## Agents
-/// 
-/// - [ProjectManagerAgent] - Coordinates all agents, assigns tasks
-/// - [FlutterDeveloperAgent] - Writes code, implements features
-/// - [UiDesignerAgent] - Designs interfaces, ensures design compliance
-/// - [TestingQualityAgent] - Runs tests, validates code quality
-/// - [DocumentationAgent] - Maintains docs, prepares releases
-/// - [RulesComplianceAgent] - PROACTIVE: Checks project rules and conventions
-/// 
+///
+/// ## Agents (Mr* Series)
+///
+/// - [MrPlanner] - Project planning and task management (PMA)
+/// - [MrDeveloper] - Flutter development (FDA)
+/// - [MrDesigner] - UI/UX design (UDA)
+/// - [MrTester] - Testing and quality assurance (TQA)
+/// - [MrLogger] - Documentation and logging (DDA)
+/// - [MrCompliance] - Rules and compliance (RCA)
+/// - [MrCoordinator] - Controls all agents (COORD)
+///
+/// ## Specialist Agents (Reference Specs)
+///
+/// - MrArchitect, MrSync, MrSupervisor
+/// - MrSeniorDeveloper, MrCleaner, MrRepetitive, MrOptimization
+/// - MrAndroid, MrAndroidDebug
+/// - MrUX, MrThemeGuardian, MrWidgetCrafter, MrCreativeDirector
+/// - MrTesterSpec, MrQualityControl, MrStupidUser
+/// - MrLoggerSpec, MrRelease, MrMemory
+///
 /// ## Coordinator
-/// 
-/// The [AgentCoordinator] controls all agents, facilitates communication,
+///
+/// The [MrCoordinator] controls all agents, facilitates communication,
 /// and monitors agent health.
-/// 
+///
 /// ## Usage
-/// 
+///
 /// ```dart
 /// import 'package:gitdoit/agents/agents.dart';
-/// 
+///
 /// void main() async {
 ///   // Get coordinator (singleton)
 ///   final coordinator = get coordinator;
@@ -32,9 +42,6 @@
 ///   // Check status
 ///   print(coordinator.getAgentStatus());
 ///   
-///   // Get compliance report
-///   print(coordinator.getComplianceStatus());
-///   
 ///   // Stop all agents
 ///   await coordinator.stopAll();
 /// }
@@ -42,10 +49,10 @@
 library agents;
 
 export 'base_agent.dart';
-export 'project_manager_agent.dart';
-export 'flutter_developer_agent.dart';
-export 'ui_designer_agent.dart';
-export 'testing_quality_agent.dart';
-export 'documentation_agent.dart';
-export 'rules_compliance_agent.dart';
-export 'coordinator_agent.dart';
+export 'MrPlanner.dart';
+export 'MrDeveloper.dart';
+export 'MrDesigner.dart';
+export 'MrTester.dart';
+export 'MrLogger.dart';
+export 'MrCompliance.dart';
+export 'MrCoordinator.dart';

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'constants/app_colors.dart';
 import 'utils/app_error_handler.dart';
 import 'widgets/error_boundary.dart';
@@ -63,6 +64,25 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables from .env file (PROPER WAY)
+  // Tries to load from root directory first (development)
+  // Falls back to bundled .env.default (production)
+  try {
+    await dotenv.load(fileName: ".env");
+    debugPrint('✅ Loaded .env from root directory');
+  } catch (e) {
+    debugPrint('⚠️ .env not found in root, trying bundled default...');
+    try {
+      await dotenv.load(fileName: ".env.default");
+      debugPrint('✅ Loaded .env.default (bundled)');
+      debugPrint('⚠️ Using default configuration - OAuth will not work');
+      debugPrint('⚠️ Copy .env.default to .env and add your GITHUB_CLIENT_ID');
+    } catch (e2) {
+      debugPrint('❌ Failed to load any .env file: $e2');
+      debugPrint('⚠️ OAuth login will not work without GITHUB_CLIENT_ID');
+    }
+  }
 
   // Initialize Hive for caching
   await Hive.initFlutter();

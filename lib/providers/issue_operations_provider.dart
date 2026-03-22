@@ -66,6 +66,14 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
 
+  String? _extractRepoFullName(IssueItem issue) {
+    final parts = issue.id.split('/');
+    if (parts.length >= 2) {
+      return '${parts[0]}/${parts[1]}';
+    }
+    return null;
+  }
+
   @override
   Future<IssueOperationsState> build() async {
     return IssueOperationsState();
@@ -211,7 +219,10 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
       );
 
       // Update local storage immediately
-      await _localStorage.saveLocalIssue(updatedIssue);
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: _extractRepoFullName(issue),
+      );
 
       // Update on GitHub if not local-only
       if (!issue.isLocalOnly && issue.number != null) {
@@ -251,7 +262,10 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
 
       // Rollback: Restore original issue
-      await _localStorage.saveLocalIssue(originalIssue);
+      await _localStorage.saveIssueForOfflineState(
+        originalIssue,
+        repoFullName: _extractRepoFullName(issue),
+      );
 
       // Remove from pending operations
       final updatedOperations = _currentState.pendingOperations
@@ -293,7 +307,10 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
       );
 
       // Update local storage immediately
-      await _localStorage.saveLocalIssue(updatedIssue);
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: _extractRepoFullName(issue),
+      );
 
       // Update on GitHub if not local-only
       if (!issue.isLocalOnly && issue.number != null) {
@@ -324,7 +341,10 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
 
       // Rollback: Restore original issue
-      await _localStorage.saveLocalIssue(originalIssue);
+      await _localStorage.saveIssueForOfflineState(
+        originalIssue,
+        repoFullName: _extractRepoFullName(issue),
+      );
 
       // Update state with error
       state = AsyncValue.data(
@@ -347,7 +367,10 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
     try {
       // Restore original state
       if (operation.originalIssue != null) {
-        await _localStorage.saveLocalIssue(operation.originalIssue!);
+        await _localStorage.saveIssueForOfflineState(
+          operation.originalIssue!,
+          repoFullName: _extractRepoFullName(operation.newIssue),
+        );
       } else if (operation.type == OperationType.createIssue) {
         // Remove the created issue
         await _localStorage.removeLocalIssue(operation.newIssue.id);

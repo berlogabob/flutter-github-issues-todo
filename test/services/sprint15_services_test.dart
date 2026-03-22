@@ -3,17 +3,31 @@ import 'package:gitdoit/services/cache_service.dart';
 import 'package:gitdoit/services/pending_operations_service.dart';
 import 'package:gitdoit/models/pending_operation.dart';
 import 'package:hive_ce/hive_ce.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 void main() {
+  late Directory hiveTestDir;
+
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    hiveTestDir = await Directory.systemTemp.createTemp(
+      'gitdoit_sprint15_services_',
+    );
+    Hive.init(hiveTestDir.path);
+  });
+
+  tearDownAll(() async {
+    await Hive.deleteBoxFromDisk('cache');
+    await Hive.deleteBoxFromDisk('pending_operations');
+    await Hive.close();
+    if (await hiveTestDir.exists()) {
+      await hiveTestDir.delete(recursive: true);
+    }
+  });
+
   group('Sprint 15 - Service Tests', () {
     group('CacheService for Sprint 15', () {
       late CacheService cacheService;
-
-      setUpAll(() async {
-        TestWidgetsFlutterBinding.ensureInitialized();
-      });
 
       setUp(() async {
         cacheService = CacheService();
@@ -109,13 +123,6 @@ void main() {
 
     group('PendingOperationsService for Sprint 15', () {
       late PendingOperationsService pendingOps;
-      late Directory tempDir;
-
-      setUpAll(() async {
-        TestWidgetsFlutterBinding.ensureInitialized();
-        tempDir = await getTemporaryDirectory();
-        Hive.init(tempDir.path);
-      });
 
       setUp(() async {
         pendingOps = PendingOperationsService();

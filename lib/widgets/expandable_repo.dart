@@ -195,8 +195,11 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
           isLocalOnly: true,
         );
         
-        // Save the status change
-        await _localStorage.saveLocalIssue(updatedIssue);
+        // Save the status change in the correct offline store
+        await _localStorage.saveIssueForOfflineState(
+          updatedIssue,
+          repoFullName: widget.repo.fullName,
+        );
         
         // Update the list
         setState(() {
@@ -215,13 +218,16 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
         );
       } else {
         // GitHub issue - use IssueService
-        await _issueService.closeIssue(issue, owner, repo);
+        final closedIssue = await _issueService.closeIssue(issue, owner, repo);
 
         if (!mounted) return;
 
+        // Update the issue in the list with closed status
         setState(() {
-          // Remove closed issue from the list
-          _issues.removeWhere((i) => i.id == issue.id);
+          final index = _issues.indexWhere((i) => i.id == issue.id);
+          if (index != -1) {
+            _issues[index] = closedIssue;
+          }
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -234,7 +240,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
               ],
             ),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
+            duration: Duration(seconds: 2),
           ),
         );
       }

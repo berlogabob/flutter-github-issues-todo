@@ -7,6 +7,8 @@ import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../widgets/braille_loader.dart';
+import '../widgets/empty_state_illustrations.dart';
+import '../widgets/error_boundary.dart';
 import '../widgets/label_chip.dart';
 import 'issue_detail_screen.dart';
 
@@ -143,32 +145,27 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
 
     if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: AppColors.error, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              'Failed to load repository',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadRepoDetails,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InlineError(
+                message: _error!,
+                details: 'Failed to load repository',
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadRepoDetails,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.black,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -242,9 +239,7 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -291,29 +286,9 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
         ),
         const SizedBox(height: 12),
         if (_issues.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.inbox_outlined,
-                  size: 48,
-                  color: Colors.white.withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No issues found',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
+          const EmptyStateWidget(
+            type: EmptyStateType.noIssues,
+            title: 'No issues found',
           )
         else
           ..._issues.map((issue) => _buildIssueTile(issue)),

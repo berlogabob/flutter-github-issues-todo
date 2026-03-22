@@ -14,6 +14,61 @@ import '../models/pending_operation.dart';
 import '../models/sync_history_entry.dart';
 import '../models/cached_dashboard_data.dart';
 
+enum SyncPhase {
+  idle,
+  queued,
+  syncingPendingOperations,
+  syncingIssues,
+  syncingProjects,
+  success,
+  partial,
+  error,
+}
+
+class PendingReplayResult {
+  final int totalOperations;
+  final int attemptedOperations;
+  final int succeededOperations;
+  final int failedOperations;
+  final int skippedOperations;
+
+  const PendingReplayResult({
+    this.totalOperations = 0,
+    this.attemptedOperations = 0,
+    this.succeededOperations = 0,
+    this.failedOperations = 0,
+    this.skippedOperations = 0,
+  });
+}
+
+class IssuesSyncResult {
+  final int syncedIssuesCount;
+  final int repositoriesSucceeded;
+  final int repositoriesFailed;
+  final int conflictsDetected;
+  final int localIssuesSynced;
+  final int localIssuesFailed;
+
+  const IssuesSyncResult({
+    this.syncedIssuesCount = 0,
+    this.repositoriesSucceeded = 0,
+    this.repositoriesFailed = 0,
+    this.conflictsDetected = 0,
+    this.localIssuesSynced = 0,
+    this.localIssuesFailed = 0,
+  });
+}
+
+class LocalIssuesSyncResult {
+  final List<String> syncedIssueIds;
+  final int failedCount;
+
+  const LocalIssuesSyncResult({
+    this.syncedIssueIds = const [],
+    this.failedCount = 0,
+  });
+}
+
 /// Sync Service - Handles synchronization between local storage and GitHub
 ///
 /// Features:
@@ -35,6 +90,7 @@ class SyncService {
   bool _isNetworkAvailable = false;
   DateTime? _lastSyncTime;
   DateTime? _lastProjectsSyncTime;
+  SyncPhase _syncPhase = SyncPhase.idle;
   String _syncStatus = 'idle'; // idle, syncing, success, error
   String? _syncErrorMessage;
   int _syncedIssuesCount = 0;
@@ -50,9 +106,11 @@ class SyncService {
 
   // Callback for when sync is needed (has local issues + internet)
   Function()? onSyncNeeded;
-  
+
   // Callback for when local issues have been synced (UI should refresh vault)
   Function()? onLocalIssuesSynced;
+  void Function(List<IssueConflict> conflicts)? onConflictsDetected;
+  void Function(String event, Map<String, Object?> details)? onSyncEvent;
 
   // Connectivity subscription
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -73,6 +131,7 @@ class SyncService {
   bool get isNetworkAvailable => _isNetworkAvailable;
   DateTime? get lastSyncTime => _lastSyncTime;
   DateTime? get lastProjectsSyncTime => _lastProjectsSyncTime;
+  SyncPhase get syncPhase => _syncPhase;
   String get syncStatus => _syncStatus;
   String? get syncErrorMessage => _syncErrorMessage;
   int get syncedIssuesCount => _syncedIssuesCount;
@@ -96,11 +155,12 @@ class SyncService {
     _checkNetworkStatus();
     _loadLastSyncTimes();
     await _initHistory();
+    _transitionTo(SyncPhase.idle);
   }
 
   /// Load cached data from local storage (OFFLINE-FIRST)
   Future<void> _loadCachedData() async {
-    if (_cachedDataLoaded) {
+    if (_cachedDataLoaded && _cachedData != null) {
       debugPrint('SyncService: Cached data already loaded');
       return;
     }
@@ -169,6 +229,9 @@ class SyncService {
     String? errorMessage,
   }) async {
     try {
+      final safeErrorMessage = errorMessage == null
+          ? null
+          : _safeError(errorMessage);
       final entry = SyncHistoryEntry(
         id: 'sync_${DateTime.now().millisecondsSinceEpoch}',
         timestamp: DateTime.now(),
@@ -177,7 +240,7 @@ class SyncService {
         projectsSynced: projectsSynced,
         operationsProcessed: operationsProcessed,
         duration: duration,
-        errorMessage: errorMessage,
+        errorMessage: safeErrorMessage,
       );
 
       // Add to beginning of list
@@ -242,7 +305,7 @@ class SyncService {
 
   /// Load last sync times from local storage
   Future<void> _loadLastSyncTimes() async {
-    _lastSyncTime = await _localStorage.getProjectsSyncTime();
+    _lastSyncTime = await _localStorage.getReposSyncTime();
     _lastProjectsSyncTime = await _localStorage.getProjectsSyncTime();
     debugPrint('SyncService: Last sync time: $_lastSyncTime');
   }
@@ -265,10 +328,15 @@ class SyncService {
     );
 
     debugPrint('SyncService: Network status changed: $_isNetworkAvailable');
+    _emitSyncEvent('network_status_changed', {
+      'isNetworkAvailable': _isNetworkAvailable,
+      'wasAvailable': wasAvailable,
+    });
 
     // Auto-sync when network becomes available
     if (_isNetworkAvailable && !wasAvailable) {
       debugPrint('SyncService: Network restored, triggering auto-sync');
+      _transitionTo(SyncPhase.queued);
       _triggerAutoSync();
 
       // Check if there are local issues to sync
@@ -306,28 +374,31 @@ class SyncService {
     }
 
     _isSyncing = true;
-    _syncStatus = 'syncing';
-    _notifyListeners();
+    _transitionTo(SyncPhase.syncingIssues);
 
     try {
       final localIssues = await _localStorage.getLocalIssues();
-      await _syncLocalIssuesToGitHub(owner, repo, localIssues);
+      final result = await _syncLocalIssuesToGitHub(owner, repo, localIssues);
 
       // FIX (#34): Cancel any pending auto-sync to prevent duplicate processing
       _autoSyncTimer?.cancel();
-      
+
       // FIX (#34): Wait a bit to ensure files are deleted before any other sync
       await Future.delayed(const Duration(milliseconds: 500));
 
-      _syncStatus = 'success';
-      _notifyListeners();
-      return true;
+      final hasPartialFailure = result.failedCount > 0;
+      _transitionTo(hasPartialFailure ? SyncPhase.partial : SyncPhase.success);
+      _emitSyncEvent('sync_local_issues_to_repo_completed', {
+        'owner': owner,
+        'repo': repo,
+        'synced': result.syncedIssueIds.length,
+        'failed': result.failedCount,
+      });
+      return !hasPartialFailure;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      debugPrint('SyncService: Failed to sync local issues: $e');
-      _syncStatus = 'error';
-      _syncErrorMessage = e.toString();
-      _notifyListeners();
+      debugPrint('SyncService: Failed to sync local issues: ${_safeError(e)}');
+      _transitionTo(SyncPhase.error, errorMessage: e.toString());
       return false;
     } finally {
       _isSyncing = false;
@@ -370,32 +441,35 @@ class SyncService {
 
     if (!_isNetworkAvailable) {
       debugPrint('SyncService: No network available');
-      _syncStatus = 'error';
-      _syncErrorMessage = 'No internet connection';
-      _notifyListeners();
+      _transitionTo(SyncPhase.error, errorMessage: 'No internet connection');
       return false;
     }
 
     debugPrint('SyncService: Starting full sync...');
+    final startedAt = DateTime.now();
     _isSyncing = true;
-    _syncStatus = 'syncing';
-    _syncErrorMessage = null;
     _syncedIssuesCount = 0;
     _syncedProjectsCount = 0;
-    _notifyListeners();
+    _transitionTo(SyncPhase.syncingPendingOperations);
 
     try {
       // PROCESS PENDING OPERATIONS FIRST
-      await _processPendingOperations();
+      final pendingReplayResult = await _processPendingOperations();
 
       // Sync repositories and issues
-      await syncIssues(forceRefresh: forceRefresh);
+      _transitionTo(SyncPhase.syncingIssues);
+      final issuesSyncResult = await syncIssues(forceRefresh: forceRefresh);
 
       // Sync projects
+      _transitionTo(SyncPhase.syncingProjects);
       await syncProjects(forceRefresh: forceRefresh);
 
       _lastSyncTime = DateTime.now();
-      _syncStatus = 'success';
+      final hasPartialFailures =
+          pendingReplayResult.failedOperations > 0 ||
+          issuesSyncResult.repositoriesFailed > 0 ||
+          issuesSyncResult.localIssuesFailed > 0;
+      _transitionTo(hasPartialFailures ? SyncPhase.partial : SyncPhase.success);
 
       debugPrint('SyncService: Full sync completed successfully');
       debugPrint('  - Synced $_syncedIssuesCount issues');
@@ -406,20 +480,32 @@ class SyncService {
 
       // Record sync history
       await _recordSyncHistory(
-        result: SyncResult.success,
+        result: hasPartialFailures ? SyncResult.partial : SyncResult.success,
         issuesSynced: _syncedIssuesCount,
         projectsSynced: _syncedProjectsCount,
-        operationsProcessed: _pendingOps.getAllOperations().length,
-        duration: DateTime.now().difference(_lastSyncTime ?? DateTime.now()),
+        operationsProcessed: pendingReplayResult.attemptedOperations,
+        duration: DateTime.now().difference(startedAt),
+        errorMessage: hasPartialFailures
+            ? 'Partial sync: pending_failed=${pendingReplayResult.failedOperations}, '
+                  'repo_failed=${issuesSyncResult.repositoriesFailed}, '
+                  'local_failed=${issuesSyncResult.localIssuesFailed}'
+            : null,
       );
 
-      _notifyListeners();
+      _emitSyncEvent('sync_all_completed', {
+        'result': hasPartialFailures ? 'partial' : 'success',
+        'pendingAttempted': pendingReplayResult.attemptedOperations,
+        'pendingFailed': pendingReplayResult.failedOperations,
+        'issuesSynced': _syncedIssuesCount,
+        'projectsSynced': _syncedProjectsCount,
+        'repositoriesFailed': issuesSyncResult.repositoriesFailed,
+        'conflictsDetected': issuesSyncResult.conflictsDetected,
+      });
       return true;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      debugPrint('SyncService: Sync failed: $e');
-      _syncStatus = 'error';
-      _syncErrorMessage = e.toString();
+      debugPrint('SyncService: Sync failed: ${_safeError(e)}');
+      _transitionTo(SyncPhase.error, errorMessage: e.toString());
 
       // Record failed sync
       await _recordSyncHistory(
@@ -427,11 +513,9 @@ class SyncService {
         issuesSynced: 0,
         projectsSynced: 0,
         operationsProcessed: 0,
-        duration: Duration.zero,
+        duration: DateTime.now().difference(startedAt),
         errorMessage: e.toString(),
       );
-
-      _notifyListeners();
       return false;
     } finally {
       _isSyncing = false;
@@ -440,7 +524,7 @@ class SyncService {
 
   /// Sync issues from GitHub with local storage
   /// Uses "remote wins" strategy for conflicts
-  Future<void> syncIssues({bool forceRefresh = false}) async {
+  Future<IssuesSyncResult> syncIssues({bool forceRefresh = false}) async {
     debugPrint('SyncService: Syncing issues...');
 
     try {
@@ -456,6 +540,11 @@ class SyncService {
       debugPrint('SyncService: Fetched ${repos.length} repositories');
 
       int totalSynced = 0;
+      int reposSucceeded = 0;
+      int reposFailed = 0;
+      int conflictsDetected = 0;
+      int localIssuesSynced = 0;
+      int localIssuesFailed = 0;
 
       // Fetch and sync issues for each repository
       for (final repo in repos) {
@@ -502,37 +591,55 @@ class SyncService {
             remoteIssues,
             unsyncedLocalIssues,
           );
+          conflictsDetected += _conflictDetector.getConflictCount();
 
           // Save synced issues to local storage
           await _localStorage.saveSyncedIssues(repo.fullName, mergedIssues);
 
           totalSynced += mergedIssues.length;
+          reposSucceeded++;
 
           // FIX (#34): Sync local issues and track which ones were successfully synced
-          final newlySyncedIds = await _syncLocalIssuesToGitHub(
+          final localSyncResult = await _syncLocalIssuesToGitHub(
             owner,
             repoName,
             unsyncedLocalIssues,
           );
-          syncedLocalIssueIds.addAll(newlySyncedIds);
+          syncedLocalIssueIds.addAll(localSyncResult.syncedIssueIds);
+          localIssuesSynced += localSyncResult.syncedIssueIds.length;
+          localIssuesFailed += localSyncResult.failedCount;
         } catch (e, stackTrace) {
           AppErrorHandler.handle(e, stackTrace: stackTrace);
-          debugPrint('SyncService: Failed to sync ${repo.fullName}: $e');
+          debugPrint(
+            'SyncService: Failed to sync ${repo.fullName}: ${_safeError(e)}',
+          );
+          reposFailed++;
           // Continue with next repo
         }
       }
 
       _syncedIssuesCount = totalSynced;
       debugPrint('SyncService: Issues sync completed ($totalSynced issues)');
-      
+
       // FIX (#34): Notify UI to refresh vault repo after local issues are synced
       if (syncedLocalIssueIds.isNotEmpty && onLocalIssuesSynced != null) {
-        debugPrint('SyncService: Notifying UI to refresh vault (${syncedLocalIssueIds.length} issues synced)');
+        debugPrint(
+          'SyncService: Notifying UI to refresh vault (${syncedLocalIssueIds.length} issues synced)',
+        );
         onLocalIssuesSynced!();
       }
+
+      return IssuesSyncResult(
+        syncedIssuesCount: totalSynced,
+        repositoriesSucceeded: reposSucceeded,
+        repositoriesFailed: reposFailed,
+        conflictsDetected: conflictsDetected,
+        localIssuesSynced: localIssuesSynced,
+        localIssuesFailed: localIssuesFailed,
+      );
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      debugPrint('SyncService: Issues sync failed: $e');
+      debugPrint('SyncService: Issues sync failed: ${_safeError(e)}');
       rethrow;
     }
   }
@@ -582,7 +689,9 @@ class SyncService {
     List<IssueItem> localIssues,
   ) async {
     debugPrint('SyncService: Resolving conflicts for $repoFullName');
-    debugPrint('SyncService: Remote issues: ${remoteIssues.length}, Local issues: ${localIssues.length}');
+    debugPrint(
+      'SyncService: Remote issues: ${remoteIssues.length}, Local issues: ${localIssues.length}',
+    );
 
     // Detect conflicts between local and remote issues
     final conflicts = _conflictDetector.detectConflicts(
@@ -594,8 +703,13 @@ class SyncService {
       debugPrint(
         'SyncService: Found ${conflicts.length} conflicts - using remote-wins strategy',
       );
-      // For MVP, we use "remote wins" strategy silently
-      // Future enhancement: Show conflict resolution dialog to user
+      _emitSyncEvent('conflicts_detected', {
+        'repo': repoFullName,
+        'count': conflicts.length,
+      });
+      if (onConflictsDetected != null) {
+        onConflictsDetected!(List<IssueConflict>.unmodifiable(conflicts));
+      }
     }
 
     // Create a map of remote issues by number for quick lookup
@@ -615,53 +729,51 @@ class SyncService {
     }
 
     // Find local-only issues that don't exist on GitHub yet
-    final localOnlyIssues = localIssues.where((issue) {
+    final localOnlyIssues = <IssueItem>[];
+    for (final issue in localIssues) {
       // Must be marked as local-only
-      if (!issue.isLocalOnly) return false;
+      if (!issue.isLocalOnly) {
+        continue;
+      }
+
+      bool duplicateDetected = false;
 
       // FIX (#34): Check if this local issue already exists on GitHub by number
-      // This prevents duplication when an issue was synced but local file still exists
-      if (issue.number != null) {
-        if (remoteIssuesByNumber.containsKey(issue.number)) {
-          debugPrint(
-            'SyncService: ⚠️ SKIP local issue "${issue.title}" (#${issue.number}) - '
-            'already exists on GitHub (matched by number)',
-          );
-          // Remove the local file since it exists on GitHub
-          _localStorage.removeLocalIssue(issue.id).then((_) {
-            debugPrint('SyncService: Removed local file for issue #${issue.number}');
-          });
-          return false;
+      if (issue.number != null &&
+          remoteIssuesByNumber.containsKey(issue.number)) {
+        duplicateDetected = true;
+        debugPrint(
+          'SyncService: SKIP local issue with number ${issue.number} - already on GitHub',
+        );
+      }
+
+      // FIX (#34): Check if this local issue matches a remote issue by title/body
+      if (!duplicateDetected) {
+        final titleKey = issue.title.toLowerCase().trim();
+        if (remoteIssuesByTitle.containsKey(titleKey)) {
+          final matchingRemote = remoteIssuesByTitle[titleKey];
+          final bodyMatches =
+              issue.bodyMarkdown == null ||
+              matchingRemote?.bodyMarkdown == null ||
+              issue.bodyMarkdown!.trim() ==
+                  matchingRemote!.bodyMarkdown!.trim();
+
+          if (bodyMatches) {
+            duplicateDetected = true;
+            debugPrint(
+              'SyncService: SKIP local issue by title/body match - already on GitHub',
+            );
+          }
         }
       }
 
-      // FIX (#34): Check if this local issue matches a remote issue by title
-      // This prevents duplication when an issue was already synced but
-      // the local file wasn't removed yet
-      final titleKey = issue.title.toLowerCase().trim();
-      if (remoteIssuesByTitle.containsKey(titleKey)) {
-        final matchingRemote = remoteIssuesByTitle[titleKey];
-        // Additional verification: check if body also matches (if available)
-        final bodyMatches = issue.bodyMarkdown == null ||
-                            matchingRemote?.bodyMarkdown == null ||
-                            issue.bodyMarkdown!.trim() == matchingRemote!.bodyMarkdown!.trim();
-
-        if (bodyMatches) {
-          debugPrint(
-            'SyncService: ⚠️ SKIP local issue "${issue.title}" - '
-            'already exists on GitHub (matched by title${bodyMatches ? ' + body' : ''})',
-          );
-          // Remove the local file since it exists on GitHub
-          _localStorage.removeLocalIssue(issue.id).then((_) {
-            debugPrint('SyncService: Removed local file for "${issue.title}"');
-          });
-          return false;
-        }
+      if (duplicateDetected) {
+        await _localStorage.removeLocalIssue(issue.id);
+        continue;
       }
 
-      // Issue doesn't exist on GitHub yet, keep it for sync
-      return true;
-    }).toList();
+      localOnlyIssues.add(issue);
+    }
 
     debugPrint(
       'SyncService: Found ${localOnlyIssues.length} local-only issues to sync',
@@ -680,7 +792,9 @@ class SyncService {
       }
     }
 
-    debugPrint('SyncService: Merged ${unique.length} total issues (remote: ${remoteIssues.length}, local-only: ${localOnlyIssues.length})');
+    debugPrint(
+      'SyncService: Merged ${unique.length} total issues (remote: ${remoteIssues.length}, local-only: ${localOnlyIssues.length})',
+    );
     return unique;
   }
 
@@ -697,16 +811,17 @@ class SyncService {
   /// Sync local-only issues to GitHub
   /// After successful sync, removes them from local storage
   /// Returns list of successfully synced issue IDs
-  Future<List<String>> _syncLocalIssuesToGitHub(
+  Future<LocalIssuesSyncResult> _syncLocalIssuesToGitHub(
     String owner,
     String repo,
     List<IssueItem> localIssues,
   ) async {
     final localOnlyIssues = localIssues.where((i) => i.isLocalOnly).toList();
     final syncedIds = <String>[];
+    int failedCount = 0;
 
     if (localOnlyIssues.isEmpty) {
-      return syncedIds;
+      return const LocalIssuesSyncResult();
     }
 
     debugPrint(
@@ -737,14 +852,16 @@ class SyncService {
         syncedIds.add(issue.id);
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace);
-        debugPrint(
-          'SyncService: Failed to sync local issue "${issue.title}": $e',
-        );
+        failedCount++;
+        debugPrint('SyncService: Failed to sync local issue: ${_safeError(e)}');
         // Keep the local issue for next sync attempt - don't add to syncedIds
       }
     }
 
-    return syncedIds;
+    return LocalIssuesSyncResult(
+      syncedIssueIds: syncedIds,
+      failedCount: failedCount,
+    );
   }
 
   /// Get comprehensive sync status for UI
@@ -754,6 +871,7 @@ class SyncService {
       'isNetworkAvailable': _isNetworkAvailable,
       'lastSyncTime': _lastSyncTime,
       'lastProjectsSyncTime': _lastProjectsSyncTime,
+      'syncPhase': _syncPhase.name,
       'syncStatus': _syncStatus,
       'syncErrorMessage': _syncErrorMessage,
       'syncedIssuesCount': _syncedIssuesCount,
@@ -763,9 +881,7 @@ class SyncService {
 
   /// Reset sync status
   void resetStatus() {
-    _syncStatus = 'idle';
-    _syncErrorMessage = null;
-    _notifyListeners();
+    _transitionTo(SyncPhase.idle);
   }
 
   /// Notify listeners of status changes
@@ -777,15 +893,16 @@ class SyncService {
   }
 
   /// Process pending operations queue
-  Future<void> _processPendingOperations() async {
+  Future<PendingReplayResult> _processPendingOperations() async {
     debugPrint('SyncService: Processing pending operations...');
 
     await _pendingOps.init();
-    final operations = _pendingOps.getAllOperations();
+    final operations = _pendingOps.getAllOperations()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
     if (operations.isEmpty) {
       debugPrint('SyncService: No pending operations');
-      return;
+      return const PendingReplayResult();
     }
 
     debugPrint('SyncService: Found ${operations.length} pending operations');
@@ -797,15 +914,26 @@ class SyncService {
       backoffMultiplier: 2.0,
     );
 
+    int attempted = 0;
+    int succeeded = 0;
+    int failed = 0;
+    int skipped = 0;
+
     for (final operation in operations) {
       if (operation.isSyncing && operation.retryCount > 5) {
         debugPrint(
           'SyncService: Skipping operation ${operation.id} (max retries exceeded)',
         );
+        skipped++;
+        await _pendingOps.markAsFailed(
+          operation.id,
+          'Max retry threshold exceeded',
+        );
         continue;
       }
 
       try {
+        attempted++;
         await _pendingOps.markAsSyncing(operation.id);
 
         // Execute with exponential backoff retry
@@ -817,14 +945,32 @@ class SyncService {
         await _pendingOps.markAsCompleted(operation.id);
         await _pendingOps.removeOperation(operation.id);
         debugPrint('SyncService: Completed operation ${operation.id}');
+        succeeded++;
       } catch (e) {
         await _pendingOps.markAsFailed(operation.id, e.toString());
         debugPrint(
-          'SyncService: Failed operation ${operation.id} after retries: $e',
+          'SyncService: Failed operation ${operation.id} after retries: ${_safeError(e)}',
         );
+        failed++;
         // Keep in queue for next sync
       }
     }
+
+    _emitSyncEvent('pending_replay_completed', {
+      'total': operations.length,
+      'attempted': attempted,
+      'succeeded': succeeded,
+      'failed': failed,
+      'skipped': skipped,
+    });
+
+    return PendingReplayResult(
+      totalOperations: operations.length,
+      attemptedOperations: attempted,
+      succeededOperations: succeeded,
+      failedOperations: failed,
+      skippedOperations: skipped,
+    );
   }
 
   /// Execute a single pending operation
@@ -851,13 +997,14 @@ class SyncService {
       case OperationType.addComment:
         await _executeAddComment(operation);
         break;
-      default:
-        debugPrint('SyncService: Unknown operation type: ${operation.type}');
+      case OperationType.deleteComment:
+        await _executeDeleteComment(operation);
+        break;
     }
   }
 
   Future<void> _executeCreateIssue(PendingOperation operation) async {
-    if (operation.owner == null || operation.repo == null) return;
+    _ensureOperationHasRepoContext(operation);
 
     final createdIssue = await _githubApi.createIssue(
       operation.owner!,
@@ -874,10 +1021,7 @@ class SyncService {
   }
 
   Future<void> _executeUpdateIssue(PendingOperation operation) async {
-    if (operation.owner == null ||
-        operation.repo == null ||
-        operation.issueNumber == null)
-      return;
+    _ensureOperationHasRepoAndIssueNumber(operation);
 
     await _githubApi.updateIssue(
       operation.owner!,
@@ -894,10 +1038,7 @@ class SyncService {
   }
 
   Future<void> _executeCloseIssue(PendingOperation operation) async {
-    if (operation.owner == null ||
-        operation.repo == null ||
-        operation.issueNumber == null)
-      return;
+    _ensureOperationHasRepoAndIssueNumber(operation);
 
     await _githubApi.updateIssue(
       operation.owner!,
@@ -912,10 +1053,7 @@ class SyncService {
   }
 
   Future<void> _executeReopenIssue(PendingOperation operation) async {
-    if (operation.owner == null ||
-        operation.repo == null ||
-        operation.issueNumber == null)
-      return;
+    _ensureOperationHasRepoAndIssueNumber(operation);
 
     await _githubApi.updateIssue(
       operation.owner!,
@@ -930,10 +1068,7 @@ class SyncService {
   }
 
   Future<void> _executeUpdateLabels(PendingOperation operation) async {
-    if (operation.owner == null ||
-        operation.repo == null ||
-        operation.issueNumber == null)
-      return;
+    _ensureOperationHasRepoAndIssueNumber(operation);
 
     final labels = operation.data['labels'] as List<String>?;
 
@@ -950,10 +1085,7 @@ class SyncService {
   }
 
   Future<void> _executeUpdateAssignee(PendingOperation operation) async {
-    if (operation.owner == null ||
-        operation.repo == null ||
-        operation.issueNumber == null)
-      return;
+    _ensureOperationHasRepoAndIssueNumber(operation);
 
     final assignee = operation.data['assignee'] as String?;
     final List<String>? assignees = assignee != null ? [assignee] : null;
@@ -971,13 +1103,12 @@ class SyncService {
   }
 
   Future<void> _executeAddComment(PendingOperation operation) async {
-    if (operation.owner == null ||
-        operation.repo == null ||
-        operation.issueNumber == null)
-      return;
+    _ensureOperationHasRepoAndIssueNumber(operation);
 
     final body = operation.data['body'] as String?;
-    if (body == null || body.isEmpty) return;
+    if (body == null || body.isEmpty) {
+      throw StateError('Missing comment body for addComment operation');
+    }
 
     await _githubApi.addIssueComment(
       operation.owner!,
@@ -989,5 +1120,91 @@ class SyncService {
     debugPrint(
       'SyncService: Added comment to issue #${operation.issueNumber} from queued operation',
     );
+  }
+
+  Future<void> _executeDeleteComment(PendingOperation operation) async {
+    _ensureOperationHasRepoContext(operation);
+    final commentId = operation.data['commentId'] as int?;
+    if (commentId == null) {
+      throw StateError('Missing commentId for deleteComment operation');
+    }
+
+    await _githubApi.deleteIssueComment(
+      operation.owner!,
+      operation.repo!,
+      commentId,
+    );
+
+    debugPrint(
+      'SyncService: Deleted comment #$commentId from queued operation',
+    );
+  }
+
+  void _ensureOperationHasRepoContext(PendingOperation operation) {
+    if (operation.owner == null || operation.repo == null) {
+      throw StateError(
+        'Missing owner/repo in operation ${operation.id} (${operation.type.name})',
+      );
+    }
+  }
+
+  void _ensureOperationHasRepoAndIssueNumber(PendingOperation operation) {
+    _ensureOperationHasRepoContext(operation);
+    if (operation.issueNumber == null) {
+      throw StateError(
+        'Missing issueNumber in operation ${operation.id} (${operation.type.name})',
+      );
+    }
+  }
+
+  void _transitionTo(SyncPhase phase, {String? errorMessage}) {
+    _syncPhase = phase;
+    _syncStatus = _statusFromPhase(phase);
+    _syncErrorMessage = errorMessage == null ? null : _safeError(errorMessage);
+    _notifyListeners();
+  }
+
+  String _statusFromPhase(SyncPhase phase) {
+    switch (phase) {
+      case SyncPhase.idle:
+      case SyncPhase.queued:
+        return 'idle';
+      case SyncPhase.syncingPendingOperations:
+      case SyncPhase.syncingIssues:
+      case SyncPhase.syncingProjects:
+        return 'syncing';
+      case SyncPhase.success:
+        return 'success';
+      case SyncPhase.partial:
+        return 'partial';
+      case SyncPhase.error:
+        return 'error';
+    }
+  }
+
+  String _safeError(Object error) {
+    final raw = error.toString();
+    return raw
+        .replaceAll(
+          RegExp(r'token\s+[A-Za-z0-9_.-]+', caseSensitive: false),
+          'token [REDACTED]',
+        )
+        .replaceAll(
+          RegExp(r'authorization:\s*[^\s,]+', caseSensitive: false),
+          'authorization: [REDACTED]',
+        );
+  }
+
+  void _emitSyncEvent(String event, Map<String, Object?> details) {
+    final safeDetails = Map<String, Object?>.from(details)
+      ..removeWhere((key, _) {
+        final normalized = key.toLowerCase();
+        return normalized.contains('token') ||
+            normalized.contains('secret') ||
+            normalized.contains('authorization') ||
+            normalized.contains('body');
+      });
+    debugPrint('SyncService[event=$event]: $safeDetails');
+    onSyncEvent?.call(event, safeDetails);
   }
 }

@@ -1,14 +1,42 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
-import 'MrPlanner.dart';
-import 'MrDeveloper.dart';
-import 'MrDesigner.dart';
-import 'MrTester.dart';
-import 'MrLogger.dart';
-import 'MrCompliance.dart';
+import 'mr_planner.dart';
+import 'mr_developer.dart';
+import 'mr_designer.dart';
+import 'mr_tester.dart';
+import 'mr_logger.dart';
+import 'mr_compliance.dart';
 
-/// Agent Coordinator - CONTROLS ALL AGENTS
+/// Agent Coordinator - Central control system for all agents.
+///
+/// The MrCoordinator is the central controller that:
+/// - Registers and manages all agents
+/// - Facilitates inter-agent communication through a message bus
+/// - Monitors agent health and restarts inactive agents
+/// - Coordinates parallel execution of tasks
+/// - Provides centralized control and status reporting
+/// - Routes messages between agents
+///
+/// Agents Managed:
+/// - [MrPlanner] - Project management and task assignment
+/// - [MrDeveloper] - Code implementation and feature development
+/// - [MrDesigner] - UI/UX design and compliance
+/// - [MrTester] - Testing and quality assurance
+/// - [MrLogger] - Documentation and deployment
+/// - [MrCompliance] - Rules and compliance monitoring
+///
+/// Usage:
+/// ```dart
+/// final coordinator = get coordinator; // Singleton access
+/// await coordinator.startAll();
+///
+/// // Check status
+/// print(coordinator.getAgentStatus());
+/// print(coordinator.getComplianceStatus());
+///
+/// await coordinator.stopAll();
+/// ```
 class MrCoordinator {
   final Map<String, BaseAgent> _agents = {};
   final _messageBus = StreamController<AgentMessage>.broadcast();
@@ -64,22 +92,28 @@ class MrCoordinator {
   Future<void> startAll() async {
     debugPrint('MrCoordinator: Starting all agents...');
     _isRunning = true;
-    for (final agent in _agents.values) await agent.init();
-    for (final agent in _agents.values) await agent.start();
+    for (final agent in _agents.values) {
+      await agent.init();
+    }
+    for (final agent in _agents.values) {
+      await agent.start();
+    }
     debugPrint('MrCoordinator: All agents started');
-    _MrCoordinatorLoop();
+    _coordinatorLoop();
   }
-  
+
   Future<void> stopAll() async {
     debugPrint('MrCoordinator: Stopping all agents...');
     _isRunning = false;
     // Create a copy of the values to avoid concurrent modification
     final agentsToStop = _agents.values.toList();
-    for (final agent in agentsToStop) await agent.stop();
+    for (final agent in agentsToStop) {
+      await agent.stop();
+    }
     debugPrint('MrCoordinator: All agents stopped');
   }
   
-  Future<void> _MrCoordinatorLoop() async {
+  Future<void> _coordinatorLoop() async {
     while (_isRunning) {
       await Future.delayed(const Duration(seconds: 5));
       await _checkAgentHealth();
@@ -163,25 +197,31 @@ class MrCoordinator {
   
   void sendMessageTo(String agentName, AgentMessage message) {
     final agent = _agents[agentName];
-    if (agent != null) agent.handleMessage(message);
+    if (agent != null) {
+      agent.handleMessage(message);
+    }
   }
-  
+
   void broadcastMessage(AgentMessage message) {
-    for (final agent in _agents.values) agent.handleMessage(message);
+    for (final agent in _agents.values) {
+      agent.handleMessage(message);
+    }
   }
-  
+
   Future<void> executeTask(AgentTask task) async {
     debugPrint('MrCoordinator: Executing task: ${task.title}');
     _pma.addTask(task);
   }
-  
+
   Map<String, dynamic> getComplianceStatus() => _rca.getComplianceReport();
   Map<String, dynamic> getQualityStatus() => _tqa.getQualityReport();
-  
+
   void dispose() {
     stopAll();
     _messageBus.close();
-    for (final agent in _agents.values) agent.dispose();
+    for (final agent in _agents.values) {
+      agent.dispose();
+    }
     _agents.clear();
   }
 }

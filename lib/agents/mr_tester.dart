@@ -2,7 +2,22 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
-/// Testing & Quality Agent (TQA) - Validates code quality and runs tests
+/// Testing & Quality Agent (TQA) - Validates code quality and runs tests.
+///
+/// Responsible for:
+/// - Running tests (unit, widget, integration)
+/// - Checking code coverage
+/// - Enforcing linting rules
+/// - Validating code quality
+/// - Reporting issues
+/// - Monitoring test coverage
+///
+/// Usage:
+/// ```dart
+/// final tester = MrTester();
+/// await tester.start();
+/// await tester.runTests();
+/// ```
 class MrTester extends BaseAgent {
   int _testsRun = 0;
   int _testsPassed = 0;

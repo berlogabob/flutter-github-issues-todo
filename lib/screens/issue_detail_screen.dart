@@ -961,8 +961,11 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         _currentIssue = updatedIssue;
       });
       
-      // Save the status change to the local file
-      await _localStorage.saveLocalIssue(updatedIssue);
+      // Save the status change in the correct offline store
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
       
       _showSnackBar(
         updatedIssue.status == ItemStatus.open

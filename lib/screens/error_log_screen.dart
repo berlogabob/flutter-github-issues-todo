@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../constants/app_colors.dart';
@@ -13,15 +14,15 @@ import '../widgets/braille_loader.dart';
 /// - Clear all errors
 /// - Export error log
 /// - Copy error details to clipboard
-class ErrorLogScreen extends StatefulWidget {
+class ErrorLogScreen extends ConsumerStatefulWidget {
   /// Creates the error log screen.
   const ErrorLogScreen({super.key});
 
   @override
-  State<ErrorLogScreen> createState() => _ErrorLogScreenState();
+  ConsumerState<ErrorLogScreen> createState() => _ErrorLogScreenState();
 }
 
-class _ErrorLogScreenState extends State<ErrorLogScreen> {
+class _ErrorLogScreenState extends ConsumerState<ErrorLogScreen> {
   final ErrorLoggingService _errorService = ErrorLoggingService.instance;
   List<LogEntry> _errors = [];
   bool _isLoading = true;

@@ -92,7 +92,7 @@ lib/
 
 ## Key Services
 
-- **GitHubApiService**: REST and GraphQL API integration with retry logic
+- **GitHubApiService**: GitHub REST API integration with retry logic
 - **CacheService**: In-memory caching with TTL support
 - **LocalStorageService**: Persistent local storage for settings and user data
 - **PendingOperationsService**: Offline operation queuing
@@ -100,16 +100,16 @@ lib/
 
 ## Dependencies
 
-- **State Management**: flutter_riverpod, riverpod
-- **Local Storage**: hive, hive_flutter
-- **Network**: http, graphql_flutter
+- **State Management**: flutter_riverpod
+- **Local Storage**: hive_ce, hive_ce_flutter
+- **Network**: http, dio
 - **Secure Storage**: flutter_secure_storage
 - **Markdown**: flutter_markdown_plus
 - **UI**: flutter_screenutil, flutter_svg
 
 ## Version
 
-Current version: 0.5.0+72
+Current version: 0.5.0+129
 
 ## License
 

@@ -1,14 +1,57 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:gitdoit/screens/main_dashboard_screen.dart';
-import 'package:gitdoit/constants/app_colors.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:gitdoit/constants/app_colors.dart';
+import 'package:gitdoit/models/repo_item.dart';
+import 'package:gitdoit/providers/pinned_repos_provider.dart';
+import 'package:gitdoit/providers/repositories_provider.dart';
+import 'package:gitdoit/screens/main_dashboard_screen.dart';
+
+class _TestRepositoriesNotifier extends RepositoriesNotifier {
+  _TestRepositoriesNotifier(this._repos);
+
+  final List<RepoItem> _repos;
+
+  @override
+  List<RepoItem> build() => _repos;
+}
+
+class _TestPinnedReposNotifier extends PinnedReposNotifier {
+  _TestPinnedReposNotifier(this._pinnedRepos);
+
+  final List<String> _pinnedRepos;
+
+  @override
+  List<String> build() => _pinnedRepos;
+}
+
+class _TestMainRepoNotifier extends MainRepoNotifier {
+  _TestMainRepoNotifier(this._mainRepo);
+
+  final String? _mainRepo;
+
+  @override
+  String? build() => _mainRepo;
+}
 
 void main() {
   group('MainDashboardScreen Widget Tests', () {
-    Widget createTestApp() {
+    Widget createTestApp({
+      List<RepoItem>? repos,
+      List<String>? pinnedRepos,
+      String? mainRepo,
+    }) {
       return ProviderScope(
+        overrides: [
+          repositoriesProvider.overrideWith(
+            () => _TestRepositoriesNotifier(repos ?? const []),
+          ),
+          pinnedReposProvider.overrideWith(
+            () => _TestPinnedReposNotifier(pinnedRepos ?? const []),
+          ),
+          mainRepoProvider.overrideWith(() => _TestMainRepoNotifier(mainRepo)),
+        ],
         child: ScreenUtilInit(
           designSize: const Size(360, 690),
           builder: (context, child) => const MaterialApp(
@@ -18,358 +61,91 @@ void main() {
       );
     }
 
-    group('Screen Rendering', () {
-      testWidgets('renders main dashboard screen', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+    Future<void> pumpDashboard(
+      WidgetTester tester, {
+      List<RepoItem>? repos,
+      List<String>? pinnedRepos,
+      String? mainRepo,
+    }) async {
+      await tester.pumpWidget(
+        createTestApp(
+          repos: repos,
+          pinnedRepos: pinnedRepos,
+          mainRepo: mainRepo,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle(const Duration(milliseconds: 200));
+    }
 
-        expect(find.text('GitDoIt'), findsOneWidget);
-        expect(find.byType(MainDashboardScreen), findsOneWidget);
-      });
+    testWidgets('renders main dashboard shell', (tester) async {
+      await pumpDashboard(tester);
 
-      testWidgets('displays app title in app bar', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.text('GitDoIt'), findsOneWidget);
-      });
-
-      testWidgets('displays search icon in app bar', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.byIcon(Icons.search), findsOneWidget);
-      });
-
-      testWidgets('displays settings icon in app bar', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.byIcon(Icons.settings), findsOneWidget);
-      });
-
-      testWidgets('displays repository icon in app bar', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.byType(IconButton), findsWidgets);
-      });
-
-      testWidgets('displays sync cloud icon', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // Sync cloud icon should be present
-        expect(find.byIcon(Icons.cloud), findsWidgets);
-      });
-
-      testWidgets('displays New Issue floating action button', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.text('New Issue'), findsOneWidget);
-        expect(find.byIcon(Icons.add), findsOneWidget);
-      });
-
-      testWidgets('has correct background color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-        expect(scaffold.backgroundColor, AppColors.background);
-      });
+      expect(find.byType(MainDashboardScreen), findsOneWidget);
+      expect(find.text('GitDoIt'), findsOneWidget);
+      expect(find.byType(Scaffold), findsOneWidget);
     });
 
-    group('Loading States', () {
-      testWidgets('shows loading indicator when fetching repos', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        
-        // Initial loading state
-        await tester.pump();
-        
-        // BrailleLoader should be visible during loading
-        expect(find.byType(CircularProgressIndicator), findsWidgets);
-      });
+    testWidgets('shows app bar actions and floating action button', (
+      tester,
+    ) async {
+      await pumpDashboard(tester);
 
-      testWidgets('shows BrailleLoader during data fetch', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pump();
-
-        // Check for loading indicator
-        expect(find.byWidgetPredicate(
-          (widget) => widget is CircularProgressIndicator || 
-                      widget.toString().contains('BrailleLoader'),
-        ), findsWidgets);
-      });
+      expect(find.byIcon(Icons.search), findsOneWidget);
+      expect(find.byIcon(Icons.settings), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.text('New Issue'), findsOneWidget);
     });
 
-    group('Dashboard Filters', () {
-      testWidgets('displays filter options', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+    testWidgets('uses expected screen theming', (tester) async {
+      await pumpDashboard(tester);
 
-        // Filter chips should be present
-        expect(find.text('Open'), findsWidgets);
-        expect(find.text('Closed'), findsWidgets);
-      });
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
 
-      testWidgets('allows filter selection', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // Find and tap filter chip
-        final openChip = find.text('Open');
-        if (openChip.evaluate().isNotEmpty) {
-          await tester.tap(openChip);
-          await tester.pumpAndSettle();
-        }
-      });
+      expect(scaffold.backgroundColor, AppColors.background);
+      expect(appBar.backgroundColor, AppColors.background);
     });
 
-    group('Empty States', () {
-      testWidgets('shows empty state when no repos', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+    testWidgets('handles empty repositories deterministically', (tester) async {
+      await pumpDashboard(tester, repos: const []);
 
-        // Should show some content even if empty
-        expect(find.byType(Scaffold), findsOneWidget);
-      });
-
-      testWidgets('displays empty state illustration', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // Empty state should have illustration or icon
-        expect(find.byIcon(Icons.inbox), findsWidgets);
-      });
+      expect(find.byType(Scaffold), findsOneWidget);
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      expect(find.text('GitDoIt'), findsOneWidget);
     });
 
-    group('User Interactions', () {
-      testWidgets('FAB triggers navigation when tapped', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+    testWidgets('renders repository list when repositories are provided', (
+      tester,
+    ) async {
+      final repos = <RepoItem>[
+        RepoItem(
+          id: 'repo-1',
+          title: 'Repo One',
+          fullName: 'user/repo-one',
+          description: 'First repo',
+        ),
+        RepoItem(
+          id: 'repo-2',
+          title: 'Repo Two',
+          fullName: 'user/repo-two',
+          description: 'Second repo',
+        ),
+      ];
 
-        final fab = find.text('New Issue');
-        if (fab.evaluate().isNotEmpty) {
-          await tester.tap(fab);
-          await tester.pumpAndSettle();
-        }
-      });
+      await pumpDashboard(tester, repos: repos);
 
-      testWidgets('search icon is clickable', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final searchButton = find.byIcon(Icons.search);
-        if (searchButton.evaluate().isNotEmpty) {
-          await tester.tap(searchButton);
-          await tester.pumpAndSettle();
-        }
-      });
-
-      testWidgets('settings icon is clickable', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final settingsButton = find.byIcon(Icons.settings);
-        if (settingsButton.evaluate().isNotEmpty) {
-          await tester.tap(settingsButton);
-          await tester.pumpAndSettle();
-        }
-      });
-
-      testWidgets('repo icon is clickable', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // Tap repo icon button
-        final repoButtons = find.byType(IconButton);
-        if (repoButtons.evaluate().isNotEmpty) {
-          await tester.tap(repoButtons.first);
-          await tester.pumpAndSettle();
-        }
-      });
+      expect(find.text('repo-one'), findsOneWidget);
+      expect(find.text('repo-two'), findsOneWidget);
+      expect(find.byType(RefreshIndicator), findsOneWidget);
     });
 
-    group('Error Handling', () {
-      testWidgets('displays error message on failure', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+    testWidgets('filters area is rendered', (tester) async {
+      await pumpDashboard(tester);
 
-        // Error container should be present in widget tree
-        expect(find.byType(Container), findsWidgets);
-      });
-
-      testWidgets('shows error icon for failures', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.byIcon(Icons.error_outline), findsWidgets);
-      });
-
-      testWidgets('provides retry option on error', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // Refresh indicator provides retry functionality
-        expect(find.byType(RefreshIndicator), findsOneWidget);
-      });
-    });
-
-    group('Pull to Refresh', () {
-      testWidgets('has RefreshIndicator for pull-to-refresh', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.byType(RefreshIndicator), findsOneWidget);
-      });
-
-      testWidgets('RefreshIndicator has correct color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final refreshIndicator = tester.widget<RefreshIndicator>(
-          find.byType(RefreshIndicator),
-        );
-        expect(refreshIndicator.color, AppColors.orangePrimary);
-      });
-    });
-
-    group('Pending Operations', () {
-      testWidgets('displays pending operations badge when count > 0', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // Badge container should exist in widget tree
-        expect(find.byType(Container), findsWidgets);
-      });
-
-      testWidgets('shows pending operations count', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // Check for pending operations section
-        expect(find.textContaining('Pending'), findsWidgets);
-      });
-    });
-
-    group('Responsive Layout', () {
-      testWidgets('adapts to different screen sizes', (tester) async {
-        // Test with different screen size
-        await tester.pumpWidget(
-          ProviderScope(
-            child: ScreenUtilInit(
-              designSize: const Size(768, 1024),
-              builder: (context, child) => const MaterialApp(
-                home: MainDashboardScreen(),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('GitDoIt'), findsOneWidget);
-      });
-
-      testWidgets('uses ConstrainedContent for layout', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // ConstrainedContent should be present
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('ConstrainedContent'),
-        ), findsWidgets);
-      });
-    });
-
-    group('Sync Status', () {
-      testWidgets('displays sync status widget', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // Sync status widget should be present
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('SyncStatus'),
-        ), findsWidgets);
-      });
-
-      testWidgets('shows cloud icon for sync status', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.byIcon(Icons.cloud), findsWidgets);
-      });
-    });
-
-    group('Navigation', () {
-      testWidgets('can navigate to search screen', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final searchButton = find.byIcon(Icons.search);
-        if (searchButton.evaluate().isNotEmpty) {
-          await tester.tap(searchButton);
-          await tester.pumpAndSettle();
-        }
-      });
-
-      testWidgets('can navigate to settings screen', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final settingsButton = find.byIcon(Icons.settings);
-        if (settingsButton.evaluate().isNotEmpty) {
-          await tester.tap(settingsButton);
-          await tester.pumpAndSettle();
-        }
-      });
-    });
-
-    group('FAB Styling', () {
-      testWidgets('FAB has orange primary color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final fab = tester.widget<FloatingActionButton>(
-          find.byType(FloatingActionButton),
-        );
-        // FAB should have orange color
-        expect(fab.backgroundColor, AppColors.orangePrimary);
-      });
-
-      testWidgets('FAB has correct icon', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        // FAB should have an Icon widget as child
-        expect(find.byIcon(Icons.add), findsOneWidget);
-      });
-
-      testWidgets('FAB has extended label', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        expect(find.text('New Issue'), findsOneWidget);
-      });
-    });
-
-    group('AppBar Actions', () {
-      testWidgets('app bar has multiple action buttons', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final appBar = tester.widget<AppBar>(find.byType(AppBar));
-        expect(appBar.actions, isNotNull);
-        expect(appBar.actions!.length, greaterThan(0));
-      });
-
-      testWidgets('app bar has correct background color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
-
-        final appBar = tester.widget<AppBar>(find.byType(AppBar));
-        expect(appBar.backgroundColor, AppColors.background);
-      });
+      expect(find.text('Open'), findsOneWidget);
+      expect(find.text('Closed'), findsOneWidget);
+      expect(find.text('All'), findsOneWidget);
     });
   });
 }

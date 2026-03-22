@@ -27,14 +27,9 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: AppColors.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.r),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
       child: Container(
-        constraints: BoxConstraints(
-          maxWidth: 600.w,
-          maxHeight: 700.h,
-        ),
+        constraints: BoxConstraints(maxWidth: 600.w, maxHeight: 700.h),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -43,9 +38,7 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
             SizedBox(height: 16.h),
 
             // Conflict content
-            Expanded(
-              child: _buildConflictContent(),
-            ),
+            Expanded(child: _buildConflictContent()),
 
             // Resolution choices
             _buildResolutionChoices(),
@@ -179,7 +172,10 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildComparisonHeader('Local (Your Changes)', Colors.blue),
+              child: _buildComparisonHeader(
+                'Local (Your Changes)',
+                Colors.blue,
+              ),
             ),
             SizedBox(width: 16.w),
             Expanded(
@@ -345,6 +341,24 @@ class _ConflictResolutionDialogState extends State<ConflictResolutionDialog> {
             Colors.blue,
             'Combine both versions (title: local, body: local + remote note)',
             ResolutionChoice.merge,
+          ),
+          SizedBox(height: 12.h),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _selectedChoice == null
+                  ? null
+                  : () => widget.onResolve(_selectedChoice!),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+              ),
+              child: const Text('Apply Resolution'),
+            ),
           ),
         ],
       ),

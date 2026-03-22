@@ -2,7 +2,22 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
-/// UI/UX Designer Agent (UDA) - Designs interfaces and ensures compliance
+/// UI/UX Designer Agent (UDA) - Designs interfaces and ensures compliance.
+///
+/// Responsible for:
+/// - Designing interface components
+/// - Ensuring design system compliance
+/// - Creating responsive layouts
+/// - Validating color usage
+/// - Checking accessibility
+/// - Monitoring dark theme compliance
+///
+/// Usage:
+/// ```dart
+/// final designer = MrDesigner();
+/// await designer.start();
+/// designer.validateColors(widget);
+/// ```
 class MrDesigner extends BaseAgent {
   static const Map<String, String> designTokens = {
     'background_primary': '#121212',

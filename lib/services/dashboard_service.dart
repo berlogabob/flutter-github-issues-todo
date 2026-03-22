@@ -52,7 +52,8 @@ class DashboardService extends GitHubApiService {
       debugPrint('[DashboardService] Cloud state: syncing');
       return SyncCloudState.syncing;
     }
-    if (_syncService.syncStatus == 'error') {
+    if (_syncService.syncStatus == 'error' ||
+        _syncService.syncStatus == 'partial') {
       debugPrint('[DashboardService] Cloud state: error');
       return SyncCloudState.error;
     }
@@ -103,9 +104,7 @@ class DashboardService extends GitHubApiService {
     _cachedRepos = repos;
     _cacheKey = cacheKey;
 
-    debugPrint(
-      '[DashboardService] Displaying ${repos.length} repos (cached)',
-    );
+    debugPrint('[DashboardService] Displaying ${repos.length} repos (cached)');
 
     return repos;
   }
@@ -128,8 +127,7 @@ class DashboardService extends GitHubApiService {
 
     // Offline mode: show only vault repo
     if (isOfflineMode) {
-      final vaultRepos =
-          repositories.where((r) => r.id == 'vault').toList();
+      final vaultRepos = repositories.where((r) => r.id == 'vault').toList();
       debugPrint(
         '[DashboardService] Offline mode: showing ${vaultRepos.length} vault repos',
       );
@@ -142,9 +140,7 @@ class DashboardService extends GitHubApiService {
           .where((r) => pinnedRepos.contains(r.fullName) && r.id != 'vault')
           .toList();
       if (pinned.isNotEmpty) {
-        debugPrint(
-          '[DashboardService] Showing ${pinned.length} pinned repos',
-        );
+        debugPrint('[DashboardService] Showing ${pinned.length} pinned repos');
         return pinned;
       }
       debugPrint('[DashboardService] No valid pinned repos found');

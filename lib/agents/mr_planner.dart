@@ -2,11 +2,27 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
-/// Project Manager Agent (PMA) - Coordinates all agents
+/// Project Manager Agent (PMA) - Coordinates all agents.
+///
+/// Responsible for:
+/// - Coordinating all other agents
+/// - Assigning tasks based on priorities
+/// - Tracking sprint progress
+/// - Making architectural decisions
+/// - Resolving conflicts between agents
+/// - Managing task queue
+///
+/// Usage:
+/// ```dart
+/// final planner = MrPlanner();
+/// await planner.start();
+/// planner.addTask(AgentTask(...));
+/// ```
 class MrPlanner extends BaseAgent {
   final List<AgentTask> _taskBacklog = [];
   final Map<String, AgentTask> _activeTasks = {};
-  
+
+  /// Creates a new Project Manager Agent.
   MrPlanner() : super(
     name: 'MrPlanner',
     role: 'Project Manager',
@@ -18,31 +34,34 @@ class MrPlanner extends BaseAgent {
       'Resolve conflicts',
     ],
   );
-  
+
   @override
   Future<void> init() async {
     debugPrint('$name: Initialized');
   }
-  
+
   @override
   Future<void> start() async {
     isActive = true;
     debugPrint('$name: Started - Coordinating team...');
     await execute();
   }
-  
+
   @override
   Future<void> execute() async {
     await _reviewTaskBacklog();
     await _checkSprintProgress();
     await _assignTasks();
   }
-  
+
+  /// Adds a task to the backlog.
+  ///
+  /// [task] The task to add.
   void addTask(AgentTask task) {
     _taskBacklog.add(task);
     debugPrint('$name: Added task "${task.title}" for ${task.assignedTo}');
   }
-  
+
   Future<void> _assignTasks() async {
     final pendingTasks = _taskBacklog.where((t) => !t.isCompleted).toList();
     for (final task in pendingTasks) {

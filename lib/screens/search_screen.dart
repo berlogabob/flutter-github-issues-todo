@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
@@ -9,6 +10,8 @@ import '../services/search_history_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/cache_service.dart';
 import '../widgets/braille_loader.dart';
+import '../widgets/empty_state_illustrations.dart';
+import '../widgets/error_boundary.dart';
 import '../widgets/search_filters_panel.dart';
 import '../widgets/search_result_item.dart';
 import 'issue_detail_screen.dart';
@@ -33,15 +36,15 @@ import 'issue_detail_screen.dart';
 ///   MaterialPageRoute(builder: (context) => const SearchScreen()),
 /// );
 /// ```
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   /// Creates the search screen.
   const SearchScreen({super.key});
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   // Search constants
   static const Duration _debounceDuration = Duration(milliseconds: 500);
   static const int _maxRepos = 100;
@@ -172,14 +175,9 @@ class _SearchScreenState extends State<SearchScreen> {
           style: const TextStyle(color: AppColors.text, fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Search issues...',
-            hintStyle: TextStyle(
-              color: AppColors.text.withValues(alpha: 0.54),
-            ),
+            hintStyle: TextStyle(color: AppColors.text.withValues(alpha: 0.54)),
             border: InputBorder.none,
-            suffixIcon: const Icon(
-              Icons.search,
-              color: AppColors.primary,
-            ),
+            suffixIcon: const Icon(Icons.search, color: AppColors.primary),
           ),
           onChanged: _onSearchChanged,
           textInputAction: TextInputAction.search,
@@ -299,41 +297,15 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (_searchError != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 80,
-              color: Colors.red.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Search Error',
-              style: TextStyle(
-                color: AppColors.text.withValues(alpha: 0.5),
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                _searchError!,
-                style: TextStyle(
-                  color: AppColors.text.withValues(alpha: 0.3),
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => _performSearch(_lastQuery),
-              child: const Text('Retry'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: InlineError(
+            message: _searchError!,
+            details: 'Search Error',
+            onDismiss: () {
+              setState(() => _searchError = null);
+            },
+          ),
         ),
       );
     }
@@ -427,68 +399,18 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search,
-            size: 80,
-            color: AppColors.text.withValues(alpha: 0.2),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Search Issues',
-            style: TextStyle(
-              color: AppColors.text.withValues(alpha: 0.5),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Search by title, labels, or body',
-            style: TextStyle(
-              color: AppColors.text.withValues(alpha: 0.3),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+    return const EmptyStateWidget(
+      type: EmptyStateType.searchEmpty,
+      title: 'Search Issues',
+      subtitle: 'Search by title, labels, or body',
     );
   }
 
   Widget _buildNoResultsState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 80,
-            color: AppColors.text.withValues(alpha: 0.2),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'No results found',
-            style: TextStyle(
-              color: AppColors.text.withValues(alpha: 0.5),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try different keywords or filters',
-            style: TextStyle(
-              color: AppColors.text.withValues(alpha: 0.3),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+    return const EmptyStateWidget(
+      type: EmptyStateType.searchEmpty,
+      title: 'No results found',
+      subtitle: 'Try different keywords or filters',
     );
   }
 

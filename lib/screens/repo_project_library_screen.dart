@@ -37,7 +37,7 @@ class _RepoProjectLibraryScreenState
   }
 
   Future<void> _checkOfflineMode() async {
-    final authType = await SecureStorageService.instance.read(key: 'auth_type');
+    final authType = await SecureStorageService.read(key: 'auth_type');
     if (mounted) {
       setState(() {
         _isOfflineMode = authType == 'offline';
@@ -93,7 +93,10 @@ class _RepoProjectLibraryScreenState
       if (mounted) setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -209,7 +212,10 @@ class _RepoProjectLibraryScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {
@@ -341,11 +347,7 @@ class _RepoProjectLibraryScreenState
               color: AppColors.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              Icons.folder,
-              color: AppColors.primary,
-              size: 24,
-            ),
+            child: const Icon(Icons.folder, color: AppColors.primary, size: 24),
           ),
           title: Text(
             repo.fullName,

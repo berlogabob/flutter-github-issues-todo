@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../app_router.dart';
 import '../constants/app_colors.dart';
-import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../services/secure_storage_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/github_api_service.dart';
 import '../utils/responsive_utils.dart';
 import '../widgets/braille_loader.dart';
-import 'main_dashboard_screen.dart';
+import '../widgets/error_boundary.dart';
+import '../widgets/loading_skeleton.dart';
 
 /// OnboardingScreen - First screen with authentication choice
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -40,94 +40,75 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       body: SafeArea(
-        child: ConstrainedContent(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(),
-              // Logo and Title
-              Icon(
-                Icons.checklist_rounded,
-                size: 80.w,
-                color: const Color(0xFFFF6200),
-              ),
-              SizedBox(height: 24.h),
-              Text(
-                'GitDoIt',
-                style: TextStyle(
-                  fontSize: 32.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(height: 8.h),
-              Text(
-                'Minimalist GitHub Issues & Projects TODO Manager',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
-              ),
-              const Spacer(),
-              // Authentication Options
-              _buildButton(
-                'Use Personal Access Token',
-                icon: Icons.key,
-                onPressed: _isLoading ? null : _showPatInput,
-              ),
-              const SizedBox(height: 16),
-              _buildButton(
-                'Continue Offline',
-                icon: Icons.offline_pin,
-                onPressed: _isLoading ? null : _continueOffline,
-                isSecondary: true,
-              ),
-              const SizedBox(height: 24),
-              // Help text
-              Text(
-                'PAT is recommended for full functionality',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: Colors.white.withValues(alpha: 0.5),
-                ),
-              ),
-              const SizedBox(height: 24),
-              if (_isLoading) ...[
-                BrailleLoader(size: 24),
-              ],
-              if (_errorMessage != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF3B30).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFF3B30)),
-                  ),
-                  child: Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) => ConstrainedContent(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Color(0xFFFF3B30),
-                        size: 20,
+                      const Spacer(),
+                      // Logo and Title
+                      Icon(
+                        Icons.checklist_rounded,
+                        size: 80.w,
+                        color: const Color(0xFFFF6200),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: Color(0xFFFF3B30),
-                            fontSize: 12,
-                          ),
+                      SizedBox(height: 24.h),
+                      Text(
+                        'GitDoIt',
+                        style: TextStyle(
+                          fontSize: 32.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
+                      SizedBox(height: 8.h),
+                      Text(
+                        'Minimalist GitHub Issues & Projects TODO Manager',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      const Spacer(),
+                      // Authentication Options
+                      _buildButton(
+                        'Use Personal Access Token',
+                        icon: Icons.key,
+                        onPressed: _isLoading ? null : _showPatInput,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildButton(
+                        'Continue Offline',
+                        icon: Icons.offline_pin,
+                        onPressed: _isLoading ? null : _continueOffline,
+                        isSecondary: true,
+                      ),
+                      const SizedBox(height: 24),
+                      // Help text
+                      Text(
+                        'PAT is recommended for full functionality',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (_isLoading) ...[BrailleLoader(size: 24)],
+                      if (_errorMessage != null) ...[
+                        InlineError(message: _errorMessage!),
+                      ],
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
-              ],
-              const SizedBox(height: 24),
-            ],
+              ),
+            ),
           ),
         ),
       ),
@@ -197,10 +178,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 labelText: 'Token',
                 hintText: 'ghp_xxxxxxxxxxxxxxxxxxxx',
                 hintStyle: TextStyle(color: Colors.white54, fontSize: 14),
-                labelStyle: TextStyle(
-                  color: Color(0x4DFFFFFF),
-                  fontSize: 14,
-                ),
+                labelStyle: TextStyle(color: Color(0x4DFFFFFF), fontSize: 14),
                 border: OutlineInputBorder(),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: Color(0x4DFFFFFF)),
@@ -258,9 +236,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       return;
     }
 
-    debugPrint('=== PAT Login Started ===');
-    debugPrint('Token length: ${trimmedToken.length}');
-    debugPrint('Token prefix: ${trimmedToken.substring(0, 6)}...');
+    debugPrint('PAT login started');
 
     setState(() {
       _isLoading = true;
@@ -291,18 +267,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       }
 
       // Save token securely
-      debugPrint('Saving token to secure storage...');
       await SecureStorageService.saveToken(trimmedToken);
-      await SecureStorageService.instance.write(key: 'auth_type', value: 'pat');
+      await SecureStorageService.write(key: 'auth_type', value: 'pat');
 
       // Verify token was saved immediately
       final verifyToken = await SecureStorageService.getToken();
-      final verifyAuthType = await SecureStorageService.instance.read(
-        key: 'auth_type',
-      );
-      debugPrint(
-        'Token verification - saved: ${verifyToken != null}, length: ${verifyToken?.length ?? 0}, authType: $verifyAuthType',
-      );
+      await SecureStorageService.read(key: 'auth_type');
+      debugPrint('PAT login token verification completed');
 
       if (verifyToken == null || verifyToken != trimmedToken) {
         throw Exception('Failed to save token securely. Please try again.');
@@ -333,12 +304,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         // Show repo picker
         await _showDefaultRepoPicker();
       }
-    } catch (e, stackTrace) {
-      debugPrint('PAT login ERROR: $e');
-      debugPrint('Stack trace: $stackTrace');
+    } catch (e) {
+      debugPrint('PAT login failed (${e.runtimeType})');
       if (mounted) {
         setState(() {
-          _errorMessage = 'Login failed: ${e.toString()}';
+          _errorMessage = _safeAuthErrorMessage(e);
         });
       }
       // Close dialog if open
@@ -376,10 +346,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       }
 
       // Save offline mode flag
-      await SecureStorageService.write(
-        key: 'auth_type',
-        value: 'offline',
-      );
+      await SecureStorageService.write(key: 'auth_type', value: 'offline');
 
       // PERSIST PERMISSION (use LocalStorageService for vault_folder)
       await _localStorage.saveVaultFolderPermission(folderPath);
@@ -391,22 +358,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
       if (mounted) {
         debugPrint('Navigating to dashboard in offline mode...');
-        // Navigate to main dashboard in offline mode
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainDashboardScreen()),
-        );
+        context.go(AppRoutes.dashboard);
       }
-    } catch (e, stackTrace) {
-      debugPrint('Offline mode error: $e');
-      debugPrint('Stack trace: $stackTrace');
+    } catch (e) {
+      debugPrint('Offline mode failed (${e.runtimeType})');
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to start offline mode: ${e.toString()}';
+          _errorMessage =
+              'Failed to start offline mode. Check permissions and try again.';
         });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String _safeAuthErrorMessage(Object error) {
+    final value = error.toString().toLowerCase();
+    if (value.contains('save authentication token') ||
+        value.contains('save token securely')) {
+      return 'Unable to securely store your token. Please try again.';
+    }
+    if (value.contains('invalid token format') ||
+        value.contains('invalid token length') ||
+        value.contains('invalid characters')) {
+      return error.toString();
+    }
+    return 'Authentication failed. Please verify your token and try again.';
   }
 
   Future<bool> _requestStoragePermission() async {
@@ -501,7 +479,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     // Save selected repository
     if (selectedRepo != null && mounted) {
-      await LocalStorageService().saveDefaultRepo(selectedRepo.fullName);
+      await _localStorage.saveDefaultRepo(selectedRepo.fullName);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -518,10 +496,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         );
 
-        // Navigate to main dashboard
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainDashboardScreen()),
-        );
+        context.go(AppRoutes.dashboard);
       }
     } else if (mounted) {
       // User cancelled - show error
@@ -572,8 +547,10 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
   List<RepoItem> get _filteredRepos {
     if (_searchQuery.isEmpty) return _repos;
     return _repos
-        .where((repo) =>
-            repo.fullName.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (repo) =>
+              repo.fullName.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
         .toList();
   }
 
@@ -585,91 +562,84 @@ class _RepoPickerDialogState extends State<_RepoPickerDialog> {
         children: [
           Icon(Icons.folder, color: AppColors.primary),
           SizedBox(width: 8),
-          Text(
-            'Select Default Repo',
-            style: TextStyle(color: Colors.white),
-          ),
+          Text('Select Default Repo', style: TextStyle(color: Colors.white)),
         ],
       ),
       content: SizedBox(
         width: double.maxFinite,
         child: _isLoading
-            ? const Center(child: BrailleLoader())
+            ? const SizedBox(
+                height: 300,
+                child: LoadingSkeleton(height: 56, itemCount: 5, spacing: 12),
+              )
             : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.error, color: AppColors.error),
-                        const SizedBox(height: 8),
-                        Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.white70),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _fetchRepos,
-                          child: const Text('Retry'),
-                        ),
-                      ],
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InlineError(message: _error!),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _fetchRepos,
+                      child: const Text('Retry'),
                     ),
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Search field
-                      TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search repositories...',
-                          hintStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search,
+                  ],
+                ),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Search field
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search repositories...',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.primary,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.1),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                  ),
+                  const SizedBox(height: 16),
+                  // Repo list
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      itemCount: _filteredRepos.length,
+                      itemBuilder: (context, index) {
+                        final repo = _filteredRepos[index];
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.folder,
                             color: AppColors.primary,
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                          title: Text(
+                            repo.title,
+                            style: const TextStyle(color: Colors.white),
                           ),
-                          filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.1),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        onChanged: (value) =>
-                            setState(() => _searchQuery = value),
-                      ),
-                      const SizedBox(height: 16),
-                      // Repo list
-                      SizedBox(
-                        height: 300,
-                        child: ListView.builder(
-                          itemCount: _filteredRepos.length,
-                          itemBuilder: (context, index) {
-                            final repo = _filteredRepos[index];
-                            return ListTile(
-                              leading: const Icon(
-                                Icons.folder,
-                                color: AppColors.primary,
-                              ),
-                              title: Text(
-                                repo.title,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                              subtitle: Text(
-                                repo.fullName,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              onTap: () => Navigator.pop(context, repo),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                          subtitle: Text(
+                            repo.fullName,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 12,
+                            ),
+                          ),
+                          onTap: () => Navigator.pop(context, repo),
+                        );
+                      },
+                    ),
                   ),
+                ],
+              ),
       ),
       actions: [
         TextButton(

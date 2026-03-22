@@ -49,10 +49,10 @@
 library agents;
 
 export 'base_agent.dart';
-export 'MrPlanner.dart';
-export 'MrDeveloper.dart';
-export 'MrDesigner.dart';
-export 'MrTester.dart';
-export 'MrLogger.dart';
-export 'MrCompliance.dart';
-export 'MrCoordinator.dart';
+export 'mr_planner.dart';
+export 'mr_developer.dart';
+export 'mr_designer.dart';
+export 'mr_tester.dart';
+export 'mr_logger.dart';
+export 'mr_compliance.dart';
+export 'mr_coordinator.dart';

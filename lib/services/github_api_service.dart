@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'secure_storage_service.dart';
 import 'cache_service.dart';
+import 'github_dio_client.dart';
 import 'local_storage_service.dart';
 import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
@@ -14,9 +16,10 @@ import '../models/item.dart';
 /// GitHub REST API Service
 class GitHubApiService {
   String? _token;
+  final Dio _dio = GitHubDioClient.instance;
   final CacheService _cache = CacheService();
   final LocalStorageService _localStorage = LocalStorageService();
-  
+
   /// Callback for authentication errors (401/403)
   /// Called when API detects invalid/expired token
   static Function(BuildContext context, String message)? onAuthError;
@@ -38,9 +41,6 @@ class GitHubApiService {
       _token = null; // Clear cache
     }
     _token ??= await SecureStorageService.getToken();
-    debugPrint(
-      'GitHubApiService: Token ${_token != null ? "exists (${_token!.length} chars)" : "not found"}',
-    );
     return _token;
   }
 
@@ -50,10 +50,10 @@ class GitHubApiService {
     debugPrint('GitHubApiService: Token cache cleared');
   }
 
-  /// Execute HTTP request with retry logic (exponential backoff)
-  /// Retries on network errors and 5xx server errors
-  Future<http.Response> _executeWithRetry(
-    Future<http.Response> Function() request, {
+  /// Execute request with retry logic (exponential backoff).
+  /// Retries on retriable network errors and 5xx server errors.
+  Future<Response<dynamic>> _executeWithRetry(
+    Future<Response<dynamic>> Function() request, {
     String operation = 'request',
   }) async {
     int retryCount = 0;
@@ -62,13 +62,14 @@ class GitHubApiService {
     while (true) {
       try {
         final response = await request();
+        final statusCode = response.statusCode ?? 0;
 
-        // Check for server errors (5xx) - retry these
-        if (response.statusCode >= 500 && response.statusCode < 600) {
+        // Retry server errors (5xx)
+        if (statusCode >= 500 && statusCode < 600) {
           if (retryCount < _maxRetries) {
             retryCount++;
             debugPrint(
-              'GitHubApiService: $operation failed with ${response.statusCode}, retrying ($retryCount/$_maxRetries)...',
+              'GitHubApiService: $operation failed with $statusCode, retrying ($retryCount/$_maxRetries)...',
             );
             await Future.delayed(delay);
             delay *= 2; // Exponential backoff
@@ -77,11 +78,11 @@ class GitHubApiService {
         }
 
         return response;
-      } on TimeoutException catch (e) {
-        if (retryCount < _maxRetries) {
+      } on DioException catch (e) {
+        if (_isRetriableDioError(e) && retryCount < _maxRetries) {
           retryCount++;
           debugPrint(
-            'GitHubApiService: $operation timeout, retrying ($retryCount/$_maxRetries): $e',
+            'GitHubApiService: $operation failed (${e.type}), retrying ($retryCount/$_maxRetries): ${e.message}',
           );
           await Future.delayed(delay);
           delay *= 2;
@@ -91,22 +92,41 @@ class GitHubApiService {
           );
           rethrow;
         }
-      } on SocketException catch (e) {
-        if (retryCount < _maxRetries) {
-          retryCount++;
-          debugPrint(
-            'GitHubApiService: Network error, retrying ($retryCount/$_maxRetries): $e',
-          );
-          await Future.delayed(delay);
-          delay *= 2;
-        } else {
-          debugPrint(
-            'GitHubApiService: Network error after $retryCount retries',
-          );
-          rethrow;
-        }
       }
     }
+  }
+
+  bool _isRetriableDioError(DioException e) {
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionError) {
+      return true;
+    }
+    if (e.type == DioExceptionType.unknown && e.error is SocketException) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _isNetworkOrTimeoutError(Object error) {
+    if (error is TimeoutException || error is SocketException) {
+      return true;
+    }
+    if (error is DioException) {
+      return _isRetriableDioError(error);
+    }
+    return error.toString().contains('SocketException') ||
+        error.toString().contains('Network') ||
+        error.toString().contains('TimeoutException') ||
+        error.toString().contains('timed out');
+  }
+
+  dynamic _decodedBody(dynamic data) {
+    if (data is String) {
+      return json.decode(data);
+    }
+    return data;
   }
 
   /// Get authentication headers
@@ -114,7 +134,6 @@ class GitHubApiService {
     final token = await getToken();
 
     if (token == null || token.isEmpty) {
-      debugPrint('ERROR: No token available');
       throw Exception('No authentication token. Please login again.');
     }
 
@@ -124,18 +143,12 @@ class GitHubApiService {
       'User-Agent': 'GitDoIt-App',
     };
 
-    debugPrint(
-      'Headers created - Authorization: token ${token.substring(0, 6)}...${token.substring(token.length - 4)}',
-    );
     return headers;
   }
 
   /// Test if token is valid (no network required for this test)
   Future<bool> testTokenSaved() async {
     final token = await getToken();
-    debugPrint(
-      'testTokenSaved - token: ${token != null ? "exists (${token.length} chars)" : "NOT FOUND"}',
-    );
     return token != null && token.isNotEmpty;
   }
 
@@ -169,23 +182,28 @@ class GitHubApiService {
       final headers = await _headers;
       debugPrint('Making API call to GitHub...');
 
-      final uri = Uri.parse(
-        'https://api.github.com/user/repos?sort=updated&per_page=$perPage&page=$page',
-      );
-      debugPrint('Request URL: $uri');
+      final path = '/user/repos';
+      debugPrint('Request path: $path');
 
       // Execute with retry logic
       final response = await _executeWithRetry(
-        () => http
-            .get(uri, headers: headers)
-            .timeout(const Duration(seconds: 15)),
+        () => _dio.get<dynamic>(
+          path,
+          queryParameters: {
+            'sort': 'updated',
+            'per_page': perPage,
+            'page': page,
+          },
+          options: Options(headers: headers),
+        ),
         operation: 'fetchMyRepositories',
       );
 
-      debugPrint('GitHub API response status: ${response.statusCode}');
+      final statusCode = response.statusCode ?? 0;
+      debugPrint('GitHub API response status: $statusCode');
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+      if (statusCode == 200) {
+        final List<dynamic> data = _decodedBody(response.data) as List<dynamic>;
         debugPrint('Parsed ${data.length} repositories');
         final repos = data.map((json) => _parseRepo(json)).toList();
 
@@ -204,27 +222,24 @@ class GitHubApiService {
         }
 
         return repos;
-      } else if (response.statusCode == 401) {
+      } else if (statusCode == 401) {
         debugPrint('401 Unauthorized - Token invalid or expired');
         // Trigger auth error handler if callback is set
-        final errorMsg = 'Invalid GitHub token. Please check your token and try again.';
+        final errorMsg =
+            'Invalid GitHub token. Please check your token and try again.';
         debugPrint('GitHubApiService: 401 error - $errorMsg');
         throw Exception(errorMsg);
-      } else if (response.statusCode == 403) {
+      } else if (statusCode == 403) {
         debugPrint('403 Forbidden - API rate limit or permissions issue');
         // Trigger auth error handler if callback is set
-        final errorMsg = 'Access forbidden. Check token permissions (needs repo scope).';
+        final errorMsg =
+            'Access forbidden. Check token permissions (needs repo scope).';
         debugPrint('GitHubApiService: 403 error - $errorMsg');
         throw Exception(errorMsg);
       } else {
-        debugPrint('Unexpected status code: ${response.statusCode}');
-        throw Exception('Failed to fetch repositories: ${response.statusCode}');
+        debugPrint('Unexpected status code: $statusCode');
+        throw Exception('Failed to fetch repositories: $statusCode');
       }
-    } on http.ClientException catch (e) {
-      debugPrint('HTTP ClientException: $e');
-      throw Exception(
-        'Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}',
-      );
     } on TimeoutException catch (e) {
       // Try to return cached data on timeout
       final reposCacheKey = 'repos_page_$page';
@@ -276,6 +291,42 @@ class GitHubApiService {
       debugPrint('SocketException: $e');
       throw Exception(
         'No internet connection. Please check your network settings.\n\nDetails: ${e.message}',
+      );
+    } on DioException catch (e) {
+      if (_isRetriableDioError(e)) {
+        final reposCacheKey = 'repos_page_$page';
+        final cachedData = _cache.get<List>(reposCacheKey);
+        if (cachedData != null) {
+          debugPrint('Returning cached repos due to Dio network error');
+          return cachedData
+              .map((json) => RepoItem.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
+        try {
+          final persistentRepos = await _localStorage.getRepos();
+          if (persistentRepos.isNotEmpty) {
+            debugPrint(
+              'Returning persistent storage repos due to Dio network error',
+            );
+            return persistentRepos.map((r) => RepoItem.fromJson(r)).toList();
+          }
+        } catch (persistError) {
+          debugPrint('Persistent storage fallback failed: $persistError');
+        }
+      }
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 401) {
+        throw Exception(
+          'Invalid GitHub token. Please check your token and try again.',
+        );
+      }
+      if (statusCode == 403) {
+        throw Exception(
+          'Access forbidden. Check token permissions (needs repo scope).',
+        );
+      }
+      throw Exception(
+        'Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}',
       );
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
@@ -353,19 +404,23 @@ class GitHubApiService {
   Future<bool> hasMoreRepositories({int page = 1, int perPage = 30}) async {
     try {
       final headers = await _headers;
-      final uri = Uri.parse(
-        'https://api.github.com/user/repos?sort=updated&per_page=$perPage&page=$page',
-      );
 
       final response = await _executeWithRetry(
-        () => http
-            .get(uri, headers: headers)
-            .timeout(const Duration(seconds: 10)),
+        () => _dio.get<dynamic>(
+          '/user/repos',
+          queryParameters: {
+            'sort': 'updated',
+            'per_page': perPage,
+            'page': page,
+          },
+          options: Options(headers: headers),
+        ),
         operation: 'hasMoreRepositories',
       );
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+      final statusCode = response.statusCode ?? 0;
+      if (statusCode == 200) {
+        final List<dynamic> data = _decodedBody(response.data) as List<dynamic>;
         // If we got perPage items, there might be more on the next page
         return data.length >= perPage;
       }
@@ -388,7 +443,7 @@ class GitHubApiService {
       // This ensures users get fresh data with both open and closed issues
       final oldCacheKey = 'issues_${owner}_${repo}_open';
       await _cache.invalidate(oldCacheKey, reason: 'FIX #25: Fetch all issues');
-      
+
       // Check cache first (with new 'all' state key)
       final cacheKey = 'issues_${owner}_${repo}_$state';
       final cachedIssues = _cache.get<List>(cacheKey);
@@ -402,19 +457,17 @@ class GitHubApiService {
       final headers = await _headers;
 
       final response = await _executeWithRetry(
-        () => http
-            .get(
-              Uri.parse(
-                'https://api.github.com/repos/$owner/$repo/issues?state=$state&per_page=50',
-              ),
-              headers: headers,
-            )
-            .timeout(const Duration(seconds: 10)),
+        () => _dio.get<dynamic>(
+          '/repos/$owner/$repo/issues',
+          queryParameters: {'state': state, 'per_page': 50},
+          options: Options(headers: headers),
+        ),
         operation: 'fetchIssues',
       );
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+      final statusCode = response.statusCode ?? 0;
+      if (statusCode == 200) {
+        final List<dynamic> data = _decodedBody(response.data) as List<dynamic>;
         final issues = data.map((json) => _parseIssue(json)).toList();
 
         // Cache the result for 5 minutes
@@ -439,11 +492,7 @@ class GitHubApiService {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
 
       // Try to return cached data on network failure
-      if (e is SocketException ||
-          e is TimeoutException ||
-          e.toString().contains('SocketException') ||
-          e.toString().contains('Network') ||
-          e.toString().contains('TimeoutException')) {
+      if (_isNetworkOrTimeoutError(e)) {
         debugPrint('Network error, trying to return cached data for issues');
 
         // Build cache key for this request
@@ -490,24 +539,20 @@ class GitHubApiService {
     try {
       final headers = await _headers;
 
-      final response = await http
-          .get(
-            Uri.parse(
-              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber',
-            ),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await _dio.get<dynamic>(
+        '/repos/$owner/$repo/issues/$issueNumber',
+        options: Options(headers: headers),
+      );
 
-      if (response.statusCode == 200) {
-        return _parseIssue(json.decode(response.body));
+      final statusCode = response.statusCode ?? 0;
+      if (statusCode == 200) {
+        return _parseIssue(_decodedBody(response.data) as Map<String, dynamic>);
       } else {
-        throw Exception('Failed to fetch issue: HTTP ${response.statusCode}');
+        throw Exception('Failed to fetch issue: HTTP $statusCode');
       }
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      if (e.toString().contains('SocketException') ||
-          e.toString().contains('Network')) {
+      if (_isNetworkOrTimeoutError(e)) {
         throw Exception('No internet connection. Working offline.');
       }
       rethrow;
@@ -545,37 +590,35 @@ class GitHubApiService {
       debugPrint('Creating issue in $owner/$repo with body: $requestBody');
 
       final response = await _executeWithRetry(
-        () => http
-            .post(
-              Uri.parse('https://api.github.com/repos/$owner/$repo/issues'),
-              headers: headers,
-              body: json.encode(requestBody),
-            )
-            .timeout(const Duration(seconds: 10)),
+        () => _dio.post<dynamic>(
+          '/repos/$owner/$repo/issues',
+          data: requestBody,
+          options: Options(headers: headers),
+        ),
         operation: 'createIssue',
       );
 
-      debugPrint('Create issue response status: ${response.statusCode}');
+      final statusCode = response.statusCode ?? 0;
+      debugPrint('Create issue response status: $statusCode');
 
-      if (response.statusCode == 201) {
-        return _parseIssue(json.decode(response.body));
-      } else if (response.statusCode == 422) {
-        final errorBody = json.decode(response.body);
+      if (statusCode == 201) {
+        return _parseIssue(_decodedBody(response.data) as Map<String, dynamic>);
+      } else if (statusCode == 422) {
+        final errorBody = _decodedBody(response.data) as Map<String, dynamic>;
         final errors = errorBody['errors'] as List?;
         final errorMsg =
             errors?.map((e) => e['message'] as String).join(', ') ??
             'Unknown error';
         throw Exception('Failed to create issue (422): $errorMsg');
       } else {
-        final errorBody = json.decode(response.body);
+        final errorBody = _decodedBody(response.data) as Map<String, dynamic>;
         throw Exception(
-          'Failed to create issue: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+          'Failed to create issue: ${errorBody['message'] ?? 'HTTP $statusCode'}',
         );
       }
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      if (e.toString().contains('SocketException') ||
-          e.toString().contains('Network')) {
+      if (_isNetworkOrTimeoutError(e)) {
         throw Exception('No internet connection. Issue saved locally.');
       }
       rethrow;
@@ -646,35 +689,33 @@ class GitHubApiService {
       debugPrint('Update request body: $requestBody');
 
       final response = await _executeWithRetry(
-        () => http
-            .patch(
-              Uri.parse(
-                'https://api.github.com/repos/$owner/$repo/issues/$number',
-              ),
-              headers: headers,
-              body: json.encode(requestBody),
-            )
-            .timeout(const Duration(seconds: 15)),
+        () => _dio.patch<dynamic>(
+          '/repos/$owner/$repo/issues/$number',
+          data: requestBody,
+          options: Options(headers: headers),
+        ),
         operation: 'updateIssue',
       );
 
-      debugPrint('Update issue response status: ${response.statusCode}');
+      final statusCode = response.statusCode ?? 0;
+      debugPrint('Update issue response status: $statusCode');
 
-      if (response.statusCode == 200) {
-        final updatedIssue = _parseIssue(json.decode(response.body));
+      if (statusCode == 200) {
+        final updatedIssue = _parseIssue(
+          _decodedBody(response.data) as Map<String, dynamic>,
+        );
         debugPrint('✓ Issue #$number updated successfully');
         return updatedIssue;
       } else {
-        final errorBody = json.decode(response.body);
+        final errorBody = _decodedBody(response.data) as Map<String, dynamic>;
         throw Exception(
-          'Failed to update issue: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
+          'Failed to update issue: ${errorBody['message'] ?? 'HTTP $statusCode'}',
         );
       }
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
 
-      if (e.toString().contains('SocketException') ||
-          e.toString().contains('Network')) {
+      if (_isNetworkOrTimeoutError(e)) {
         throw Exception('No internet connection. Changes saved locally.');
       }
       rethrow;
@@ -1047,7 +1088,7 @@ class GitHubApiService {
   ) async {
     try {
       // Check cache first (Task 19.2)
-      final cacheKey = 'labels_${owner}_${repo}';
+      final cacheKey = 'labels_${owner}_$repo';
       final cachedLabels = _cache.get<List>(cacheKey);
       if (cachedLabels != null) {
         debugPrint('Cache HIT for labels: $owner/$repo');
@@ -1144,7 +1185,7 @@ class GitHubApiService {
   ) async {
     try {
       // Check cache first (Task 19.2)
-      final cacheKey = 'collaborators_${owner}_${repo}';
+      final cacheKey = 'collaborators_${owner}_$repo';
       final cachedCollaborators = _cache.get<List>(cacheKey);
       if (cachedCollaborators != null) {
         debugPrint('Cache HIT for collaborators: $owner/$repo');
@@ -1235,37 +1276,39 @@ class GitHubApiService {
   /// }
   /// ```
   ///
-  /// Returns `null` if the request fails or user data cannot be retrieved.
-  /// Authentication errors (401) are logged but not thrown.
-  /// All errors are handled by [AppErrorHandler].
+  /// Throws [Exception] with user-safe messages on auth/network failures.
+  /// All errors are logged via [AppErrorHandler] before being rethrown.
   ///
-  /// Returns a map of user data, or `null` on failure.
+  /// Returns a map of user data.
   Future<Map<String, dynamic>?> getCurrentUser() async {
     try {
       final headers = await _headers;
-      debugPrint('Fetching user info with headers: ${headers.keys}');
-
       final response = await http
           .get(Uri.parse('https://api.github.com/user'), headers: headers)
           .timeout(const Duration(seconds: 10));
 
-      debugPrint('User API response status: ${response.statusCode}');
-      debugPrint('Response body: ${response.body.substring(0, 200)}...');
-
       if (response.statusCode == 200) {
-        final userData = json.decode(response.body);
-        debugPrint(
-          'User login: ${userData['login']}, name: ${userData['name']}',
-        );
-        return userData;
+        return json.decode(response.body) as Map<String, dynamic>;
       } else if (response.statusCode == 401) {
-        debugPrint('401 Unauthorized - token may be invalid');
-        throw Exception('Invalid token');
+        throw Exception(
+          'Authentication failed. Your session may have expired. Please login again.',
+        );
+      } else if (response.statusCode == 403) {
+        throw Exception(
+          'Access denied. Check your GitHub token permissions and try again.',
+        );
       }
-      return null;
+      throw Exception(
+        'Unable to fetch user profile right now. Please try again later.',
+      );
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      return null;
+      if (_isNetworkOrTimeoutError(e)) {
+        throw Exception(
+          'Cannot connect to GitHub. Check your internet connection and try again.',
+        );
+      }
+      rethrow;
     }
   }
 
@@ -1739,7 +1782,9 @@ class GitHubApiService {
       title: json['name'] as String,
       fullName: json['full_name'] as String,
       description: json['description'] as String?,
-      openIssuesCount: json['open_issues_count'] as int? ?? 0, // FIX (#33): Get open issues count from GitHub
+      openIssuesCount:
+          json['open_issues_count'] as int? ??
+          0, // FIX (#33): Get open issues count from GitHub
       children: [], // Will be populated separately
     );
   }

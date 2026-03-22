@@ -2,11 +2,27 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
-/// Flutter Developer Agent (FDA) - Writes code and implements features
+/// Flutter Developer Agent (FDA) - Writes code and implements features.
+///
+/// Responsible for:
+/// - Implementing features
+/// - Writing clean code
+/// - Following project conventions
+/// - Running code generation (build_runner)
+/// - Fixing bugs
+/// - Refactoring code
+///
+/// Usage:
+/// ```dart
+/// final developer = MrDeveloper();
+/// await developer.start();
+/// await developer.implementFeature(featureName: 'Feature', ...);
+/// ```
 class MrDeveloper extends BaseAgent {
   String? _currentTask;
   final List<String> _completedTasks = [];
-  
+
+  /// Creates a new Flutter Developer Agent.
   MrDeveloper() : super(
     name: 'MrDeveloper',
     role: 'Flutter Developer',
@@ -19,19 +35,19 @@ class MrDeveloper extends BaseAgent {
       'Refactor code',
     ],
   );
-  
+
   @override
   Future<void> init() async {
     debugPrint('$name: Initialized - Ready to code');
   }
-  
+
   @override
   Future<void> start() async {
     isActive = true;
     debugPrint('$name: Started - Waiting for tasks...');
     await execute();
   }
-  
+
   @override
   Future<void> execute() async {
     if (_currentTask != null) {
@@ -40,7 +56,12 @@ class MrDeveloper extends BaseAgent {
       debugPrint('$name: Task completed');
     }
   }
-  
+
+  /// Implements a feature with the given parameters.
+  ///
+  /// [featureName] The name of the feature to implement.
+  /// [description] Description of the feature.
+  /// [files] Optional list of files to modify.
   Future<void> implementFeature({
     required String featureName,
     required String description,

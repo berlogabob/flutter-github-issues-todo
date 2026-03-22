@@ -91,7 +91,7 @@ class OAuthService {
           interval: data['interval'] as int,
         );
 
-        debugPrint('Device code received: ${_deviceCode!.userCode}');
+        debugPrint('OAuthService: Device code received');
         return _deviceCode;
       } else {
         debugPrint('Failed to get device code: ${response.statusCode}');
@@ -101,7 +101,9 @@ class OAuthService {
       }
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      debugPrint('OAuthService: Error requesting device code: $e');
+      debugPrint(
+        'OAuthService: Error requesting device code (${e.runtimeType})',
+      );
       return null;
     }
   }
@@ -115,7 +117,7 @@ class OAuthService {
 
     try {
       final uri = Uri.parse(_deviceCode!.verificationUri);
-      debugPrint('Opening verification URL: ${_deviceCode!.verificationUri}');
+      debugPrint('OAuthService: Opening verification URL');
 
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -126,7 +128,7 @@ class OAuthService {
       }
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      debugPrint('OAuthService: Error opening URL: $e');
+      debugPrint('OAuthService: Error opening URL (${e.runtimeType})');
       return false;
     }
   }
@@ -156,33 +158,59 @@ class OAuthService {
     _pollingTimer = Timer.periodic(Duration(seconds: _deviceCode!.interval), (
       timer,
     ) async {
-      // Check if expired
-      if (DateTime.now().isAfter(expiresAt)) {
-        debugPrint('OAuthService: Device code expired');
+      try {
+        // Check if expired
+        if (DateTime.now().isAfter(expiresAt)) {
+          debugPrint('OAuthService: Device code expired');
+          timer.cancel();
+          _isPolling = false;
+          completer.complete(null);
+          return;
+        }
+
+        // Poll for token
+        final token = await _pollForToken();
+        if (token != null) {
+          debugPrint('OAuthService: Access token received');
+          timer.cancel();
+          _isPolling = false;
+          await _saveToken(token);
+          completer.complete(token);
+        }
+      } catch (e, stackTrace) {
+        AppErrorHandler.handle(e, stackTrace: stackTrace);
         timer.cancel();
         _isPolling = false;
-        completer.complete(null);
-        return;
+        if (!completer.isCompleted) {
+          completer.completeError(
+            Exception(
+              'Authentication failed while waiting for GitHub authorization. Please try again.',
+            ),
+          );
+        }
       }
+    });
 
-      // Poll for token
+    try {
+      // First poll immediately
       final token = await _pollForToken();
       if (token != null) {
-        debugPrint('OAuthService: Access token received');
-        timer.cancel();
+        _pollingTimer?.cancel();
         _isPolling = false;
         await _saveToken(token);
         completer.complete(token);
       }
-    });
-
-    // First poll immediately
-    final token = await _pollForToken();
-    if (token != null) {
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
       _pollingTimer?.cancel();
       _isPolling = false;
-      await _saveToken(token);
-      completer.complete(token);
+      if (!completer.isCompleted) {
+        completer.completeError(
+          Exception(
+            'Unable to complete GitHub authentication. Please try again.',
+          ),
+        );
+      }
     }
 
     return completer.future;
@@ -220,16 +248,13 @@ class OAuthService {
           debugPrint('OAuthService: Slow down - increasing interval');
           return null;
         } else if (error != null) {
-          debugPrint('OAuthService: Error: $error');
-          return null;
+          throw Exception('GitHub authorization error: $error');
         }
 
         // Success - got access token
         final accessToken = data['access_token'] as String?;
         if (accessToken != null) {
-          debugPrint(
-            'OAuthService: Access token received (${accessToken.length} chars)',
-          );
+          debugPrint('OAuthService: Access token received');
           return accessToken;
         }
       }
@@ -237,8 +262,8 @@ class OAuthService {
       return null;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      debugPrint('OAuthService: Error polling for token: $e');
-      return null;
+      debugPrint('OAuthService: Error polling for token (${e.runtimeType})');
+      rethrow;
     }
   }
 
@@ -249,7 +274,8 @@ class OAuthService {
       debugPrint('OAuthService: Token saved to secure storage');
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
-      debugPrint('OAuthService: Error saving token: $e');
+      debugPrint('OAuthService: Error saving token (${e.runtimeType})');
+      throw Exception('Failed to save authentication token.');
     }
   }
 
@@ -296,6 +322,6 @@ class DeviceCodeResponse {
 
   @override
   String toString() {
-    return 'DeviceCodeResponse(userCode: $userCode, expiresIn: $expiresIn)';
+    return 'DeviceCodeResponse(expiresIn: $expiresIn)';
   }
 }

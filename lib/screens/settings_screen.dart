@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../app_router.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
@@ -15,7 +17,6 @@ import '../services/pending_operations_service.dart';
 import '../services/error_logging_service.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/pending_operations_list.dart';
-import 'onboarding_screen.dart';
 import 'debug_screen.dart';
 import 'sync_status_dashboard_screen.dart';
 import 'error_log_screen.dart';
@@ -132,9 +133,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadProjects() async {
     if (_isLoadingProjects) return;
-    
+
     setState(() => _isLoadingProjects = true);
-    
+
     try {
       final projects = await _githubApi.fetchProjects();
       if (mounted) {
@@ -144,7 +145,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
       }
     } catch (e, stackTrace) {
-      debugPrint('Error loading projects: $e');
+      debugPrint('Error loading projects (${e.runtimeType})');
       if (mounted) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isLoadingProjects = false);
@@ -198,7 +199,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await _loadUserRepos();
       }
     } catch (e, stackTrace) {
-      debugPrint('Error fetching user data: $e');
+      debugPrint('Error fetching user data (${e.runtimeType})');
       if (mounted) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
         setState(() => _isLoadingUser = false);
@@ -215,7 +216,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
       }
     } catch (e, stackTrace) {
-      debugPrint('Error loading repos: $e');
+      debugPrint('Error loading repos (${e.runtimeType})');
       if (mounted) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       }
@@ -328,16 +329,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   fadeInDuration: Duration(milliseconds: 200),
                   fadeOutDuration: Duration(milliseconds: 200),
                   placeholder: (context, url) => CircleAvatar(
-                    backgroundColor: AppColors.primary.withValues(
-                      alpha: 0.2,
-                    ),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                     child: const BrailleLoader(size: 20),
                   ),
                   errorWidget: (context, error, stackTrace) {
                     return CircleAvatar(
-                      backgroundColor: AppColors.primary.withValues(
-                        alpha: 0.2,
-                      ),
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                       child: Text(
                         (_user['login'] as String)
                             .substring(0, 1)
@@ -473,10 +470,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       color: AppColors.card,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: SwitchListTile(
-        secondary: const Icon(
-          Icons.network_cell,
-          color: AppColors.primary,
-        ),
+        secondary: const Icon(Icons.network_cell, color: AppColors.primary),
         title: const Text(
           'Auto-sync on any network',
           style: TextStyle(color: Colors.white),
@@ -614,7 +608,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildPendingOperationsSection() {
     final pendingOps = PendingOperationsService();
     final pendingCount = pendingOps.getPendingCount();
-    
+
     return Card(
       color: AppColors.card,
       child: Padding(
@@ -634,7 +628,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 if (pendingCount > 0)
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12.r),
@@ -709,9 +706,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     try {
       // Test 1: Check token
-      debugPrint('=== Connection Test ===');
       final hasToken = await _githubApi.testTokenSaved();
-      debugPrint('Token check: ${hasToken ? "FOUND" : "NOT FOUND"}');
 
       if (!hasToken) {
         if (mounted) Navigator.pop(context);
@@ -760,11 +755,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         }
       }
     } catch (e, stackTrace) {
-      debugPrint('Connection test error: $e');
+      debugPrint('Connection test failed (${e.runtimeType})');
       if (mounted) Navigator.pop(context);
       if (mounted) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-        _showTestResult(false, 'Error: ${e.toString()}');
+        _showTestResult(
+          false,
+          'Connection test failed. Please verify your token and internet connection.',
+        );
       }
     }
   }
@@ -876,26 +874,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _resetToken() async {
-    // Delete token using singleton
-    await SecureStorageService.deleteToken();
-    await SecureStorageService.instance.delete(key: 'auth_type');
+    try {
+      await SecureStorageService.deleteToken();
+      await SecureStorageService.delete(key: 'auth_type');
+      _githubApi.clearCachedToken();
 
-    // Clear GitHub API cache
-    _githubApi.clearCachedToken();
-
-    if (mounted) {
-      // Navigate back to onboarding
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-        (route) => false,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Token reset. Please login again.'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
+      if (mounted) {
+        context.go(AppRoutes.onboarding);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Token reset. Please login again.'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Token reset failed (${e.runtimeType})');
+      if (mounted) {
+        AppErrorHandler.handle(
+          e,
+          stackTrace: stackTrace,
+          context: context,
+          userMessage: 'Unable to reset authentication data. Please try again.',
+        );
+      }
     }
   }
 
@@ -972,29 +974,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _logout() async {
-    // Clear secure storage (token) using singleton
-    await SecureStorageService.deleteToken();
-    await SecureStorageService.instance.delete(key: 'auth_type');
+    try {
+      await SecureStorageService.deleteToken();
+      await SecureStorageService.delete(key: 'auth_type');
+      _githubApi.clearCachedToken();
+      await _localStorage.clearAllData();
 
-    // Clear GitHub API cache
-    _githubApi.clearCachedToken();
-
-    // Clear all local data
-    await _localStorage.clearAllData();
-
-    if (mounted) {
-      // Navigate back to onboarding and clear navigation stack
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-        (route) => false, // Remove all previous routes
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Logged out successfully'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
+      if (mounted) {
+        context.go(AppRoutes.onboarding);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Logged out successfully'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Logout failed (${e.runtimeType})');
+      if (mounted) {
+        AppErrorHandler.handle(
+          e,
+          stackTrace: stackTrace,
+          context: context,
+          userMessage: 'Unable to complete logout safely. Please try again.',
+        );
+      }
     }
   }
 
@@ -1022,7 +1026,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   /// Shows the repository picker dialog with search.
-  void _showRepoPickerDialog(TextEditingController searchController, String searchQuery) {
+  void _showRepoPickerDialog(
+    TextEditingController searchController,
+    String searchQuery,
+  ) {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1068,28 +1075,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: SizedBox(
                   width: double.maxFinite,
                   child: _userRepos.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text(
-                            'No repositories available',
-                            style: TextStyle(color: Colors.white54),
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text(
+                              'No repositories available',
+                              style: TextStyle(color: Colors.white54),
+                            ),
                           ),
-                        ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _userRepos
-                            .where(
-                              (repo) =>
-                                  searchQuery.isEmpty ||
-                                  repo.fullName.toLowerCase().contains(
-                                    searchQuery,
-                                  ),
-                            )
-                            .length,
-                        itemBuilder: (context, index) {
-                          final filteredRepos = _userRepos
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _userRepos
                               .where(
                                 (repo) =>
                                     searchQuery.isEmpty ||
@@ -1097,69 +1094,79 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                       searchQuery,
                                     ),
                               )
-                              .toList();
-                          final repo = filteredRepos[index];
-                          final isSelected = _defaultRepo == repo.fullName;
-                          return ListTile(
-                            leading: const Icon(
-                              Icons.folder,
-                              color: AppColors.primary,
-                            ),
-                            title: Text(
-                              repo.fullName,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : Colors.white,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                              .length,
+                          itemBuilder: (context, index) {
+                            final filteredRepos = _userRepos
+                                .where(
+                                  (repo) =>
+                                      searchQuery.isEmpty ||
+                                      repo.fullName.toLowerCase().contains(
+                                        searchQuery,
+                                      ),
+                                )
+                                .toList();
+                            final repo = filteredRepos[index];
+                            final isSelected = _defaultRepo == repo.fullName;
+                            return ListTile(
+                              leading: const Icon(
+                                Icons.folder,
+                                color: AppColors.primary,
                               ),
-                            ),
-                            selected: isSelected,
-                            selectedTileColor: AppColors.primary.withValues(
-                              alpha: 0.2,
-                            ),
-                            trailing: isSelected
-                                ? const Icon(
-                                    Icons.check,
-                                    color: AppColors.primary,
-                                  )
-                                : null,
-                            onTap: () {
-                              debugPrint(
-                                '[Settings] Default repo selected: ${repo.fullName}',
-                              );
-                              setState(() {
-                                _defaultRepo = repo.fullName;
-                              });
-                              _localStorage.saveDefaultRepo(repo.fullName);
-                              Navigator.pop(context);
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.check_circle,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Default: ${repo.fullName}',
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                  backgroundColor: AppColors.primary,
-                                  duration: const Duration(seconds: 2),
+                              title: Text(
+                                repo.fullName,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : Colors.white,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
-                              );
-                            },
-                          );
-                        },
-                      ),
+                              ),
+                              selected: isSelected,
+                              selectedTileColor: AppColors.primary.withValues(
+                                alpha: 0.2,
+                              ),
+                              trailing: isSelected
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: AppColors.primary,
+                                    )
+                                  : null,
+                              onTap: () {
+                                debugPrint(
+                                  '[Settings] Default repo selected: ${repo.fullName}',
+                                );
+                                setState(() {
+                                  _defaultRepo = repo.fullName;
+                                });
+                                _localStorage.saveDefaultRepo(repo.fullName);
+                                Navigator.pop(context);
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.check_circle,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Default: ${repo.fullName}',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: AppColors.primary,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
                 ),
               ),
             ],
@@ -1214,10 +1221,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search projects...',
                   hintStyle: TextStyle(color: Colors.white38),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: AppColors.link,
-                  ),
+                  prefixIcon: const Icon(Icons.search, color: AppColors.link),
                   filled: true,
                   fillColor: AppColors.background,
                   border: OutlineInputBorder(
@@ -1240,105 +1244,105 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: SizedBox(
                   width: double.maxFinite,
                   child: _isLoadingProjects
-                    ? const Center(child: BrailleLoader(size: 24))
-                    : _projects.isEmpty
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'No projects available',
-                                style: TextStyle(color: Colors.white54),
-                              ),
+                      ? const Center(child: BrailleLoader(size: 24))
+                      : _projects.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text(
+                              'No projects available',
+                              style: TextStyle(color: Colors.white54),
                             ),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: _projects
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _projects
+                              .where(
+                                (project) =>
+                                    // Filter: show open projects or matching search
+                                    !(project['closed'] as bool? ?? false) &&
+                                    (searchQuery.isEmpty ||
+                                        (project['title'] as String? ?? '')
+                                            .toLowerCase()
+                                            .contains(searchQuery)),
+                              )
+                              .length,
+                          itemBuilder: (context, index) {
+                            final filteredProjects = _projects
                                 .where(
                                   (project) =>
-                                      // Filter: show open projects or matching search
                                       !(project['closed'] as bool? ?? false) &&
                                       (searchQuery.isEmpty ||
                                           (project['title'] as String? ?? '')
                                               .toLowerCase()
                                               .contains(searchQuery)),
                                 )
-                                .length,
-                            itemBuilder: (context, index) {
-                              final filteredProjects = _projects
-                                  .where(
-                                    (project) =>
-                                        !(project['closed'] as bool? ?? false) &&
-                                        (searchQuery.isEmpty ||
-                                            (project['title'] as String? ?? '')
-                                                .toLowerCase()
-                                                .contains(searchQuery)),
-                                  )
-                                  .toList();
-                              final project = filteredProjects[index];
-                              final title = project['title'] as String? ?? '';
-                              final isSelected = _defaultProject == title;
+                                .toList();
+                            final project = filteredProjects[index];
+                            final title = project['title'] as String? ?? '';
+                            final isSelected = _defaultProject == title;
 
-                              return ListTile(
-                                leading: const Icon(
-                                  Icons.view_kanban,
-                                  color: AppColors.link,
+                            return ListTile(
+                              leading: const Icon(
+                                Icons.view_kanban,
+                                color: AppColors.link,
+                              ),
+                              title: Text(
+                                title,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? AppColors.link
+                                      : Colors.white,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
-                                title: Text(
-                                  title,
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? AppColors.link
-                                        : Colors.white,
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                                selected: isSelected,
-                                selectedTileColor: AppColors.link.withValues(
-                                  alpha: 0.2,
-                                ),
-                                trailing: isSelected
-                                    ? const Icon(
-                                        Icons.check,
-                                        color: AppColors.link,
-                                      )
-                                    : null,
-                                onTap: () {
-                                  debugPrint(
-                                    '[Settings] Default project selected: $title',
-                                  );
-                                  setState(() {
-                                    _defaultProject = title;
-                                  });
-                                  _localStorage.saveDefaultProject(title);
-                                  Navigator.pop(context);
+                              ),
+                              selected: isSelected,
+                              selectedTileColor: AppColors.link.withValues(
+                                alpha: 0.2,
+                              ),
+                              trailing: isSelected
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: AppColors.link,
+                                    )
+                                  : null,
+                              onTap: () {
+                                debugPrint(
+                                  '[Settings] Default project selected: $title',
+                                );
+                                setState(() {
+                                  _defaultProject = title;
+                                });
+                                _localStorage.saveDefaultProject(title);
+                                Navigator.pop(context);
 
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.check_circle,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Default: $title',
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                        ],
-                                      ),
-                                      backgroundColor: AppColors.link,
-                                      duration: const Duration(seconds: 2),
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.check_circle,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Default: $title',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ],
                                     ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
+                                    backgroundColor: AppColors.link,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
                 ),
               ),
             ],

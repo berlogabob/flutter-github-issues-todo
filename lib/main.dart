@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'app_router.dart';
 import 'constants/app_colors.dart';
 import 'utils/app_error_handler.dart';
 import 'widgets/error_boundary.dart';
@@ -14,8 +15,6 @@ import 'services/sync_service.dart';
 import 'services/local_storage_service.dart';
 import 'services/cache_service.dart';
 import 'services/pending_operations_service.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/main_dashboard_screen.dart';
 
 // Background sync task name
 const String _backgroundSyncTask = 'background_sync_task';
@@ -54,9 +53,8 @@ void callbackDispatcher() {
 
       debugPrint('Background sync completed: $result');
       return result;
-    } catch (e, stackTrace) {
-      debugPrint('Background sync error: $e');
-      debugPrint('Stack trace: $stackTrace');
+    } catch (e) {
+      debugPrint('Background sync failed (${e.runtimeType})');
       return false;
     }
   });
@@ -69,12 +67,12 @@ void main() async {
   // Tries to load from root directory first (development)
   // Falls back to bundled .env.default (production)
   try {
-    await dotenv.load(fileName: ".env");
+    await dotenv.load(fileName: '.env');
     debugPrint('✅ Loaded .env from root directory');
   } catch (e) {
     debugPrint('⚠️ .env not found in root, trying bundled default...');
     try {
-      await dotenv.load(fileName: ".env.default");
+      await dotenv.load(fileName: '.env.default');
       debugPrint('✅ Loaded .env.default (bundled)');
       debugPrint('⚠️ Using default configuration - OAuth will not work');
       debugPrint('⚠️ Copy .env.default to .env and add your GITHUB_CLIENT_ID');
@@ -104,10 +102,7 @@ void main() async {
   await NetworkService().init();
 
   // PERFORMANCE OPTIMIZATION (Task 16.3): Initialize Workmanager for background sync
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: false, // Set to false in production
-  );
+  await Workmanager().initialize(callbackDispatcher);
 
   // Register periodic background sync task
   // Sync every 15 minutes (minimum interval allowed by Android)
@@ -150,14 +145,12 @@ void main() async {
 
   try {
     token = await SecureStorageService.getToken();
-    authType = await SecureStorageService.instance.read(key: 'auth_type');
+    authType = await SecureStorageService.read(key: 'auth_type');
   } catch (e) {
-    debugPrint('Error reading from secure storage: $e');
+    debugPrint('Error reading from secure storage (${e.runtimeType})');
   }
 
-  debugPrint(
-    'App start - Token: ${token != null ? "exists" : "none"}, AuthType: $authType',
-  );
+  debugPrint('App start - auth bootstrap complete');
 
   runApp(
     ProviderScope(
@@ -182,6 +175,7 @@ class GitDoItApp extends StatelessWidget {
     // If user is already logged in (or in offline mode), go to dashboard
     final isLoggedIn =
         (initialToken?.isNotEmpty ?? false) || initialAuthType == 'offline';
+    final router = AppRouter.create(initiallyLoggedIn: isLoggedIn);
 
     debugPrint(
       'GitDoItApp build - isLoggedIn: $isLoggedIn, AuthType: $initialAuthType',
@@ -201,65 +195,63 @@ class GitDoItApp extends StatelessWidget {
             debugPrint('ErrorBoundary: Retrying app build');
           },
           child: OptimisticUpdateListener(
-            child: MaterialApp(
+            child: MaterialApp.router(
               title: 'GitDoIt',
               debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            brightness: Brightness.dark,
-            scaffoldBackgroundColor: AppColors.background,
-            primaryColor: AppColors.primary,
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.primary,
-              secondary: AppColors.error,
-              surface: AppColors.card,
-              error: AppColors.error,
-              onPrimary: Colors.black,
-              onSecondary: Colors.white,
-              onSurface: Colors.white,
-              onError: Colors.white,
-            ),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: AppColors.background,
-              foregroundColor: Colors.white,
-              elevation: 0,
-            ),
-            cardTheme: CardThemeData(color: AppColors.card, elevation: 2),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+              theme: ThemeData(
+                brightness: Brightness.dark,
+                scaffoldBackgroundColor: AppColors.background,
+                primaryColor: AppColors.primary,
+                colorScheme: const ColorScheme.dark(
+                  primary: AppColors.primary,
+                  secondary: AppColors.error,
+                  surface: AppColors.card,
+                  error: AppColors.error,
+                  onPrimary: Colors.black,
+                  onSecondary: Colors.white,
+                  onSurface: Colors.white,
+                  onError: Colors.white,
                 ),
-              ),
-            ),
-            outlinedButtonTheme: OutlinedButtonThemeData(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: AppColors.primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+                appBarTheme: const AppBarTheme(
+                  backgroundColor: AppColors.background,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
                 ),
+                cardTheme: CardThemeData(color: AppColors.card, elevation: 2),
+                elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                  ),
+                ),
+                outlinedButtonTheme: OutlinedButtonThemeData(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                  ),
+                ),
+                inputDecorationTheme: const InputDecorationTheme(
+                  filled: true,
+                  fillColor: AppColors.card,
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0x4DFFFFFF)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                ),
+                fontFamily: '.SF Pro Text',
+                useMaterial3: true,
               ),
-            ),
-            inputDecorationTheme: const InputDecorationTheme(
-              filled: true,
-              fillColor: AppColors.card,
-              border: OutlineInputBorder(),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Color(0x4DFFFFFF)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColors.primary),
-              ),
-            ),
-            fontFamily: '.SF Pro Text',
-            useMaterial3: true,
-          ),
-          home: isLoggedIn
-              ? const MainDashboardScreen()
-              : const OnboardingScreen(),
+              routerConfig: router,
             ),
           ),
         );

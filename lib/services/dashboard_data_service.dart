@@ -113,7 +113,8 @@ class DashboardDataService {
     if (_syncService.isSyncing) {
       return SyncCloudState.syncing;
     }
-    if (_syncService.syncStatus == 'error') {
+    if (_syncService.syncStatus == 'error' ||
+        _syncService.syncStatus == 'partial') {
       return SyncCloudState.error;
     }
     return SyncCloudState.synced;

@@ -21,7 +21,7 @@ class PinnedReposNotifier extends Notifier<List<String>> {
       _initialized = true;
       _loadAsync();
     }
-    return state;
+    return const [];
   }
 
   Future<void> _loadAsync() async {
@@ -76,7 +76,7 @@ class MainRepoNotifier extends Notifier<String?> {
       _initialized = true;
       _loadAsync();
     }
-    return state;
+    return null;
   }
 
   Future<void> _loadAsync() async {

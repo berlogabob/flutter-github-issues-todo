@@ -2,7 +2,22 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
-/// Documentation & Deployment Agent (DDA) - Maintains docs and prepares releases
+/// Documentation & Deployment Agent (DDA) - Maintains docs and prepares releases.
+///
+/// Responsible for:
+/// - Maintaining documentation
+/// - Updating README
+/// - Generating API docs
+/// - Preparing releases
+/// - Managing changelog
+/// - Tracking version updates
+///
+/// Usage:
+/// ```dart
+/// final logger = MrLogger();
+/// await logger.start();
+/// await logger.updateChangelog('feat: New feature');
+/// ```
 class MrLogger extends BaseAgent {
   final List<String> _pendingDocs = [];
   final List<String> _changelogEntries = [];

@@ -2,8 +2,34 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'base_agent.dart';
 
-/// Rules & Compliance Agent (RCA) - NEW PROACTIVE AGENT
-/// Proactively checks project rules, conventions, and politics
+/// Rules & Compliance Agent (RCA) - Proactively checks project rules and conventions.
+///
+/// Responsible for:
+/// - Checking project rules compliance
+/// - Enforcing coding conventions
+/// - Validating architecture patterns
+/// - Ensuring offline-first design
+/// - Monitoring security practices
+/// - Checking dependency usage
+///
+/// Rules Enforced:
+/// - naming_convention: camelCase variables, PascalCase classes
+/// - offline_first: All features must work offline
+/// - dark_theme_only: Use only dark theme colors
+/// - no_shortcuts: No quick and dirty solutions
+/// - trailing_commas: Use trailing commas
+/// - single_quotes: Use single quotes for strings
+/// - responsive_design: Use ScreenUtil
+/// - error_handling: All async ops need error handling
+/// - secure_storage: Tokens in flutter_secure_storage
+/// - no_env_commit: Never commit .env file
+///
+/// Usage:
+/// ```dart
+/// final compliance = MrCompliance();
+/// await compliance.start();
+/// compliance.checkFile('lib/example.dart', content);
+/// ```
 class MrCompliance extends BaseAgent {
   final List<RuleViolation> _violations = [];
   final Map<String, bool> _ruleChecks = {};

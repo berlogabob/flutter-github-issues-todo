@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
@@ -31,7 +32,7 @@ import '../widgets/braille_loader.dart';
 ///   ),
 /// );
 /// ```
-class EditIssueScreen extends StatefulWidget {
+class EditIssueScreen extends ConsumerStatefulWidget {
   /// The issue to edit.
   final IssueItem issue;
 
@@ -53,10 +54,10 @@ class EditIssueScreen extends StatefulWidget {
   });
 
   @override
-  State<EditIssueScreen> createState() => _EditIssueScreenState();
+  ConsumerState<EditIssueScreen> createState() => _EditIssueScreenState();
 }
 
-class _EditIssueScreenState extends State<EditIssueScreen> {
+class _EditIssueScreenState extends ConsumerState<EditIssueScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
   final PendingOperationsService _pendingOps = PendingOperationsService();
@@ -461,7 +462,10 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
           isLocalOnly: widget.issue.isLocalOnly,
         );
 
-        await _localStorage.saveLocalIssue(updatedIssue);
+        await _localStorage.saveIssueForOfflineState(
+          updatedIssue,
+          repoFullName: '$owner/$repo',
+        );
 
         // Queue sync operation if not local-only
         if (!widget.issue.isLocalOnly && widget.issue.number != null) {

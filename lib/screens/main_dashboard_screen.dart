@@ -13,6 +13,7 @@ import '../models/item.dart';
 import '../services/dashboard_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sync_service.dart';
+import '../services/conflict_detection_service.dart';
 import '../services/pending_operations_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/cache_service.dart';
@@ -23,6 +24,8 @@ import '../widgets/dashboard_empty_state.dart';
 import '../widgets/repo_list.dart';
 import '../widgets/sync_cloud_icon.dart';
 import '../widgets/sync_status_widget.dart';
+import '../widgets/conflict_resolution_dialog.dart';
+import '../widgets/error_boundary.dart';
 import 'create_issue_screen.dart';
 import '../utils/responsive_utils.dart';
 import 'issue_detail_screen.dart';
@@ -32,6 +35,7 @@ import 'settings_screen.dart';
 import 'repo_project_library_screen.dart';
 import '../providers/pinned_repos_provider.dart';
 import '../providers/repositories_provider.dart';
+import '../providers/app_providers.dart';
 
 /// MainDashboardScreen - Main screen with task hierarchy
 /// Implements brief section 7, screen 2
@@ -74,7 +78,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   String? _expandedRepoId;
   List<Map<String, dynamic>> _projects = [];
   // Cloud icon now updates via SyncService listener only (no timer)
-  late VoidCallback _syncListener;
+  VoidCallback? _syncListener;
+  bool _isConflictDialogVisible = false;
 
   @override
   void initState() {
@@ -90,9 +95,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // Set up callback for when internet becomes available with local issues
     _syncService.onSyncNeeded = _showSyncLocalIssuesDialog;
-    
+
     // FIX (#34): Set up callback for when local issues are synced - refresh vault
     _syncService.onLocalIssuesSynced = _onLocalIssuesSynced;
+    _syncService.onConflictsDetected = _onConflictsDetected;
 
     // Listen to sync service changes to update cloud icon
     _syncListener = () {
@@ -102,7 +108,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         });
       }
     };
-    _syncService.addListener(_syncListener);
+    _syncService.addListener(_syncListener!);
 
     // Check immediately if there are local issues to sync
     _checkLocalIssuesToSync();
@@ -117,12 +123,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   Future<void> _loadHideUsernameSetting() async {
-    final hide = await _localStorage.getHideUsernameSetting();
-    if (mounted) {
-      setState(() {
-        _hideUsernameInRepo = hide;
-      });
-    }
+    await ref.read(dashboardProvider.notifier).loadHideUsernameSetting();
   }
 
   Future<void> _loadDefaultRepoSetting() async {
@@ -249,7 +250,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
     }
   }
-  
+
   /// FIX (#34): Callback invoked when local issues are synced to GitHub
   /// This refreshes the vault repo to remove synced issues and prevent duplication
   void _onLocalIssuesSynced() {
@@ -260,6 +261,49 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         await _loadLocalIssues();
         debugPrint('[Dashboard] Vault repo refreshed');
       }
+    });
+  }
+
+  void _onConflictsDetected(List<IssueConflict> conflicts) {
+    if (!mounted || conflicts.isEmpty || _isConflictDialogVisible) {
+      return;
+    }
+    _isConflictDialogVisible = true;
+
+    final firstConflict = conflicts.first;
+    showDialog<void>(
+      context: context,
+      builder: (context) => ConflictResolutionDialog(
+        conflict: firstConflict,
+        onResolve: (choice) {
+          Navigator.of(context).pop();
+          _isConflictDialogVisible = false;
+          late final String message;
+          switch (choice) {
+            case ResolutionChoice.useRemote:
+              message =
+                  'Using GitHub version for issue #${firstConflict.issueNumber}.';
+              break;
+            case ResolutionChoice.useLocal:
+              message =
+                  'Local preference noted. Change will sync on next retry.';
+              break;
+            case ResolutionChoice.merge:
+              message = 'Merge preference noted. Manual review recommended.';
+              break;
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: AppColors.primary,
+              ),
+            );
+          }
+        },
+      ),
+    ).then((_) {
+      _isConflictDialogVisible = false;
     });
   }
 
@@ -295,9 +339,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   @override
   void dispose() {
-    _syncService.removeListener(_syncListener);
+    final syncListener = _syncListener;
+    if (syncListener != null) {
+      _syncService.removeListener(syncListener);
+    }
     // FIX (#34): Clean up callback
     _syncService.onLocalIssuesSynced = null;
+    _syncService.onConflictsDetected = null;
     super.dispose();
   }
 
@@ -306,7 +354,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     super.didChangeDependencies();
     // Reload filters when screen becomes visible (e.g., after returning from library)
     _reloadFiltersIfNeeded();
-    
+
     // Force rebuild when dependencies change (fixes UI not updating after data load)
     if (_isLoadingComplete && _repositories.isNotEmpty) {
       setState(() {
@@ -316,7 +364,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   bool _isInitialLoad = true;
-  
+
   /// Handle authentication errors (401/403)
   /// Triggers logout flow and navigates to onboarding
   Future<void> _handleAuthError(Object error) async {
@@ -329,7 +377,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     if (!mounted) return;
 
     final message = AuthErrorHandler.getAuthErrorMessage(error);
-    
+
     // Show auth error dialog and trigger logout
     await AuthErrorHandler.handle(context, message, forceLogout: false);
   }
@@ -345,14 +393,14 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   Future<void> _loadData() async {
     // STEP 1: Load cached data IMMEDIATELY (OFFLINE-FIRST)
     await _loadCachedData();
-    
+
     // STEP 2: Mark loading complete, show UI with cached data
     if (mounted) {
       setState(() {
         _isLoadingComplete = true;
       });
     }
-    
+
     // STEP 3: Refresh in background (non-blocking)
     _refreshDataInBackground();
 
@@ -379,19 +427,19 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   /// Load cached data from local storage (OFFLINE-FIRST - Critical Fix)
   Future<void> _loadCachedData() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isLoadingCachedData = true;
     });
 
     try {
       debugPrint('[Dashboard] Loading cached data...');
-      
+
       // Load cached repos with issues
       final cachedRepos = await _localStorage.getRepos();
       if (cachedRepos.isNotEmpty) {
         final repos = cachedRepos.map((r) => RepoItem.fromJson(r)).toList();
-        
+
         // Load cached issues for each repo
         for (final repo in repos) {
           try {
@@ -401,33 +449,32 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             debugPrint('Error loading issues for ${repo.fullName}: $e');
           }
         }
-        
+
         // Load cached projects
         final cachedProjects = await _localStorage.getSyncedProjects();
-        
+
         if (mounted) {
           setState(() {
             _repositories = repos;
             _projects = cachedProjects;
             _isFetchingRepos = false; // Stop showing loading
           });
-          
+
           _cachedDataTimestamp = await _localStorage.getReposSyncTime();
-          
+
           debugPrint(
             '[Dashboard] ✓ Loaded cached data: '
             '${repos.length} repos, ${cachedProjects.length} projects',
           );
         }
       }
-      
+
       // Load local issues (vault) - this will add vault repo if needed
       await _loadLocalIssues();
-      
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
       debugPrint('[Dashboard] ✗ Error loading cached data: $e');
-      
+
       // Check for authentication errors
       await _handleAuthError(e);
     }
@@ -442,7 +489,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // FIX (Offline): ALWAYS update Riverpod provider, even if only vault repo exists
     if (mounted) {
       ref.read(repositoriesProvider.notifier).setRepos(_repositories);
-      debugPrint('[Dashboard] Updated Riverpod with ${_repositories.length} repos');
+      debugPrint(
+        '[Dashboard] Updated Riverpod with ${_repositories.length} repos',
+      );
       // Force rebuild after updating Riverpod
       setState(() {
         // Trigger rebuild to show loaded repos
@@ -454,25 +503,27 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   Future<void> _refreshDataInBackground() async {
     // Check if we should refresh (data is stale or no data)
     final shouldRefresh = _shouldRefreshData();
-    
+
     if (!shouldRefresh) {
-      debugPrint('[Dashboard] Cached data is fresh, skipping background refresh');
+      debugPrint(
+        '[Dashboard] Cached data is fresh, skipping background refresh',
+      );
       return;
     }
-    
+
     debugPrint('[Dashboard] Starting background refresh...');
-    
+
     if (mounted) {
       setState(() {
         _isRefreshingInBackground = true;
       });
     }
-    
+
     // Refresh in background (non-blocking)
     Future.delayed(Duration.zero, () async {
       await _fetchRepositories();
       await _fetchProjects();
-      
+
       if (mounted) {
         setState(() {
           _isRefreshingInBackground = false;
@@ -488,19 +539,19 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       debugPrint('[Dashboard] No cached data, should refresh');
       return true;
     }
-    
+
     // Don't refresh in offline mode
     if (_isOfflineMode) {
       debugPrint('[Dashboard] Offline mode, skipping refresh');
       return false;
     }
-    
+
     // Refresh if data is stale (>5 minutes old)
     if (_cachedDataTimestamp == null) {
       debugPrint('[Dashboard] No timestamp, should refresh');
       return true;
     }
-    
+
     final age = DateTime.now().difference(_cachedDataTimestamp!);
     final shouldRefresh = age.inMinutes > 5;
     debugPrint(
@@ -581,7 +632,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           // Add vault repo only if local issues exist OR offline mode
           if (localIssues.isNotEmpty || _isOfflineMode) {
             final vaultName = _vaultFolderName ?? 'Vault';
-            final openIssuesCount = localIssues.where((i) => i.status == ItemStatus.open).length;
+            final openIssuesCount = localIssues
+                .where((i) => i.status == ItemStatus.open)
+                .length;
             final vaultRepo = RepoItem(
               id: 'vault',
               title: vaultName,
@@ -670,13 +723,16 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 localIssues.isNotEmpty ||
                 _isOfflineMode) {
               final vaultName = _vaultFolderName ?? 'Vault';
-              final openIssuesCount = localIssues.where((i) => i.status == ItemStatus.open).length;
+              final openIssuesCount = localIssues
+                  .where((i) => i.status == ItemStatus.open)
+                  .length;
               final vaultRepo = RepoItem(
                 id: 'vault',
                 title: vaultName,
                 fullName: 'local/$vaultName',
                 description: 'Local vault folder (will sync when online)',
-                openIssuesCount: openIssuesCount, // FIX (#33): Count open issues
+                openIssuesCount:
+                    openIssuesCount, // FIX (#33): Count open issues
                 children: localIssues,
               );
               // Remove any existing vault repo first to prevent duplicates
@@ -715,7 +771,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
       // Try to load cached repos on any error
       await _loadCachedRepositories();
-      
+
       // Don't show error in offline mode
       if (!_isOfflineMode && mounted) {
         setState(() {
@@ -742,7 +798,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           title: data['name']?.toString() ?? '',
           fullName: data['full_name']?.toString() ?? '',
           description: data['description']?.toString() ?? '',
-          openIssuesCount: data['openIssuesCount'] as int? ?? 0, // FIX (#33): Read from cache
+          openIssuesCount:
+              data['openIssuesCount'] as int? ??
+              0, // FIX (#33): Read from cache
         );
       }).toList();
 
@@ -763,13 +821,16 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             // Add vault repo if there are local issues or in offline mode
             if (localIssues.isNotEmpty || _isOfflineMode) {
               final vaultName = _vaultFolderName ?? 'Vault';
-              final openIssuesCount = localIssues.where((i) => i.status == ItemStatus.open).length;
+              final openIssuesCount = localIssues
+                  .where((i) => i.status == ItemStatus.open)
+                  .length;
               final vaultRepo = RepoItem(
                 id: 'vault',
                 title: vaultName,
                 fullName: 'local/$vaultName',
                 description: 'Local vault folder (offline mode)',
-                openIssuesCount: openIssuesCount, // FIX (#33): Count open issues
+                openIssuesCount:
+                    openIssuesCount, // FIX (#33): Count open issues
                 children: localIssues,
               );
               // Remove any existing vault repo first to prevent duplicates
@@ -784,7 +845,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               '✓ Loaded ${_repositories.length} repos from cache (offline)',
             );
           } else {
-            debugPrint('⚠️ No cached repos or local issues - keeping existing repos');
+            debugPrint(
+              '⚠️ No cached repos or local issues - keeping existing repos',
+            );
           }
         });
 
@@ -895,7 +958,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               stackTrace: stackTrace,
               showSnackBar: false,
             );
-            
+
             // Check for authentication errors
             await _handleAuthError(e);
           }
@@ -951,7 +1014,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     final pinnedRepos = ref.watch(pinnedReposProvider).toSet();
     // Use Riverpod repositories provider directly (always up-to-date)
     final allRepos = ref.watch(repositoriesProvider);
-    
+
     // Show all repos if no pinned repos exist (first-time user experience)
     // Otherwise, show only pinned repositories on main dashboard
     List<RepoItem> displayedRepos;
@@ -975,10 +1038,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               SizedBox(height: 16.h),
               Text(
                 'Loading your tasks...',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 14.sp,
-                ),
+                style: TextStyle(color: Colors.white54, fontSize: 14.sp),
               ),
             ],
           ),
@@ -1117,7 +1177,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             // SyncStatusWidget in AppBar already shows sync status with animation
             // Error message if any
             if (_errorMessage != null) _buildErrorMessage(),
-            
+
             // Task List
             Expanded(
               child: allRepos.isEmpty && _isLoadingCachedData
@@ -1126,10 +1186,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                   ? const Center(
                       child: Text(
                         'Loading...',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.white54, fontSize: 14),
                       ),
                     )
                   : RefreshIndicator(
@@ -1158,39 +1215,13 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.5)),
-      ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Could not fetch repositories',
-                  style: TextStyle(
-                    color: AppColors.error,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
-                  _errorMessage!,
-                  style: TextStyle(
-                    color: AppColors.error.withValues(alpha: 0.8),
-                    fontSize: 11,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: InlineError(
+              message: 'Could not fetch repositories',
+              details: _errorMessage!,
             ),
           ),
           TextButton(
@@ -1343,7 +1374,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   void _createNewIssue() async {
-    debugPrint('[Dashboard] Create New Issue pressed - repos: ${_repositories.length}, isLoadingComplete: $_isLoadingComplete');
+    debugPrint(
+      '[Dashboard] Create New Issue pressed - repos: ${_repositories.length}, isLoadingComplete: $_isLoadingComplete',
+    );
 
     // Trigger haptic feedback
     HapticFeedback.selectionClick();
@@ -1437,9 +1470,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Priority 3: Use first available repo (skip vault)
     if (selectedRepo == null) {
       try {
-        selectedRepo = allRepos
-            .firstWhere((r) => r.id != 'vault')
-            .fullName;
+        selectedRepo = allRepos.firstWhere((r) => r.id != 'vault').fullName;
         debugPrint('Creating issue in first available repo: $selectedRepo');
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
@@ -1471,9 +1502,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     // Navigate to full-screen create issue screen
     if (mounted) {
       // Filter out vault repo from available repos for selection
-      final availableRepos = allRepos
-          .where((r) => r.id != 'vault')
-          .toList();
+      final availableRepos = allRepos.where((r) => r.id != 'vault').toList();
 
       Navigator.push(
         context,
@@ -1525,7 +1554,11 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.folder, size: 16, color: AppColors.primary),
+                      const Icon(
+                        Icons.folder,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

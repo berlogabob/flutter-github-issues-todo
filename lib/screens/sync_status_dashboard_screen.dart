@@ -106,10 +106,7 @@ class _SyncStatusDashboardScreenState
                 if (_isSyncing)
                   BrailleLoader(size: 32.w)
                 else
-                  SyncCloudIcon(
-                    state: _getSyncCloudState(),
-                    size: 48.w,
-                  ),
+                  SyncCloudIcon(state: _getSyncCloudState(), size: 48.w),
               ],
             ),
             SizedBox(height: 16.h),
@@ -215,9 +212,7 @@ class _SyncStatusDashboardScreenState
                   'Pending',
                   pendingCount.toString(),
                   Icons.pending,
-                  pendingCount > 0
-                      ? AppColors.primary
-                      : Colors.green,
+                  pendingCount > 0 ? AppColors.primary : Colors.green,
                 ),
                 _buildStatItem(
                   'Synced',
@@ -229,9 +224,7 @@ class _SyncStatusDashboardScreenState
                   'Conflicts',
                   conflictCount.toString(),
                   Icons.warning_amber,
-                  conflictCount > 0
-                      ? AppColors.error
-                      : Colors.green,
+                  conflictCount > 0 ? AppColors.error : Colors.green,
                 ),
                 _buildStatItem(
                   'Success Rate',
@@ -240,8 +233,8 @@ class _SyncStatusDashboardScreenState
                   stats.successRate >= 80
                       ? Colors.green
                       : stats.successRate >= 50
-                          ? AppColors.primary
-                          : AppColors.error,
+                      ? AppColors.primary
+                      : AppColors.error,
                 ),
               ],
             ),
@@ -311,7 +304,10 @@ class _SyncStatusDashboardScreenState
                 ),
                 if (pendingCount > 0)
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12.r),
@@ -412,8 +408,8 @@ class _SyncStatusDashboardScreenState
                     color: stats.successRate >= 80
                         ? Colors.green
                         : stats.successRate >= 50
-                            ? AppColors.primary
-                            : AppColors.error,
+                        ? AppColors.primary
+                        : AppColors.error,
                   ),
                 ),
               ],
@@ -569,6 +565,8 @@ class _SyncStatusDashboardScreenState
         return 'Syncing...';
       case 'success':
         return 'Sync Successful';
+      case 'partial':
+        return 'Sync Partially Successful';
       case 'error':
         return 'Sync Error';
       default:
@@ -584,6 +582,8 @@ class _SyncStatusDashboardScreenState
         return AppColors.primary;
       case 'success':
         return Colors.green;
+      case 'partial':
+        return AppColors.primary;
       case 'error':
         return AppColors.error;
       default:
@@ -635,9 +635,7 @@ class _SyncStatusDashboardScreenState
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 SizedBox(width: 8),
-                Expanded(
-                  child: Text('Sync failed: $e'),
-                ),
+                Expanded(child: Text('Sync failed: $e')),
               ],
             ),
             backgroundColor: AppColors.error,

@@ -132,12 +132,24 @@ class CacheService {
   ///   // Cache miss - fetch from network
   /// }
   /// ```
+  ///
+  /// NOTE: This is a synchronous method. For best results, call getAsync()
+  /// or ensure cache.init() has completed before calling get().
   T? get<T>(String key) {
-    // Auto-initialize if needed (synchronous check)
+    // Auto-initialize if needed - but must be careful with async
     if (!_isInitialized) {
-      debugPrint('CacheService: Not initialized, attempting sync init...');
-      // Try to initialize synchronously (will complete async)
-      init();
+      debugPrint('CacheService: Not initialized, attempting init...');
+      // Since we can't await in a sync method, we try to initialize
+      // and return null if it fails. The next call should work.
+      try {
+        // Note: This is fire-and-forget but will set _isInitialized
+        // when complete. For guaranteed results, use getAsync().
+        init();
+      } catch (e) {
+        debugPrint('CacheService: Background init failed: $e');
+      }
+      // Return null on first call when not initialized
+      // This causes cache misses on first access
       return null;
     }
 

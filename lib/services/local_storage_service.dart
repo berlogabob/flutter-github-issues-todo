@@ -14,7 +14,6 @@ class LocalStorageService {
     aOptions: AndroidOptions(),
   );
 
-  static const String _issuesKey = 'local_issues';
   static const String _reposKey = 'local_repos';
   static const String _userKey = 'local_user';
   static const String _filtersKey = 'local_filters';
@@ -42,15 +41,78 @@ class LocalStorageService {
     }
   }
 
-  /// Save a locally created issue (only to vault folder - for Syncthing/Nextcloud sync)
-  Future<void> saveLocalIssue(IssueItem issue) async {
+  /// Save a local-only issue to vault markdown storage.
+  ///
+  /// Contract boundary:
+  /// - Vault markdown files are the source of truth only for local-only issues.
+  /// - Synced GitHub issues must not be persisted in vault files.
+  ///
+  /// Returns `true` when written, `false` when skipped or failed.
+  Future<bool> saveLocalIssue(IssueItem issue) async {
     try {
+      if (!issue.isLocalOnly) {
+        debugPrint(
+          'LocalStorageService: Skipped vault write for non-local issue ${issue.id}',
+        );
+        return false;
+      }
       await _saveIssueToVaultFile(issue);
       debugPrint('Saved local issue to vault: ${issue.title}');
+      return true;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving local issue: $e');
+      return false;
     }
+  }
+
+  /// Save issue state for offline usage using the correct storage boundary.
+  ///
+  /// - Local-only issues -> vault markdown files.
+  /// - Synced GitHub issues -> persistent synced issue storage.
+  Future<bool> saveIssueForOfflineState(
+    IssueItem issue, {
+    String? repoFullName,
+  }) async {
+    if (issue.isLocalOnly) {
+      return saveLocalIssue(issue);
+    }
+
+    var effectiveRepoFullName = repoFullName;
+    if (effectiveRepoFullName == null || effectiveRepoFullName.isEmpty) {
+      effectiveRepoFullName = await _findRepoFullNameByIssueId(issue.id);
+    }
+
+    if (effectiveRepoFullName == null || effectiveRepoFullName.isEmpty) {
+      debugPrint(
+        'LocalStorageService: Missing repoFullName for synced issue ${issue.id}, skip offline persistence',
+      );
+      return false;
+    }
+
+    await upsertSyncedIssue(effectiveRepoFullName, issue);
+    return true;
+  }
+
+  Future<String?> _findRepoFullNameByIssueId(String issueId) async {
+    try {
+      final reposData = await getRepos();
+      for (final repoData in reposData) {
+        final repoFullName =
+            (repoData['fullName'] ?? repoData['full_name']) as String?;
+        if (repoFullName == null || repoFullName.isEmpty) continue;
+
+        final syncedIssues = await getSyncedIssues(repoFullName);
+        final found = syncedIssues.any((issue) => issue.id == issueId);
+        if (found) {
+          return repoFullName;
+        }
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error resolving repo for issue $issueId: $e');
+    }
+    return null;
   }
 
   /// Save issue as markdown file in vault folder
@@ -262,7 +324,9 @@ class LocalStorageService {
       if (!await vaultDir.exists()) return;
 
       await for (final entity in vaultDir.list()) {
-        if (entity is File && entity.path.contains(issueId)) {
+        if (entity is! File || !entity.path.endsWith('.md')) continue;
+        final fileName = entity.path.split('/').last;
+        if (fileName == '$issueId.md' || fileName.startsWith('${issueId}_')) {
           await entity.delete();
           debugPrint('Deleted vault file: ${entity.path}');
         }
@@ -300,7 +364,6 @@ class LocalStorageService {
   /// Clear all local data (logout)
   Future<void> clearAllData() async {
     try {
-      await _storage.delete(key: _issuesKey);
       await _storage.delete(key: _reposKey);
       await _storage.delete(key: _userKey);
       debugPrint('Cleared all local data');
@@ -434,6 +497,38 @@ class LocalStorageService {
     }
   }
 
+  /// Upsert a synced (non-local) issue in persistent repository storage.
+  ///
+  /// Contract boundary:
+  /// - Synced GitHub issues live under `synced_issues_{repoFullName}`.
+  /// - Vault markdown storage is reserved for local-only issues.
+  Future<void> upsertSyncedIssue(String repoFullName, IssueItem issue) async {
+    try {
+      if (issue.isLocalOnly) {
+        debugPrint(
+          'LocalStorageService: Skipped synced upsert for local-only issue ${issue.id}',
+        );
+        return;
+      }
+
+      final currentIssues = await getSyncedIssues(repoFullName);
+      final index = currentIssues.indexWhere((i) => i.id == issue.id);
+      if (index == -1) {
+        currentIssues.add(issue);
+      } else {
+        currentIssues[index] = issue;
+      }
+
+      await saveSyncedIssues(repoFullName, currentIssues);
+      debugPrint(
+        'LocalStorageService: Upserted synced issue ${issue.id} for $repoFullName',
+      );
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace);
+      debugPrint('Error upserting synced issue: $e');
+    }
+  }
+
   /// Save repositories persistently for offline access
   Future<void> saveRepos(List<Map<String, dynamic>> repos) async {
     try {
@@ -497,16 +592,9 @@ class LocalStorageService {
   /// Remove synced issues after successful sync to GitHub
   Future<void> removeSyncedIssue(String issueId) async {
     try {
-      final allIssues = await getLocalIssues();
-      final remainingIssues = allIssues.where((i) => i.id != issueId).toList();
-
-      // Rewrite local issues without the synced one
-      await _storage.write(
-        key: _issuesKey,
-        value: json.encode(remainingIssues.map((i) => i.toJson()).toList()),
-      );
-
-      debugPrint('Removed synced issue: $issueId');
+      // Local-only issues are vault-backed; remove from vault storage.
+      await removeLocalIssue(issueId);
+      debugPrint('Removed synced local issue from vault: $issueId');
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error removing synced issue: $e');

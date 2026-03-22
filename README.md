@@ -1,120 +1,78 @@
 # GitDoIt
 
-Minimalist GitHub Issues & Projects TODO Manager with offline-first support.
+Offline-first Flutter app for managing GitHub Issues as TODOs, with Projects V2 support.
 
-## Features
+## What it does
 
-- **Issue Management**: Create, edit, and manage GitHub issues with full Markdown support
-- **Project Integration**: Manage GitHub Projects V2 with drag-and-drop functionality
-- **Offline-First**: Work offline with automatic sync when connection is restored
-- **Real-time Sync**: Pending operations queue for seamless offline-to-online transition
-- **Search**: Global search across all repositories with advanced filtering
-- **Repository Management**: Browse and manage multiple GitHub repositories
-- **Pagination**: Load repos/issues in batches (30 items per page) for better performance
-- **Image Caching**: Avatars cached locally with 10MB disk cache for offline viewing
-- **Background Sync**: Automatic sync every 15 minutes on WiFi connection
-- **Optimized Lists**: 60 FPS scrolling even with 1000+ items using ListView.builder and RepaintBoundary
-- **Loading Skeletons**: Smooth loading experience with shimmer skeleton screens
-- **Comments**: View and delete your issue comments with Markdown rendering
-- **Empty States**: Beautiful custom illustrations for empty states (5 designs)
-- **Tutorial**: First-time user onboarding with 5-step interactive guide
-- **🧪 Comprehensive Tests** - 290+ automated tests
-- **🔒 Error Recovery** - Graceful error handling with retry
-- **📊 Performance Benchmarks** - Documented performance baselines
-- **📝 Error Logging** - Local error logging for debugging
+- Browse repositories and issues
+- Create/edit/update issues with Markdown
+- Manage labels, assignees, and project defaults
+- Work offline with local queue + later sync
+- Background sync via `workmanager`
+- Search/filter across repositories and issues
 
-### Pickers & Filters
+## Modernized architecture
 
-- **Assignee Picker**: Real GitHub API integration for selecting issue assignees with avatar display and 5-minute caching
-- **Label Picker**: Repository labels with color coding, showing current and available labels
-- **Project Picker**: Select default project from your GitHub Projects V2 in settings
-- **My Issues Filter**: Filter issues assigned to you using actual GitHub authentication
+- Navigation: `go_router` (`lib/app_router.dart`)
+- State: `flutter_riverpod`
+- Network: `dio` (+ existing integrations)
+- Storage: `hive_ce` / `hive_ce_flutter`
+- Secure token storage: `flutter_secure_storage`
+- Offline pipeline: cache + pending operations + sync service
 
-### User Experience
-
-- **Haptic Feedback**: Tactile feedback for swipe actions, button taps, and navigation
-- **Responsive Design**: Adapts to different screen sizes using ScreenUtil
-- **Dark Theme**: Optimized dark mode UI with custom color palette
-- **Loading States**: Braille loader animations for smooth loading indicators
-
-## Getting Started
+## Setup
 
 ### Prerequisites
 
-- Flutter SDK >= 3.11.0
-- GitHub Personal Access Token with `repo` scope
+- Flutter SDK `>=3.11.0`
+- GitHub Personal Access Token with repo access
 
-### Installation
+### Install
 
-1. Clone the repository
-2. Run `flutter pub get`
-3. Configure your GitHub token in settings
-
-### Configuration
-
-1. Open the app
-2. Navigate to Settings
-3. Enter your GitHub Personal Access Token
-4. Set default repository and project
-
-### Defaults
-
-#### Setting Default Repository
-
-1. Navigate to **Settings** (gear icon in bottom navigation)
-2. Under **Defaults** section, tap **Default Repository**
-3. Search and select your preferred repository
-4. Confirmation snackbar will appear
-5. This repository will:
-   - Auto-pin to dashboard
-   - Pre-select when creating new issues
-
-#### Setting Default Project
-
-1. Navigate to **Settings** → **Defaults**
-2. Tap **Default Project**
-3. Select from your GitHub Projects V2 (closed projects filtered)
-4. This project will:
-   - Pre-select when creating new issues
-   - Show in dashboard filters
-
-## Project Structure
-
+```bash
+flutter pub get
 ```
+
+### Environment
+
+The app tries `.env` first, then `.env.default`.
+
+Example:
+
+```env
+GITHUB_CLIENT_ID=your_client_id
+```
+
+## Run
+
+```bash
+flutter run
+```
+
+## Test & analyze
+
+```bash
+flutter test
+flutter analyze --no-fatal-infos --no-fatal-warnings
+```
+
+## Key folders
+
+```text
 lib/
-├── constants/       # App-wide constants (colors, styles)
-├── models/          # Data models (IssueItem, RepoItem, etc.)
-├── screens/         # UI screens
-├── services/        # Business logic and API services
-├── utils/           # Utility functions and helpers
-└── widgets/         # Reusable UI components
+  app_router.dart
+  models/
+  providers/
+  screens/
+  services/
+  widgets/
+test/
 ```
-
-## Key Services
-
-- **GitHubApiService**: GitHub REST API integration with retry logic
-- **CacheService**: In-memory caching with TTL support
-- **LocalStorageService**: Persistent local storage for settings and user data
-- **PendingOperationsService**: Offline operation queuing
-- **NetworkService**: Connectivity monitoring
-
-## Dependencies
-
-- **State Management**: flutter_riverpod
-- **Local Storage**: hive_ce, hive_ce_flutter
-- **Network**: http, dio
-- **Secure Storage**: flutter_secure_storage
-- **Markdown**: flutter_markdown_plus
-- **UI**: flutter_screenutil, flutter_svg
 
 ## Version
 
-Current version: 0.5.0+129
+`0.5.0+129`
 
 ## License
 
-See LICENSE file for details.
-
----
-
-Built with ❤️ using Flutter and the GitHub API
+See `LICENSE`.

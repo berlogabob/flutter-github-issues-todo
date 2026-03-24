@@ -16,6 +16,7 @@ void main() {
       List<String> labels = const ['bug'],
       String? assignee = 'testuser',
       int number = 1,
+      bool isLocalOnly = false,
     }) {
       return IssueItem(
         id: 'test-id-1',
@@ -26,7 +27,7 @@ void main() {
         labels: labels,
         assigneeLogin: assignee,
         updatedAt: DateTime.now(),
-        isLocalOnly: false,
+        isLocalOnly: isLocalOnly,
       );
     }
 
@@ -458,7 +459,14 @@ void main() {
 
     group('Responsive Layout', () {
       testWidgets('adapts to different screen sizes', (tester) async {
-        final issue = createMockIssue();
+        final issue = createMockIssue(
+          isLocalOnly: true,
+          labels: const [
+            'very-long-label-name-to-validate-responsive-behavior',
+            'another-long-label-name',
+          ],
+          assignee: 'very_long_assignee_name_for_responsive_checks',
+        );
         await tester.pumpWidget(
           ScreenUtilInit(
             designSize: const Size(768, 1024),
@@ -471,18 +479,34 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 120));
 
         expect(find.text(issue.title), findsOneWidget);
+        expect(find.textContaining('Labels added:'), findsOneWidget);
+        expect(tester.takeException(), isNull);
       });
 
       testWidgets('uses ScreenUtil for responsive sizing', (tester) async {
-        final issue = createMockIssue();
+        final issue = createMockIssue(isLocalOnly: true);
         await tester.pumpWidget(createTestApp(issue: issue));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 120));
 
         // Text widgets should use responsive sizing
         expect(find.byType(Text), findsWidgets);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('renders with non-local issue without settling timeout', (
+        tester,
+      ) async {
+        final issue = createMockIssue(isLocalOnly: false);
+        await tester.pumpWidget(createTestApp(issue: issue));
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(find.byType(IssueDetailScreen), findsOneWidget);
+        expect(tester.takeException(), isNull);
       });
     });
   });

@@ -6,6 +6,7 @@ import '../services/pending_operations_service.dart';
 import '../services/network_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/secure_storage_service.dart';
+import '../models/issue_item.dart';
 import '../models/repo_item.dart';
 import '../models/pending_operation.dart';
 import '../widgets/braille_loader.dart';
@@ -85,6 +86,13 @@ class CreateIssueScreen extends StatefulWidget {
 
   @override
   State<CreateIssueScreen> createState() => _CreateIssueScreenState();
+}
+
+class CreateIssueResult {
+  final IssueItem? issue;
+  final String? successMessage;
+
+  const CreateIssueResult({this.issue, this.successMessage});
 }
 
 class _CreateIssueScreenState extends State<CreateIssueScreen> {
@@ -263,6 +271,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
 
   /// Show validation error.
   void _showValidationError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -280,27 +289,9 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     );
   }
 
-  /// Show success message.
-  void _showSuccessMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(message, style: const TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green.shade700,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
-
   /// Show error message.
   void _showErrorMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -833,18 +824,45 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     final hasToken = await SecureStorageService.hasToken();
 
     if (!hasToken) {
-      await _saveAsLocalIssue(title, body);
+      final localIssue = await _saveAsLocalIssue(title, body);
+      if (mounted && localIssue != null) {
+        Navigator.pop(
+          context,
+          CreateIssueResult(
+            issue: localIssue,
+            successMessage: 'Saved as local TODO issue (offline-first).',
+          ),
+        );
+      }
       return;
     }
 
     if (repoFullName == null) {
-      await _saveAsLocalIssue(title, body);
+      final localIssue = await _saveAsLocalIssue(title, body);
+      if (mounted && localIssue != null) {
+        Navigator.pop(
+          context,
+          CreateIssueResult(
+            issue: localIssue,
+            successMessage: 'Saved as local TODO issue (offline-first).',
+          ),
+        );
+      }
       return;
     }
 
     final parts = repoFullName.split('/');
     if (parts.length != 2) {
-      await _saveAsLocalIssue(title, body);
+      final localIssue = await _saveAsLocalIssue(title, body);
+      if (mounted && localIssue != null) {
+        Navigator.pop(
+          context,
+          CreateIssueResult(
+            issue: localIssue,
+            successMessage: 'Saved as local TODO issue (offline-first).',
+          ),
+        );
+      }
       return;
     }
 
@@ -873,13 +891,19 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         await _pendingOps.addOperation(operation);
 
         if (mounted) {
-          _showSuccessMessage('Issue queued for sync when online');
-          Navigator.pop(context);
+          Navigator.pop(
+            context,
+            const CreateIssueResult(
+              successMessage: 'Issue queued for sync when online',
+            ),
+          );
         }
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-        setState(() => _isSaving = false);
-        _showErrorMessage('Failed to queue issue: ${e.toString()}');
+        if (mounted) {
+          setState(() => _isSaving = false);
+          _showErrorMessage('Failed to queue issue: ${e.toString()}');
+        }
       }
     } else {
       // ONLINE: Create immediately
@@ -894,14 +918,20 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         );
 
         if (mounted) {
-          _showSuccessMessage(
-            'Issue #${createdIssue.number} created successfully',
+          Navigator.pop(
+            context,
+            CreateIssueResult(
+              issue: createdIssue,
+              successMessage:
+                  'Issue #${createdIssue.number} created successfully',
+            ),
           );
-          Navigator.pop(context, createdIssue);
         }
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-        setState(() => _isSaving = false);
+        if (mounted) {
+          setState(() => _isSaving = false);
+        }
 
         // Provide specific error messages based on error type
         final errorMessage = e.toString();
@@ -911,7 +941,16 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
           );
         } else if (errorMessage.contains('401') ||
             errorMessage.contains('unauthorized')) {
-          await _saveAsLocalIssue(title, body);
+          final localIssue = await _saveAsLocalIssue(title, body);
+          if (mounted && localIssue != null) {
+            Navigator.pop(
+              context,
+              CreateIssueResult(
+                issue: localIssue,
+                successMessage: 'Saved as local TODO issue (offline-first).',
+              ),
+            );
+          }
         } else if (errorMessage.contains('403') ||
             errorMessage.contains('forbidden')) {
           _showErrorMessage(
@@ -919,13 +958,19 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
           );
         } else if (errorMessage.contains('Network') ||
             errorMessage.contains('SocketException')) {
-          // Network error during online attempt - queue for later
-          _showSuccessMessage(
-            'Network error. Issue saved as local TODO and queued for sync.',
-          );
-          // Optionally queue the operation
+          // Network error during online attempt - queue and persist locally
           await _queueIssueForLater(owner, repo, title, body);
-          await _saveAsLocalIssue(title, body, popWithResult: false);
+          final localIssue = await _saveAsLocalIssue(title, body);
+          if (mounted && localIssue != null) {
+            Navigator.pop(
+              context,
+              CreateIssueResult(
+                issue: localIssue,
+                successMessage:
+                    'Network error. Issue saved as local TODO and queued for sync.',
+              ),
+            );
+          }
         } else {
           _showErrorMessage('Failed to create issue: ${e.toString()}');
         }
@@ -933,11 +978,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     }
   }
 
-  Future<void> _saveAsLocalIssue(
-    String title,
-    String body, {
-    bool popWithResult = true,
-  }) async {
+  Future<IssueItem?> _saveAsLocalIssue(String title, String body) async {
     try {
       final localIssue = _localStorage.createStructuredLocalIssue(
         title: title,
@@ -945,21 +986,14 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
       );
 
       await _localStorage.saveLocalIssue(localIssue);
-
-      if (mounted) {
-        _showSuccessMessage('Saved as local TODO issue (offline-first).');
-        if (popWithResult) {
-          Navigator.pop(context, localIssue);
-        } else {
-          Navigator.pop(context);
-        }
-      }
+      return localIssue;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       if (mounted) {
         setState(() => _isSaving = false);
+        _showErrorMessage('Failed to save local TODO issue: $e');
       }
-      _showErrorMessage('Failed to save local TODO issue: $e');
+      return null;
     }
   }
 

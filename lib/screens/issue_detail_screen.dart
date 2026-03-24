@@ -108,7 +108,16 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
 
   Future<void> _loadComments() async {
     if (_currentIssue.isLocalOnly || _currentIssue.number == null) return;
-
+    final hasToken = await _githubApi.testTokenSaved();
+    if (!hasToken) {
+      if (!mounted) return;
+      setState(() {
+        _comments = [];
+        _isLoadingComments = false;
+        _hasMoreComments = false;
+      });
+      return;
+    }
     setState(() => _isLoadingComments = true);
     try {
       final effectiveOwner = widget.owner ?? 'berlogabob';
@@ -139,6 +148,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   Future<void> _loadMoreComments() async {
     if (_isLoadingMoreComments || !_hasMoreComments) return;
     if (_currentIssue.isLocalOnly || _currentIssue.number == null) return;
+    final hasToken = await _githubApi.testTokenSaved();
+    if (!hasToken) return;
 
     setState(() => _isLoadingMoreComments = true);
     try {
@@ -720,24 +731,26 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
               ],
             ),
             SizedBox(width: 16.w),
-            Padding(
-              padding: EdgeInsets.only(bottom: 24.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    text,
-                    style: TextStyle(fontSize: 14.sp, color: Colors.white),
-                  ),
-                  if (time != null)
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 24.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      RelativeTime.format(time),
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: AppColors.textSecondary,
-                      ),
+                      text,
+                      style: TextStyle(fontSize: 14.sp, color: Colors.white),
                     ),
-                ],
+                    if (time != null)
+                      Text(
+                        RelativeTime.format(time),
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -777,7 +790,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             ),
           )
         else ...[
-          ..._comments.map((comment) => _buildCommentTile(comment)).toList(),
+          ..._comments.map((comment) => _buildCommentTile(comment)),
           if (_hasMoreComments)
             Padding(
               padding: EdgeInsets.only(top: 16.h),
@@ -1205,7 +1218,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   Future<void> _loadAssignees() async {
     if (_isLoadingAssignees) return;
 
-    final cacheKey = 'assignees_${_effectiveOwner}_${_effectiveRepo}';
+    final cacheKey = 'assignees_${_effectiveOwner}_$_effectiveRepo';
 
     // Try cache first
     final cachedAssignees = _cache.get<List>(cacheKey);
@@ -1527,7 +1540,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   Future<void> _loadLabels() async {
     if (_isLoadingLabels) return;
 
-    final cacheKey = 'labels_${_effectiveOwner}_${_effectiveRepo}';
+    final cacheKey = 'labels_${_effectiveOwner}_$_effectiveRepo';
 
     // Try cache first
     final cachedLabels = _cache.get<List>(cacheKey);

@@ -272,6 +272,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     if (!mounted || conflicts.isEmpty || _isConflictDialogVisible) {
       return;
     }
+
     _isConflictDialogVisible = true;
 
     final firstConflict = conflicts.first;
@@ -1616,8 +1617,31 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             availableRepos: availableRepos,
           ),
         ),
-      ).then((createdIssue) {
-        if (createdIssue != null && mounted) {
+      ).then((result) {
+        if (!mounted || result == null) {
+          return;
+        }
+
+        IssueItem? createdIssue;
+        String? successMessage;
+
+        if (result is CreateIssueResult) {
+          createdIssue = result.issue;
+          successMessage = result.successMessage;
+        } else if (result is IssueItem) {
+          createdIssue = result;
+        }
+
+        if (successMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(successMessage),
+              backgroundColor: Colors.green.shade700,
+            ),
+          );
+        }
+
+        if (createdIssue != null) {
           _loadData();
         }
       });

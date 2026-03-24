@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import '../utils/app_error_handler.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
@@ -25,9 +26,86 @@ class LocalStorageService {
   static const String _autoSyncWifiKey = 'auto_sync_wifi';
   static const String _autoSyncAnyKey = 'auto_sync_any';
 
+  /// Build a local-only issue using the same core fields as synced issues.
+  /// Local issues use a negative `number` to avoid collisions with GitHub IDs.
+  IssueItem createStructuredLocalIssue({
+    required String title,
+    String? bodyMarkdown,
+    List<String> labels = const [],
+    String? assigneeLogin,
+    String? id,
+    ItemStatus status = ItemStatus.open,
+  }) {
+    final now = DateTime.now();
+    final effectiveId = id ?? 'local_${now.millisecondsSinceEpoch}';
+    final localNumber =
+        _deriveLocalNumberFromId(effectiveId) ?? -now.millisecondsSinceEpoch;
+
+    return IssueItem(
+      id: effectiveId,
+      title: title,
+      number: localNumber,
+      bodyMarkdown: bodyMarkdown,
+      labels: labels,
+      assigneeLogin: assigneeLogin,
+      status: status,
+      createdAt: now,
+      updatedAt: now,
+      localUpdatedAt: now,
+      isLocalOnly: true,
+    );
+  }
+
   /// Get vault folder path from secure storage
   Future<String?> getVaultFolder() async {
-    return await _storage.read(key: 'vault_folder');
+    try {
+      final configuredPath = await _storage.read(key: 'vault_folder');
+      final writableConfigured = await _ensureWritableDirectory(configuredPath);
+      if (writableConfigured != null) {
+        return writableConfigured;
+      }
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final fallbackPath = '${appDir.path}/GitDoItVault';
+      final writableFallback = await _ensureWritableDirectory(fallbackPath);
+      if (writableFallback != null) {
+        await _storage.write(key: 'vault_folder', value: writableFallback);
+        debugPrint('Using fallback vault folder: $writableFallback');
+      }
+      return writableFallback;
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
+      debugPrint('Error resolving vault folder: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _ensureWritableDirectory(String? path) async {
+    if (path == null || path.isEmpty) return null;
+
+    try {
+      final dir = Directory(path);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      // Probe access with a short-lived temp file.
+      final probeFile = File('${dir.path}/.gitdoit_write_probe');
+      await probeFile.writeAsString('ok');
+      try {
+        await probeFile.delete();
+      } on FileSystemException {
+        // Benign TOCTOU race: another process may remove the probe file first.
+        if (await probeFile.exists()) {
+          rethrow;
+        }
+      }
+      return dir.path;
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
+      debugPrint('Vault path is not writable ($path): $e');
+      return null;
+    }
   }
 
   /// Save vault folder permission/path
@@ -56,9 +134,11 @@ class LocalStorageService {
         );
         return false;
       }
-      await _saveIssueToVaultFile(issue);
-      debugPrint('Saved local issue to vault: ${issue.title}');
-      return true;
+      final saved = await _saveIssueToVaultFile(issue);
+      if (saved) {
+        debugPrint('Saved local issue to vault: ${issue.title}');
+      }
+      return saved;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving local issue: $e');
@@ -116,12 +196,12 @@ class LocalStorageService {
   }
 
   /// Save issue as markdown file in vault folder
-  Future<void> _saveIssueToVaultFile(IssueItem issue) async {
+  Future<bool> _saveIssueToVaultFile(IssueItem issue) async {
     try {
       final vaultPath = await getVaultFolder();
       if (vaultPath == null) {
         debugPrint('No vault folder configured');
-        return;
+        return false;
       }
 
       final vaultDir = Directory(vaultPath);
@@ -144,28 +224,40 @@ class LocalStorageService {
       final file = File(filePath);
       await file.writeAsString(content);
       debugPrint('Saved markdown file: $filePath');
+      return true;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving issue to vault: $e');
+      return false;
     }
   }
 
   /// Build markdown content for issue (GitHub-compatible format)
   String _buildMarkdownContent(IssueItem issue) {
     final buffer = StringBuffer();
+    final createdAt = issue.createdAt ?? issue.updatedAt ?? DateTime.now();
+    final updatedAt = issue.updatedAt ?? createdAt;
+    final localUpdatedAt = issue.localUpdatedAt ?? updatedAt;
 
     // YAML frontmatter for metadata
     buffer.writeln('---');
+    buffer.writeln('id: ${issue.id}');
     buffer.writeln('title: ${issue.title}');
+    if (issue.number != null) {
+      buffer.writeln('number: ${issue.number}');
+    }
     if (issue.labels.isNotEmpty) {
       buffer.writeln('labels: ${issue.labels.join(", ")}');
+    }
+    if (issue.assigneeLogin != null && issue.assigneeLogin!.isNotEmpty) {
+      buffer.writeln('assignee: ${issue.assigneeLogin}');
     }
     buffer.writeln(
       'status: ${issue.status == ItemStatus.open ? "open" : "closed"}',
     );
-    buffer.writeln(
-      'created: ${issue.updatedAt?.toIso8601String().split('T').first ?? ""}',
-    );
+    buffer.writeln('created_at: ${createdAt.toIso8601String()}');
+    buffer.writeln('updated_at: ${updatedAt.toIso8601String()}');
+    buffer.writeln('local_updated_at: ${localUpdatedAt.toIso8601String()}');
     if (issue.isLocalOnly) {
       buffer.writeln('local_only: true');
     }
@@ -227,7 +319,7 @@ class LocalStorageService {
       final fileName = filePath.split('/').last;
       // Match everything before the last underscore (ID portion)
       final lastUnderscore = fileName.lastIndexOf('_');
-      final id = lastUnderscore > 0
+      var id = lastUnderscore > 0
           ? fileName.substring(0, lastUnderscore)
           : fileName.replaceAll('.md', '');
 
@@ -236,7 +328,11 @@ class LocalStorageService {
       String? body;
       List<String> labels = [];
       ItemStatus status = ItemStatus.open;
+      int? number;
+      String? assigneeLogin;
+      DateTime? createdAt;
       DateTime? updatedAt;
+      DateTime? localUpdatedAt;
 
       final frontmatterMatch = RegExp(
         r'^---\s*\n(.*?)\n---',
@@ -244,6 +340,15 @@ class LocalStorageService {
       ).firstMatch(content);
       if (frontmatterMatch != null) {
         final frontmatter = frontmatterMatch.group(1) ?? '';
+
+        // Parse title
+        final idMatch = RegExp(
+          r'^id:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (idMatch != null) {
+          id = idMatch.group(1)?.trim() ?? id;
+        }
 
         // Parse title
         final titleMatch = RegExp(
@@ -265,6 +370,27 @@ class LocalStorageService {
               [];
         }
 
+        // Parse issue number
+        final numberMatch = RegExp(
+          r'^number:\s*(-?\d+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (numberMatch != null) {
+          number = int.tryParse(numberMatch.group(1) ?? '');
+        }
+
+        // Parse assignee
+        final assigneeMatch = RegExp(
+          r'^assignee:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (assigneeMatch != null) {
+          final rawAssignee = assigneeMatch.group(1)?.trim();
+          if (rawAssignee != null && rawAssignee.isNotEmpty) {
+            assigneeLogin = rawAssignee;
+          }
+        }
+
         // Parse status
         final statusMatch = RegExp(
           r'^status:\s*(.+)$',
@@ -276,14 +402,47 @@ class LocalStorageService {
               : ItemStatus.open;
         }
 
-        // Parse created date
-        final createdMatch = RegExp(
-          r'^created:\s*(.+)$',
+        // Parse created date (new and legacy keys)
+        final createdAtMatch = RegExp(
+          r'^created_at:\s*(.+)$',
           multiLine: true,
         ).firstMatch(frontmatter);
-        if (createdMatch != null) {
+        if (createdAtMatch != null) {
           try {
-            updatedAt = DateTime.parse(createdMatch.group(1) ?? '');
+            createdAt = DateTime.parse(createdAtMatch.group(1) ?? '');
+          } catch (_) {}
+        }
+        if (createdAt == null) {
+          final createdMatch = RegExp(
+            r'^created:\s*(.+)$',
+            multiLine: true,
+          ).firstMatch(frontmatter);
+          if (createdMatch != null) {
+            try {
+              createdAt = DateTime.parse(createdMatch.group(1) ?? '');
+            } catch (_) {}
+          }
+        }
+
+        // Parse updated date
+        final updatedAtMatch = RegExp(
+          r'^updated_at:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (updatedAtMatch != null) {
+          try {
+            updatedAt = DateTime.parse(updatedAtMatch.group(1) ?? '');
+          } catch (_) {}
+        }
+
+        // Parse local updated date
+        final localUpdatedAtMatch = RegExp(
+          r'^local_updated_at:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (localUpdatedAtMatch != null) {
+          try {
+            localUpdatedAt = DateTime.parse(localUpdatedAtMatch.group(1) ?? '');
           } catch (_) {}
         }
       }
@@ -298,13 +457,22 @@ class LocalStorageService {
         body = bodyMatch.trim();
       }
 
+      number ??= _deriveLocalNumberFromId(id);
+      final effectiveCreatedAt = createdAt ?? updatedAt ?? DateTime.now();
+      final effectiveUpdatedAt = updatedAt ?? effectiveCreatedAt;
+      final effectiveLocalUpdatedAt = localUpdatedAt ?? effectiveUpdatedAt;
+
       return IssueItem(
         id: id,
         title: title,
+        number: number,
         bodyMarkdown: body,
         labels: labels,
+        assigneeLogin: assigneeLogin,
         status: status,
-        updatedAt: updatedAt ?? DateTime.now(),
+        createdAt: effectiveCreatedAt,
+        updatedAt: effectiveUpdatedAt,
+        localUpdatedAt: effectiveLocalUpdatedAt,
         isLocalOnly: true,
       );
     } catch (e, stackTrace) {
@@ -312,6 +480,18 @@ class LocalStorageService {
       debugPrint('Error parsing markdown file: $e');
       return null;
     }
+  }
+
+  int? _deriveLocalNumberFromId(String id) {
+    final match = RegExp(r'^local_(\d+)').firstMatch(id);
+    if (match == null) {
+      return null;
+    }
+    final timestamp = int.tryParse(match.group(1) ?? '');
+    if (timestamp == null) {
+      return null;
+    }
+    return -timestamp;
   }
 
   /// Remove a local issue (after syncing) - delete from vault folder
@@ -879,7 +1059,7 @@ class LocalStorageService {
       final repos = await getRepos();
       final projects = await getSyncedProjects();
       final localIssues = await getLocalIssues();
-      
+
       // Load issues for each repo
       final reposWithIssues = <RepoItem>[];
       for (final repoData in repos) {
@@ -893,14 +1073,14 @@ class LocalStorageService {
           debugPrint('Error loading repo ${repoData['fullName']}: $e');
         }
       }
-      
+
       final timestamp = await getReposSyncTime();
-      
+
       debugPrint(
         'Loaded cached dashboard data: ${reposWithIssues.length} repos, '
         '${projects.length} projects, ${localIssues.length} local issues',
       );
-      
+
       return CachedDashboardData(
         repositories: reposWithIssues,
         projects: projects,

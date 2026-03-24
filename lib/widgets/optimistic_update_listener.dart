@@ -5,36 +5,45 @@ import '../providers/issue_operations_provider.dart';
 
 /// Widget that shows a snackbar when an optimistic operation fails
 /// Provides undo functionality to rollback the operation
-class OptimisticUpdateListener extends ConsumerWidget {
+class OptimisticUpdateListener extends ConsumerStatefulWidget {
   final Widget child;
 
-  const OptimisticUpdateListener({
-    super.key,
-    required this.child,
-  });
+  const OptimisticUpdateListener({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(issueOperationsProvider);
+  ConsumerState<OptimisticUpdateListener> createState() =>
+      _OptimisticUpdateListenerState();
+}
 
-    // Listen for errors and show snackbar
-    state.whenData((data) {
-      if (data.error != null && data.error!.isNotEmpty) {
-        // Show error snackbar with undo option
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) {
-            _showErrorSnackBar(context, ref, data.error!);
-          }
-        });
-      }
+class _OptimisticUpdateListenerState
+    extends ConsumerState<OptimisticUpdateListener> {
+  @override
+  void initState() {
+    super.initState();
+    ref.listenManual(issueOperationsProvider, (previous, next) {
+      next.whenData((data) {
+        final previousError = previous?.value?.error;
+        final currentError = data.error;
+        if (currentError == null || currentError.isEmpty) {
+          return;
+        }
+        if (currentError == previousError) {
+          return;
+        }
+        if (!mounted) {
+          return;
+        }
+        _showErrorSnackBar(currentError);
+      });
     });
-
-    return child;
   }
 
-  void _showErrorSnackBar(BuildContext context, WidgetRef ref, String error) {
+  void _showErrorSnackBar(String error) {
+    if (!mounted) {
+      return;
+    }
     final messengerState = ScaffoldMessenger.of(context);
-    
+
     messengerState.showSnackBar(
       SnackBar(
         content: Row(
@@ -55,7 +64,9 @@ class OptimisticUpdateListener extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    error.length > 100 ? '${error.substring(0, 100)}...' : error,
+                    error.length > 100
+                        ? '${error.substring(0, 100)}...'
+                        : error,
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -76,7 +87,9 @@ class OptimisticUpdateListener extends ConsumerWidget {
             state.whenData((data) {
               if (data.pendingOperations.isNotEmpty) {
                 final lastOp = data.pendingOperations.last;
-                ref.read(issueOperationsProvider.notifier).rollbackOperation(lastOp.id);
+                ref
+                    .read(issueOperationsProvider.notifier)
+                    .rollbackOperation(lastOp.id);
               }
             });
           },
@@ -84,8 +97,16 @@ class OptimisticUpdateListener extends ConsumerWidget {
       ),
     );
 
-    // Clear error after showing
-    ref.read(issueOperationsProvider.notifier).clearError();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(issueOperationsProvider.notifier).clearError();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }
 

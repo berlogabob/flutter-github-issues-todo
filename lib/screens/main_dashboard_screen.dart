@@ -94,7 +94,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     _loadDefaultRepoSetting();
 
     // Set up callback for when internet becomes available with local issues
-    _syncService.onSyncNeeded = _showSyncLocalIssuesDialog;
+    _syncService.onSyncNeeded = _isOfflineMode
+        ? null
+        : _showSyncLocalIssuesDialog;
 
     // FIX (#34): Set up callback for when local issues are synced - refresh vault
     _syncService.onLocalIssuesSynced = _onLocalIssuesSynced;
@@ -111,7 +113,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     _syncService.addListener(_syncListener!);
 
     // Check immediately if there are local issues to sync
-    _checkLocalIssuesToSync();
+    if (!_isOfflineMode) {
+      _checkLocalIssuesToSync();
+    }
 
     _loadData();
   }
@@ -273,11 +277,16 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     final firstConflict = conflicts.first;
     showDialog<void>(
       context: context,
-      builder: (context) => ConflictResolutionDialog(
+      barrierDismissible: false,
+      builder: (dialogContext) => ConflictResolutionDialog(
         conflict: firstConflict,
         onResolve: (choice) {
-          Navigator.of(context).pop();
-          _isConflictDialogVisible = false;
+          if (Navigator.canPop(dialogContext)) {
+            Navigator.of(dialogContext).pop();
+          }
+          if (mounted) {
+            _isConflictDialogVisible = false;
+          }
           late final String message;
           switch (choice) {
             case ResolutionChoice.useRemote:
@@ -303,7 +312,9 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         },
       ),
     ).then((_) {
-      _isConflictDialogVisible = false;
+      if (mounted) {
+        _isConflictDialogVisible = false;
+      }
     });
   }
 
@@ -343,6 +354,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     if (syncListener != null) {
       _syncService.removeListener(syncListener);
     }
+    _syncService.onSyncNeeded = null;
     // FIX (#34): Clean up callback
     _syncService.onLocalIssuesSynced = null;
     _syncService.onConflictsDetected = null;
@@ -413,7 +425,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // Show pending operations count
     final pendingCount = _pendingOps.getPendingCount();
-    if (pendingCount > 0 && mounted) {
+    if (pendingCount > 0 && mounted && !_isOfflineMode) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$pendingCount changes pending sync'),
@@ -622,31 +634,52 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   Future<void> _loadLocalIssues() async {
     try {
       final localIssues = await _localStorage.getLocalIssues();
+      final hasToken = await SecureStorageService.hasToken();
       debugPrint('Loaded ${localIssues.length} local issues');
 
-      if (mounted) {
-        setState(() {
-          // CRITICAL: Remove any existing vault repo FIRST to prevent duplicates
-          _repositories.removeWhere((r) => r.id == 'vault');
+      if (!mounted) return;
+      setState(() {
+        final shouldShowVault =
+            localIssues.isNotEmpty || _isOfflineMode || !hasToken;
+        final vaultName = _vaultFolderName ?? 'Vault';
+        final openIssuesCount = localIssues
+            .where((i) => i.status == ItemStatus.open)
+            .length;
+        final existingVaultIndex = _repositories.indexWhere(
+          (r) => r.id == 'vault',
+        );
 
-          // Add vault repo only if local issues exist OR offline mode
-          if (localIssues.isNotEmpty || _isOfflineMode) {
-            final vaultName = _vaultFolderName ?? 'Vault';
-            final openIssuesCount = localIssues
-                .where((i) => i.status == ItemStatus.open)
-                .length;
-            final vaultRepo = RepoItem(
-              id: 'vault',
-              title: vaultName,
-              fullName: 'local/$vaultName',
-              description: 'Local vault folder (will sync when online)',
-              openIssuesCount: openIssuesCount, // FIX (#33): Count open issues
-              children: localIssues,
-            );
-            _repositories.insert(0, vaultRepo);
+        if (shouldShowVault) {
+          final nextVaultRepo = RepoItem(
+            id: 'vault',
+            title: vaultName,
+            fullName: 'local/$vaultName',
+            description: 'Local vault folder (will sync when online)',
+            openIssuesCount: openIssuesCount,
+            children: localIssues,
+          );
+
+          if (existingVaultIndex == -1) {
+            _repositories.insert(0, nextVaultRepo);
+          } else {
+            _repositories[existingVaultIndex] = nextVaultRepo;
+            if (existingVaultIndex != 0) {
+              final moved = _repositories.removeAt(existingVaultIndex);
+              _repositories.insert(0, moved);
+            }
           }
-        });
-      }
+        } else if (existingVaultIndex != -1) {
+          _repositories.removeAt(existingVaultIndex);
+        }
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref
+              .read(repositoriesProvider.notifier)
+              .setRepos(List<RepoItem>.from(_repositories));
+        }
+      });
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       debugPrint('Error loading local issues: $e');
@@ -1024,6 +1057,12 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       displayedRepos = allRepos
           .where((repo) => pinnedRepos.contains(repo.fullName))
           .toList();
+      final vaultRepo = allRepos.where((repo) => repo.id == 'vault');
+      for (final repo in vaultRepo) {
+        if (!displayedRepos.any((existing) => existing.id == repo.id)) {
+          displayedRepos.insert(0, repo);
+        }
+      }
     }
 
     // OFFLINE-FIRST: Show loading only while loading cached data
@@ -1069,36 +1108,38 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Cloud icon (static)
-                    SyncCloudIcon(state: _getSyncCloudState(), size: 24.w),
-                    // Sync status widget (BrailleLoader or time)
-                    SizedBox(width: 4.w),
-                    SyncStatusWidget(
-                      isSyncing: _syncService.isSyncing,
-                      lastSyncTime: _syncService.lastSyncTime,
-                      size: 24.w,
-                    ),
-                    // Show pending count badge
-                    if (_pendingOps.getPendingCount() > 0) ...[
+                    if (!_isOfflineMode) ...[
+                      // Cloud icon (static)
+                      SyncCloudIcon(state: _getSyncCloudState(), size: 24.w),
+                      // Sync status widget (BrailleLoader or time)
                       SizedBox(width: 4.w),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 6.w,
-                          vertical: 2.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(10.r),
-                        ),
-                        child: Text(
-                          '${_pendingOps.getPendingCount()}',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.bold,
+                      SyncStatusWidget(
+                        isSyncing: _syncService.isSyncing,
+                        lastSyncTime: _syncService.lastSyncTime,
+                        size: 24.w,
+                      ),
+                      // Show pending count badge
+                      if (_pendingOps.getPendingCount() > 0) ...[
+                        SizedBox(width: 4.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6.w,
+                            vertical: 2.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          child: Text(
+                            '${_pendingOps.getPendingCount()}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ],
                 ),
@@ -1299,6 +1340,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             expandedRepoId: _expandedRepoId,
             onExpandToggle: _onRepoToggle,
             onIssueTap: _openIssueDetail,
+            onIssueStateChanged: _onIssueStateChanged,
             filterStatus: _filterStatus,
             hideUsernameInRepo: _hideUsernameInRepo,
             pinnedRepos: pinnedRepos,
@@ -1368,6 +1410,44 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     });
   }
 
+  void _onIssueStateChanged(String repoFullName, IssueItem updatedIssue) {
+    setState(() {
+      final repoIndex = _repositories.indexWhere(
+        (r) => r.fullName == repoFullName,
+      );
+      if (repoIndex == -1) {
+        return;
+      }
+
+      final repo = _repositories[repoIndex];
+      final issueIndex = repo.children.indexWhere(
+        (item) => item.id == updatedIssue.id,
+      );
+      if (issueIndex == -1) {
+        return;
+      }
+
+      final previousIssue = repo.children[issueIndex];
+      repo.children[issueIndex] = updatedIssue;
+
+      if (previousIssue is IssueItem) {
+        if (previousIssue.status == ItemStatus.open &&
+            updatedIssue.status == ItemStatus.closed) {
+          repo.openIssuesCount = repo.openIssuesCount > 0
+              ? repo.openIssuesCount - 1
+              : 0;
+        } else if (previousIssue.status == ItemStatus.closed &&
+            updatedIssue.status == ItemStatus.open) {
+          repo.openIssuesCount = repo.openIssuesCount + 1;
+        }
+      }
+    });
+
+    ref
+        .read(repositoriesProvider.notifier)
+        .setRepos(List<RepoItem>.from(_repositories));
+  }
+
   /// Get sync cloud state based on sync service status
   SyncCloudState _getSyncCloudState() {
     return _dashboardService.getSyncCloudState(isOfflineMode: _isOfflineMode);
@@ -1383,6 +1463,24 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // Use Riverpod state directly for more reliable check
     final allRepos = ref.read(repositoriesProvider);
+
+    final hasToken = await SecureStorageService.hasToken();
+    if (!hasToken) {
+      await _createLocalIssue(repoFullName: null);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'You are not connected to GitHub. Creating local TODO issue.',
+            ),
+            backgroundColor: AppColors.primary,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
     if (allRepos.isEmpty && !_isLoadingComplete) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1427,14 +1525,14 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     // In offline mode with no repos, create issue in Vault repo
     if (allRepos.isEmpty && _isOfflineMode) {
-      _createLocalIssue(repoFullName: null);
+      await _createLocalIssue(repoFullName: null);
       return;
     }
 
     // Check if Vault repo exists for offline mode
     final hasVaultRepo = allRepos.any((r) => r.id == 'vault');
     if (_isOfflineMode && !hasVaultRepo) {
-      _createLocalIssue(repoFullName: null);
+      await _createLocalIssue(repoFullName: null);
       return;
     }
 
@@ -1526,157 +1624,69 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     }
   }
 
-  void _createLocalIssue({String? repoFullName}) {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: Text(
-          repoFullName != null
-              ? 'Create Issue (Offline)'
-              : 'Create Local Issue',
-          style: const TextStyle(color: Colors.white),
+  Future<void> _createLocalIssue({String? repoFullName}) async {
+    _LocalIssueDraft? draft;
+    try {
+      draft = await showDialog<_LocalIssueDraft>(
+        context: context,
+        builder: (dialogContext) => _LocalIssueDialog(
+          repoFullName: repoFullName,
+          onCreated: (draft) => Navigator.of(dialogContext).pop(draft),
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      );
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(
+        e,
+        stackTrace: stackTrace,
+        context: context,
+        userMessage: 'Unable to open local issue form.',
+      );
+      return;
+    }
+
+    if (draft == null || !mounted) {
+      return;
+    }
+
+    final newIssue = _localStorage.createStructuredLocalIssue(
+      title: draft.title,
+      bodyMarkdown: draft.body,
+    );
+
+    bool saved = false;
+    try {
+      saved = await _localStorage.saveLocalIssue(newIssue);
+      await _loadLocalIssues();
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(
+        e,
+        stackTrace: stackTrace,
+        context: context,
+        userMessage: 'Issue creation failed in offline mode.',
+      );
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
             children: [
-              if (repoFullName != null)
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.folder,
-                        size: 16,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Repository: $repoFullName',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                const Text(
-                  'This issue will be saved locally and synced when online',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: titleController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Title *',
-                  labelStyle: TextStyle(color: Colors.white54),
-                  border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0x4DFFFFFF)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.primary),
-                  ),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descriptionController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Description (Markdown)',
-                  labelStyle: TextStyle(color: Colors.white54),
-                  border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0x4DFFFFFF)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.primary),
-                  ),
-                ),
-                maxLines: 5,
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                saved
+                    ? (repoFullName != null
+                          ? 'Issue saved (will sync when online)'
+                          : 'Local issue created')
+                    : 'Unable to save local issue',
               ),
             ],
           ),
+          backgroundColor: saved ? AppColors.primary : AppColors.error,
+          duration: const Duration(seconds: 3),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              titleController.dispose();
-              descriptionController.dispose();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (titleController.text.trim().isNotEmpty) {
-                final newIssue = IssueItem(
-                  id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-                  title: titleController.text.trim(),
-                  bodyMarkdown: descriptionController.text.isNotEmpty
-                      ? descriptionController.text
-                      : null,
-                  status: ItemStatus.open,
-                  updatedAt: DateTime.now(),
-                  isLocalOnly: true,
-                );
-
-                await _localStorage.saveLocalIssue(newIssue);
-
-                // Reload to show the new issue
-                await _loadLocalIssues();
-
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          const Icon(Icons.check_circle, color: Colors.white),
-                          const SizedBox(width: 8),
-                          Text(
-                            repoFullName != null
-                                ? 'Issue saved (will sync when online)'
-                                : 'Local issue created',
-                          ),
-                        ],
-                      ),
-                      backgroundColor: AppColors.primary,
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                }
-
-                titleController.dispose();
-                descriptionController.dispose();
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-            ),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
+      );
+    }
   }
 
   void _openIssueDetail(IssueItem issue) {
@@ -1698,11 +1708,174 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       }
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>
-            IssueDetailScreen(issue: issue, owner: owner, repo: repo),
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (context) =>
+                IssueDetailScreen(issue: issue, owner: owner, repo: repo),
+          ),
+        )
+        .then((_) {
+          if (mounted) {
+            _loadData();
+          }
+        });
+  }
+}
+
+class _LocalIssueDraft {
+  final String title;
+  final String? body;
+
+  const _LocalIssueDraft({required this.title, this.body});
+}
+
+class _LocalIssueDialog extends StatefulWidget {
+  final String? repoFullName;
+  final ValueChanged<_LocalIssueDraft> onCreated;
+
+  const _LocalIssueDialog({
+    required this.repoFullName,
+    required this.onCreated,
+  });
+
+  @override
+  State<_LocalIssueDialog> createState() => _LocalIssueDialogState();
+}
+
+class _LocalIssueDialogState extends State<_LocalIssueDialog> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController();
+    _descriptionController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final trimmedTitle = _titleController.text.trim();
+    if (trimmedTitle.isEmpty) {
+      return;
+    }
+
+    widget.onCreated(
+      _LocalIssueDraft(
+        title: trimmedTitle,
+        body: _descriptionController.text.isNotEmpty
+            ? _descriptionController.text
+            : null,
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      title: Text(
+        widget.repoFullName != null
+            ? 'Create Issue (Offline)'
+            : 'Create Local Issue',
+        style: const TextStyle(color: Colors.white),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.repoFullName != null)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.folder,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Repository: ${widget.repoFullName}',
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              const Text(
+                'This issue will be saved locally and synced when online',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _titleController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Title *',
+                labelStyle: TextStyle(color: Colors.white54),
+                border: OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0x4DFFFFFF)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _descriptionController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Description (Markdown)',
+                labelStyle: TextStyle(color: Colors.white54),
+                border: OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0x4DFFFFFF)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+              ),
+              maxLines: 5,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submit,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.black,
+          ),
+          child: const Text('Create'),
+        ),
+      ],
     );
   }
 }

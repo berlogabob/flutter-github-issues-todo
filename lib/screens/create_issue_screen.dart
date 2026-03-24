@@ -4,6 +4,8 @@ import '../utils/app_error_handler.dart';
 import '../services/github_api_service.dart';
 import '../services/pending_operations_service.dart';
 import '../services/network_service.dart';
+import '../services/local_storage_service.dart';
+import '../services/secure_storage_service.dart';
 import '../models/repo_item.dart';
 import '../models/pending_operation.dart';
 import '../widgets/braille_loader.dart';
@@ -89,6 +91,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
   final PendingOperationsService _pendingOps = PendingOperationsService();
   final NetworkService _networkService = NetworkService();
+  final LocalStorageService _localStorage = LocalStorageService();
 
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
@@ -120,7 +123,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
 
     // Load repo data after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_selectedRepoFullName != null) {
+      if (mounted && _selectedRepoFullName != null) {
         _loadRepoData();
       }
     });
@@ -824,22 +827,29 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
       return;
     }
 
+    setState(() => _isSaving = true);
+
     final repoFullName = _selectedRepoFullName ?? widget.repo;
+    final hasToken = await SecureStorageService.hasToken();
+
+    if (!hasToken) {
+      await _saveAsLocalIssue(title, body);
+      return;
+    }
+
     if (repoFullName == null) {
-      _showValidationError('No repository selected');
+      await _saveAsLocalIssue(title, body);
       return;
     }
 
     final parts = repoFullName.split('/');
     if (parts.length != 2) {
-      _showValidationError('Invalid repository name');
+      await _saveAsLocalIssue(title, body);
       return;
     }
 
     final owner = parts[0];
     final repo = parts[1];
-
-    setState(() => _isSaving = true);
 
     // CHECK NETWORK
     final isOnline = await _networkService.checkConnectivity();
@@ -901,7 +911,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
           );
         } else if (errorMessage.contains('401') ||
             errorMessage.contains('unauthorized')) {
-          _showErrorMessage('Authentication failed. Please login again.');
+          await _saveAsLocalIssue(title, body);
         } else if (errorMessage.contains('403') ||
             errorMessage.contains('forbidden')) {
           _showErrorMessage(
@@ -910,15 +920,46 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         } else if (errorMessage.contains('Network') ||
             errorMessage.contains('SocketException')) {
           // Network error during online attempt - queue for later
-          _showErrorMessage(
-            'Network error. Issue saved locally and will be synced when online.',
+          _showSuccessMessage(
+            'Network error. Issue saved as local TODO and queued for sync.',
           );
           // Optionally queue the operation
           await _queueIssueForLater(owner, repo, title, body);
+          await _saveAsLocalIssue(title, body, popWithResult: false);
         } else {
           _showErrorMessage('Failed to create issue: ${e.toString()}');
         }
       }
+    }
+  }
+
+  Future<void> _saveAsLocalIssue(
+    String title,
+    String body, {
+    bool popWithResult = true,
+  }) async {
+    try {
+      final localIssue = _localStorage.createStructuredLocalIssue(
+        title: title,
+        bodyMarkdown: body.isNotEmpty ? body : null,
+      );
+
+      await _localStorage.saveLocalIssue(localIssue);
+
+      if (mounted) {
+        _showSuccessMessage('Saved as local TODO issue (offline-first).');
+        if (popWithResult) {
+          Navigator.pop(context, localIssue);
+        } else {
+          Navigator.pop(context);
+        }
+      }
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+      _showErrorMessage('Failed to save local TODO issue: $e');
     }
   }
 

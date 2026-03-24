@@ -176,7 +176,10 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   /// Shows confirmation dialog before deletion.
   /// Uses optimistic UI update - removes comment immediately.
   /// Queues for sync when offline.
-  Future<void> _deleteComment(Map<String, dynamic> comment, int commentId) async {
+  Future<void> _deleteComment(
+    Map<String, dynamic> comment,
+    int commentId,
+  ) async {
     // Trigger haptic feedback
     HapticFeedback.lightImpact();
 
@@ -214,7 +217,10 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             ),
             child: Text(
               'DELETE',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -233,7 +239,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     if (!isOnline) {
       // Queue for sync when offline
       try {
-        final operationId = 'delete_comment_${commentId}_${DateTime.now().millisecondsSinceEpoch}';
+        final operationId =
+            'delete_comment_${commentId}_${DateTime.now().millisecondsSinceEpoch}';
         final operation = PendingOperation.deleteComment(
           id: operationId,
           commentId: commentId,
@@ -256,7 +263,11 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
 
     // Online - delete immediately
     try {
-      await _githubApi.deleteIssueComment(_effectiveOwner, _effectiveRepo, commentId);
+      await _githubApi.deleteIssueComment(
+        _effectiveOwner,
+        _effectiveRepo,
+        commentId,
+      );
       if (mounted) {
         _showSnackBar('Comment deleted successfully');
       }
@@ -281,44 +292,48 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _buildSyncBanner(),
-          Expanded(
-            child: _isUpdating
-                ? const Center(child: BrailleLoader(size: 32))
-                : CustomScrollView(
-                    slivers: [
-                      _buildSliverAppBar(isOpen),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.w),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildBreadcrumbs(),
-                              SizedBox(height: 12.h),
-                              _buildTitle(),
-                              SizedBox(height: 20.h),
-                              _buildMetadataRow(isOpen),
-                              SizedBox(height: 24.h),
-                              _buildLabels(),
-                              SizedBox(height: 32.h),
-                              _buildDescription(),
-                              SizedBox(height: 32.h),
-                              _buildTimeline(),
-                              SizedBox(height: 32.h),
-                              _buildCommentsSection(),
-                              SizedBox(height: 100.h),
-                            ],
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Column(
+          children: [
+            _buildSyncBanner(),
+            Expanded(
+              child: _isUpdating
+                  ? const Center(child: BrailleLoader(size: 32))
+                  : CustomScrollView(
+                      slivers: [
+                        _buildSliverAppBar(isOpen),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.all(24.w),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildBreadcrumbs(),
+                                SizedBox(height: 12.h),
+                                _buildTitle(),
+                                SizedBox(height: 20.h),
+                                _buildMetadataRow(isOpen),
+                                SizedBox(height: 24.h),
+                                _buildLabels(),
+                                SizedBox(height: 32.h),
+                                _buildDescription(),
+                                SizedBox(height: 32.h),
+                                _buildTimeline(),
+                                SizedBox(height: 32.h),
+                                _buildCommentsSection(),
+                                SizedBox(height: 100.h),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-          ),
-          _buildBottomActionBar(isOpen),
-        ],
+                      ],
+                    ),
+            ),
+            _buildBottomActionBar(isOpen),
+          ],
+        ),
       ),
     );
   }
@@ -697,15 +712,10 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 Icon(
                   icon,
                   size: 16.sp,
-                  color: isAccent
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
+                  color: isAccent ? AppColors.primary : AppColors.textSecondary,
                 ),
                 Expanded(
-                  child: VerticalDivider(
-                    color: AppColors.border,
-                    thickness: 1,
-                  ),
+                  child: VerticalDivider(color: AppColors.border, thickness: 1),
                 ),
               ],
             ),
@@ -799,7 +809,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     final body = comment['body'] as String? ?? '';
     final createdAt = comment['created_at'] as String?;
     final commentId = comment['id'] as int?;
-    final isOwnComment = _currentUserLogin != null && login == _currentUserLogin;
+    final isOwnComment =
+        _currentUserLogin != null && login == _currentUserLogin;
 
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
@@ -956,17 +967,17 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         projectColumnName: _currentIssue.projectColumnName,
         isLocalOnly: true,
       );
-      
+
       setState(() {
         _currentIssue = updatedIssue;
       });
-      
+
       // Save the status change in the correct offline store
       await _localStorage.saveIssueForOfflineState(
         updatedIssue,
         repoFullName: '$_effectiveOwner/$_effectiveRepo',
       );
-      
+
       _showSnackBar(
         updatedIssue.status == ItemStatus.open
             ? 'Issue reopened (local)'
@@ -1079,12 +1090,12 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   Future<void> _showAssigneeDialog() async {
     // Trigger haptic feedback
     HapticFeedback.selectionClick();
-    
+
     // Load assignees
     await _loadAssignees();
-    
+
     if (!mounted) return;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.dark,
@@ -1136,7 +1147,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                       final login = assignee['login'] as String? ?? '';
                       final avatarUrl = assignee['avatar_url'] as String?;
                       final isAssigned = _currentIssue.assigneeLogin == login;
-                      
+
                       return ListTile(
                         leading: CircleAvatar(
                           radius: 16.r,
@@ -1146,7 +1157,9 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                               : null,
                           child: avatarUrl == null
                               ? Text(
-                                  login.isNotEmpty ? login[0].toUpperCase() : '?',
+                                  login.isNotEmpty
+                                      ? login[0].toUpperCase()
+                                      : '?',
                                   style: const TextStyle(color: Colors.black),
                                 )
                               : null,
@@ -1155,7 +1168,9 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                           '@$login',
                           style: TextStyle(
                             color: Colors.white,
-                            fontWeight: isAssigned ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isAssigned
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                         trailing: isAssigned
@@ -1191,7 +1206,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     if (_isLoadingAssignees) return;
 
     final cacheKey = 'assignees_${_effectiveOwner}_${_effectiveRepo}';
-    
+
     // Try cache first
     final cachedAssignees = _cache.get<List>(cacheKey);
     if (cachedAssignees != null) {
@@ -1200,35 +1215,31 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       });
       return;
     }
-    
+
     // Check network
     final isOnline = await _networkService.checkConnectivity();
     if (!isOnline) {
       _showSnackBar('Offline - showing cached data');
       return;
     }
-    
+
     setState(() => _isLoadingAssignees = true);
-    
+
     try {
       final assignees = await _githubApi.fetchRepoCollaborators(
         _effectiveOwner,
         _effectiveRepo,
       );
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _assignees = assignees;
         _isLoadingAssignees = false;
       });
-      
+
       // Cache for 5 minutes
-      await _cache.set(
-        cacheKey,
-        assignees,
-        ttl: const Duration(minutes: 5),
-      );
+      await _cache.set(cacheKey, assignees, ttl: const Duration(minutes: 5));
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       if (mounted) {
@@ -1258,14 +1269,15 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       _showSnackBar('Assignee set to @$login');
       return;
     }
-    
+
     // Check network
     final isOnline = await _networkService.checkConnectivity();
-    
+
     if (!isOnline) {
       // Queue operation for later sync
       try {
-        final operationId = 'assignee_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
+        final operationId =
+            'assignee_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
         final operation = PendingOperation(
           id: operationId,
           type: OperationType.updateIssue,
@@ -1273,12 +1285,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           issueNumber: _currentIssue.number,
           owner: widget.owner,
           repo: widget.repo,
-          data: {'assignees': [login]},
+          data: {
+            'assignees': [login],
+          },
           createdAt: DateTime.now(),
         );
-        
+
         await _pendingOps.addOperation(operation);
-        
+
         // Update UI optimistically
         setState(() {
           _currentIssue = IssueItem(
@@ -1294,17 +1308,17 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             isLocalOnly: _currentIssue.isLocalOnly,
           );
         });
-        
+
         _showSnackBar('Assignee queued for sync');
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       }
       return;
     }
-    
+
     // Online - update immediately
     setState(() => _isUpdating = true);
-    
+
     try {
       final updatedIssue = await _githubApi.updateIssue(
         _effectiveOwner,
@@ -1312,14 +1326,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         _currentIssue.number!,
         assignees: [login],
       );
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _currentIssue = updatedIssue;
         _isUpdating = false;
       });
-      
+
       _showSnackBar('Assignee set to @$login');
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
@@ -1338,12 +1352,12 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   Future<void> _showLabelsDialog() async {
     // Trigger haptic feedback
     HapticFeedback.selectionClick();
-    
+
     // Load labels
     await _loadLabels();
-    
+
     if (!mounted) return;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.dark,
@@ -1447,10 +1461,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                                 itemCount: _labels.length,
                                 itemBuilder: (context, index) {
                                   final label = _labels[index];
-                                  final labelName = label['name'] as String? ?? '';
-                                  final labelColor = label['color'] as String? ?? '000000';
-                                  final isAdded = _currentIssue.labels.contains(labelName);
-                                  
+                                  final labelName =
+                                      label['name'] as String? ?? '';
+                                  final labelColor =
+                                      label['color'] as String? ?? '000000';
+                                  final isAdded = _currentIssue.labels.contains(
+                                    labelName,
+                                  );
+
                                   return CheckboxListTile(
                                     value: isAdded,
                                     title: Row(
@@ -1459,14 +1477,23 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                                           width: 12.w,
                                           height: 12.h,
                                           decoration: BoxDecoration(
-                                            color: Color(int.parse('FF$labelColor', radix: 16)),
-                                            borderRadius: BorderRadius.circular(4.r),
+                                            color: Color(
+                                              int.parse(
+                                                'FF$labelColor',
+                                                radix: 16,
+                                              ),
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4.r,
+                                            ),
                                           ),
                                         ),
                                         SizedBox(width: 8.w),
                                         Text(
                                           labelName,
-                                          style: const TextStyle(color: Colors.white),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -1501,7 +1528,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     if (_isLoadingLabels) return;
 
     final cacheKey = 'labels_${_effectiveOwner}_${_effectiveRepo}';
-    
+
     // Try cache first
     final cachedLabels = _cache.get<List>(cacheKey);
     if (cachedLabels != null) {
@@ -1510,35 +1537,31 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       });
       return;
     }
-    
+
     // Check network
     final isOnline = await _networkService.checkConnectivity();
     if (!isOnline) {
       _showSnackBar('Offline - showing cached data');
       return;
     }
-    
+
     setState(() => _isLoadingLabels = true);
-    
+
     try {
       final labels = await _githubApi.fetchRepoLabels(
         _effectiveOwner,
         _effectiveRepo,
       );
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _labels = labels;
         _isLoadingLabels = false;
       });
-      
+
       // Cache for 5 minutes
-      await _cache.set(
-        cacheKey,
-        labels,
-        ttl: const Duration(minutes: 5),
-      );
+      await _cache.set(cacheKey, labels, ttl: const Duration(minutes: 5));
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       if (mounted) {
@@ -1656,14 +1679,15 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       _showSnackBar('Label "$labelName" added');
       return;
     }
-    
+
     // Check network
     final isOnline = await _networkService.checkConnectivity();
-    
+
     if (!isOnline) {
       // Queue operation for later sync
       try {
-        final operationId = 'label_add_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
+        final operationId =
+            'label_add_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
         final operation = PendingOperation(
           id: operationId,
           type: OperationType.updateIssue,
@@ -1671,14 +1695,17 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           issueNumber: _currentIssue.number,
           owner: widget.owner,
           repo: widget.repo,
-          data: {'labels': [..._currentIssue.labels, labelName]},
+          data: {
+            'labels': [..._currentIssue.labels, labelName],
+          },
           createdAt: DateTime.now(),
         );
-        
+
         await _pendingOps.addOperation(operation);
-        
+
         // Update UI optimistically
-        final newLabels = List<String>.from(_currentIssue.labels)..add(labelName);
+        final newLabels = List<String>.from(_currentIssue.labels)
+          ..add(labelName);
         setState(() {
           _currentIssue = IssueItem(
             id: _currentIssue.id,
@@ -1693,17 +1720,17 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             isLocalOnly: _currentIssue.isLocalOnly,
           );
         });
-        
+
         _showSnackBar('Label queued for sync');
       } catch (e, stackTrace) {
         AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
       }
       return;
     }
-    
+
     // Online - update immediately
     setState(() => _isUpdating = true);
-    
+
     try {
       final updatedIssue = await _githubApi.addIssueLabel(
         _effectiveOwner,
@@ -1711,14 +1738,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         _currentIssue.number!,
         labelName,
       );
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _currentIssue = updatedIssue;
         _isUpdating = false;
       });
-      
+
       _showSnackBar('Label "$labelName" added');
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
@@ -1824,6 +1851,10 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   }
 
   Future<void> _refresh() async {
+    if (_currentIssue.isLocalOnly || _currentIssue.number == null) {
+      _showSnackBar('Local issue updated');
+      return;
+    }
     setState(() => _isUpdating = true);
     try {
       final issue = await _githubApi.fetchIssue(

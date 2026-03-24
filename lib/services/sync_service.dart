@@ -7,6 +7,7 @@ import 'local_storage_service.dart';
 import 'github_api_service.dart';
 import 'pending_operations_service.dart';
 import 'conflict_detection_service.dart';
+import 'secure_storage_service.dart';
 import '../utils/app_error_handler.dart';
 import '../utils/retry_helper.dart';
 import '../models/issue_item.dart';
@@ -88,6 +89,7 @@ class SyncService {
   // Sync status
   bool _isSyncing = false;
   bool _isNetworkAvailable = false;
+  bool _isOfflineAuthMode = false;
   DateTime? _lastSyncTime;
   DateTime? _lastProjectsSyncTime;
   SyncPhase _syncPhase = SyncPhase.idle;
@@ -151,11 +153,25 @@ class SyncService {
   Future<void> init() async {
     debugPrint('SyncService: Initializing...');
     await _loadCachedData(); // OFFLINE-FIRST: Load cached data immediately
+    await _loadAuthSyncMode();
     _setupConnectivityListener();
     _checkNetworkStatus();
     _loadLastSyncTimes();
     await _initHistory();
     _transitionTo(SyncPhase.idle);
+  }
+
+  Future<void> _loadAuthSyncMode() async {
+    try {
+      final authType = await SecureStorageService.read(key: 'auth_type');
+      final hasToken = await SecureStorageService.hasToken();
+      _isOfflineAuthMode = authType == 'offline' || !hasToken;
+      debugPrint('SyncService: Auth sync mode offline=$_isOfflineAuthMode');
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
+      _isOfflineAuthMode = true;
+      debugPrint('SyncService: Failed to read auth mode, defaulting offline: $e');
+    }
   }
 
   /// Load cached data from local storage (OFFLINE-FIRST)
@@ -333,6 +349,11 @@ class SyncService {
       'wasAvailable': wasAvailable,
     });
 
+    if (_isOfflineAuthMode) {
+      _transitionTo(SyncPhase.idle);
+      return;
+    }
+
     // Auto-sync when network becomes available
     if (_isNetworkAvailable && !wasAvailable) {
       debugPrint('SyncService: Network restored, triggering auto-sync');
@@ -346,6 +367,7 @@ class SyncService {
 
   /// Check if there are local-only issues and notify via callback
   Future<void> _checkAndNotifyLocalIssues() async {
+    if (_isOfflineAuthMode) return;
     try {
       final localIssues = await _localStorage.getLocalIssues();
       final localOnlyCount = localIssues.where((i) => i.isLocalOnly).length;
@@ -419,6 +441,7 @@ class SyncService {
 
   /// Trigger auto-sync when network becomes available (with debounce)
   Future<void> _triggerAutoSync() async {
+    if (_isOfflineAuthMode) return;
     // Cancel any pending auto-sync
     _autoSyncTimer?.cancel();
 
@@ -434,6 +457,12 @@ class SyncService {
   /// Manual sync all data (repositories, issues, projects)
   /// Returns true if successful
   Future<bool> syncAll({bool forceRefresh = false}) async {
+    if (_isOfflineAuthMode) {
+      _transitionTo(SyncPhase.idle);
+      _emitSyncEvent('sync_skipped_offline_mode', {'reason': 'offline auth mode'});
+      return true;
+    }
+
     if (_isSyncing) {
       debugPrint('SyncService: Sync already in progress');
       return false;
@@ -443,6 +472,18 @@ class SyncService {
       debugPrint('SyncService: No network available');
       _transitionTo(SyncPhase.error, errorMessage: 'No internet connection');
       return false;
+    }
+
+    final canSyncWithGitHub = await _canSyncWithGitHub();
+    if (!canSyncWithGitHub) {
+      debugPrint(
+        'SyncService: Skipping GitHub sync (offline auth mode or missing token)',
+      );
+      _transitionTo(SyncPhase.idle);
+      _emitSyncEvent('sync_skipped_no_auth', {
+        'isNetworkAvailable': _isNetworkAvailable,
+      });
+      return true;
     }
 
     debugPrint('SyncService: Starting full sync...');
@@ -519,6 +560,24 @@ class SyncService {
       return false;
     } finally {
       _isSyncing = false;
+    }
+  }
+
+  Future<bool> _canSyncWithGitHub() async {
+    try {
+      await _loadAuthSyncMode();
+      if (_isOfflineAuthMode) {
+        return false;
+      }
+      final authType = await SecureStorageService.read(key: 'auth_type');
+      if (authType == 'offline') {
+        return false;
+      }
+      return await SecureStorageService.hasToken();
+    } catch (e, stackTrace) {
+      AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
+      debugPrint('SyncService: Failed to evaluate GitHub auth state: $e');
+      return false;
     }
   }
 

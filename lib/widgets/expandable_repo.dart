@@ -30,6 +30,8 @@ class ExpandableRepo extends StatefulWidget {
   final bool isPinned;
   final VoidCallback? onPinToggle;
   final ValueChanged<bool>? onExpandToggle; // Callback for external control
+  final void Function(String repoFullName, IssueItem updatedIssue)?
+  onIssueStateChanged;
 
   const ExpandableRepo({
     super.key,
@@ -42,6 +44,7 @@ class ExpandableRepo extends StatefulWidget {
     this.isPinned = false,
     this.onPinToggle,
     this.onExpandToggle,
+    this.onIssueStateChanged,
   });
 
   @override
@@ -194,20 +197,21 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
           projectColumnName: issue.projectColumnName,
           isLocalOnly: true,
         );
-        
-        // Save the status change in the correct offline store
-        await _localStorage.saveIssueForOfflineState(
-          updatedIssue,
-          repoFullName: widget.repo.fullName,
-        );
-        
-        // Update the list
+
+        // Optimistic local update so active filters can react immediately.
         setState(() {
           final index = _issues.indexWhere((i) => i.id == issue.id);
           if (index != -1) {
             _issues[index] = updatedIssue;
           }
         });
+        widget.onIssueStateChanged?.call(widget.repo.fullName, updatedIssue);
+
+        // Save the status change in the correct offline store
+        await _localStorage.saveIssueForOfflineState(
+          updatedIssue,
+          repoFullName: widget.repo.fullName,
+        );
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -229,6 +233,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
             _issues[index] = closedIssue;
           }
         });
+        widget.onIssueStateChanged?.call(widget.repo.fullName, closedIssue);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

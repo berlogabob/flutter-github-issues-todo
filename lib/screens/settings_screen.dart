@@ -165,8 +165,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
     }
 
-    // Then try to fetch fresh data from GitHub
-    await _fetchUserData();
+    // Then try to fetch fresh data from GitHub when token exists.
+    final hasToken = await SecureStorageService.hasToken();
+    if (hasToken) {
+      await _fetchUserData();
+    } else if (mounted) {
+      setState(() => _isLoadingUser = false);
+    }
   }
 
   Future<void> _fetchUserData() async {
@@ -708,12 +713,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       // Test 1: Check token
       final hasToken = await _githubApi.testTokenSaved();
 
+      final authType = await SecureStorageService.read(key: 'auth_type');
+      final isOfflineAuth = authType == 'offline';
+
       if (!hasToken) {
         if (mounted) Navigator.pop(context);
         if (mounted) {
           _showTestResult(
             false,
-            'No token found. Please login with GitHub token.',
+            isOfflineAuth
+                ? 'Offline mode is active. GitHub connection is intentionally disabled without a token.'
+                : 'No token found. Please login with GitHub token.',
           );
         }
         return;
@@ -758,7 +768,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       debugPrint('Connection test failed (${e.runtimeType})');
       if (mounted) Navigator.pop(context);
       if (mounted) {
-        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
+        AppErrorHandler.handle(
+          e,
+          stackTrace: stackTrace,
+          context: context,
+          showSnackBar: false,
+        );
         _showTestResult(
           false,
           'Connection test failed. Please verify your token and internet connection.',

@@ -16,6 +16,8 @@ class RepoList extends StatelessWidget {
   final bool hideUsernameInRepo;
   final Set<String> pinnedRepos;
   final ValueChanged<String> onPinToggle;
+  final void Function(String repoFullName, IssueItem updatedIssue)?
+  onIssueStateChanged;
 
   const RepoList({
     super.key,
@@ -28,6 +30,7 @@ class RepoList extends StatelessWidget {
     required this.hideUsernameInRepo,
     required this.pinnedRepos,
     required this.onPinToggle,
+    this.onIssueStateChanged,
   });
 
   @override
@@ -102,6 +105,7 @@ class RepoList extends StatelessWidget {
       hideUsernameInRepo: hideUsernameInRepo,
       isPinned: isPinned,
       onPinToggle: () => onPinToggle(repo.fullName),
+      onIssueStateChanged: onIssueStateChanged,
     );
   }
 

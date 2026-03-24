@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gitdoit/constants/app_colors.dart';
 import 'package:gitdoit/models/repo_item.dart';
@@ -36,7 +37,26 @@ class _TestMainRepoNotifier extends MainRepoNotifier {
 }
 
 void main() {
+  const secureStorageChannel = MethodChannel(
+    'plugins.it_nomads.com/flutter_secure_storage',
+  );
+
   group('MainDashboardScreen Widget Tests', () {
+    setUpAll(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(secureStorageChannel, (call) async {
+            if (call.method == 'read') {
+              return null;
+            }
+            return null;
+          });
+    });
+
+    tearDownAll(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(secureStorageChannel, null);
+    });
+
     Widget createTestApp({
       List<RepoItem>? repos,
       List<String>? pinnedRepos,
@@ -54,9 +74,8 @@ void main() {
         ],
         child: ScreenUtilInit(
           designSize: const Size(360, 690),
-          builder: (context, child) => const MaterialApp(
-            home: MainDashboardScreen(),
-          ),
+          builder: (context, child) =>
+              const MaterialApp(home: MainDashboardScreen()),
         ),
       );
     }
@@ -147,5 +166,26 @@ void main() {
       expect(find.text('Closed'), findsOneWidget);
       expect(find.text('All'), findsOneWidget);
     });
+
+    testWidgets(
+      'offline local issue dialog survives rapid open/cancel cycles',
+      (tester) async {
+        await pumpDashboard(tester);
+
+        for (var i = 0; i < 10; i++) {
+          await tester.tap(find.byType(FloatingActionButton));
+          await tester.pumpAndSettle();
+
+          expect(find.text('Create Local Issue'), findsOneWidget);
+          expect(find.text('Cancel'), findsOneWidget);
+
+          await tester.tap(find.text('Cancel'));
+          await tester.pumpAndSettle();
+
+          expect(find.text('Create Local Issue'), findsNothing);
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
   });
 }

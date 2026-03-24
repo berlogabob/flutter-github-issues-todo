@@ -35,6 +35,22 @@ class GitHubApiService {
   static const int _maxRetries = 3;
   static const Duration _initialRetryDelay = Duration(milliseconds: 500);
 
+  Future<void> _invalidateIssueListCaches(
+    String owner,
+    String repo, {
+    required String reason,
+  }) async {
+    final keys = <String>[
+      'issues_${owner}_${repo}_all',
+      'issues_${owner}_${repo}_open',
+      'issues_${owner}_${repo}_closed',
+    ];
+
+    for (final key in keys) {
+      await _cache.invalidate(key, reason: reason);
+    }
+  }
+
   /// Get stored token using singleton
   Future<String?> getToken({bool forceRefresh = false}) async {
     if (forceRefresh) {
@@ -602,7 +618,16 @@ class GitHubApiService {
       debugPrint('Create issue response status: $statusCode');
 
       if (statusCode == 201) {
-        return _parseIssue(_decodedBody(response.data) as Map<String, dynamic>);
+        final createdIssue = _parseIssue(
+          _decodedBody(response.data) as Map<String, dynamic>,
+        );
+        await _invalidateIssueListCaches(
+          owner,
+          repo,
+          reason: 'createIssue mutation',
+        );
+        await _localStorage.upsertSyncedIssue('$owner/$repo', createdIssue);
+        return createdIssue;
       } else if (statusCode == 422) {
         final errorBody = _decodedBody(response.data) as Map<String, dynamic>;
         final errors = errorBody['errors'] as List?;
@@ -704,6 +729,12 @@ class GitHubApiService {
         final updatedIssue = _parseIssue(
           _decodedBody(response.data) as Map<String, dynamic>,
         );
+        await _invalidateIssueListCaches(
+          owner,
+          repo,
+          reason: 'updateIssue mutation',
+        );
+        await _localStorage.upsertSyncedIssue('$owner/$repo', updatedIssue);
         debugPrint('✓ Issue #$number updated successfully');
         return updatedIssue;
       } else {

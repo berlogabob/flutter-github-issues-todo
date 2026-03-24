@@ -94,18 +94,14 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
     String? assignee,
   }) async {
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
-    
+
     // Create optimistic issue
-    final optimisticIssue = IssueItem(
+    final optimisticIssue = _localStorage.createStructuredLocalIssue(
       id: tempId,
       title: title,
       bodyMarkdown: body,
       labels: labels ?? [],
       assigneeLogin: assignee,
-      status: ItemStatus.open,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      isLocalOnly: true,
     );
 
     // Add optimistic operation for rollback
@@ -197,7 +193,8 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
       updatedAt: DateTime.now(),
     );
 
-    final operationId = 'update_${issue.id}_${DateTime.now().millisecondsSinceEpoch}';
+    final operationId =
+        'update_${issue.id}_${DateTime.now().millisecondsSinceEpoch}';
 
     // Add optimistic operation for rollback
     final operation = OptimisticOperation(
@@ -230,7 +227,7 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
         if (parts.length >= 2) {
           final owner = parts[0];
           final repo = parts[1];
-          
+
           await _githubApi.updateIssue(
             owner,
             repo,
@@ -300,10 +297,7 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
     try {
       // Update state optimistically
       state = AsyncValue.data(
-        _currentState.copyWith(
-          isUpdating: true,
-          error: null,
-        ),
+        _currentState.copyWith(isUpdating: true, error: null),
       );
 
       // Update local storage immediately
@@ -318,7 +312,7 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
         if (parts.length >= 2) {
           final owner = parts[0];
           final repo = parts[1];
-          
+
           await _githubApi.updateIssue(
             owner,
             repo,
@@ -329,13 +323,11 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
       }
 
       // Update state with success
-      state = AsyncValue.data(
-        _currentState.copyWith(
-          isUpdating: false,
-        ),
-      );
+      state = AsyncValue.data(_currentState.copyWith(isUpdating: false));
 
-      debugPrint('Issue ${close ? 'closed' : 'reopened'} successfully: ${issue.id}');
+      debugPrint(
+        'Issue ${close ? 'closed' : 'reopened'} successfully: ${issue.id}',
+      );
       return true;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
@@ -348,10 +340,7 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
 
       // Update state with error
       state = AsyncValue.data(
-        _currentState.copyWith(
-          isUpdating: false,
-          error: e.toString(),
-        ),
+        _currentState.copyWith(isUpdating: false, error: e.toString()),
       );
 
       debugPrint('Failed to toggle issue state: $e');
@@ -361,8 +350,10 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
 
   /// Rollback an optimistic operation
   Future<void> rollbackOperation(String operationId) async {
-    final operation = _currentState.pendingOperations
-        .firstWhere((op) => op.id == operationId, orElse: () => throw Exception('Operation not found'));
+    final operation = _currentState.pendingOperations.firstWhere(
+      (op) => op.id == operationId,
+      orElse: () => throw Exception('Operation not found'),
+    );
 
     try {
       // Restore original state
@@ -392,22 +383,19 @@ class IssueOperationsNotifier extends AsyncNotifier<IssueOperationsState> {
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       state = AsyncValue.data(
-        _currentState.copyWith(
-          error: 'Rollback failed: $e',
-        ),
+        _currentState.copyWith(error: 'Rollback failed: $e'),
       );
     }
   }
 
   /// Clear all errors
   void clearError() {
-    state = AsyncValue.data(
-      _currentState.copyWith(error: null),
-    );
+    state = AsyncValue.data(_currentState.copyWith(error: null));
   }
 }
 
 /// Provider for issue operations
-final issueOperationsProvider = AsyncNotifierProvider<IssueOperationsNotifier, IssueOperationsState>(
-  IssueOperationsNotifier.new,
-);
+final issueOperationsProvider =
+    AsyncNotifierProvider<IssueOperationsNotifier, IssueOperationsState>(
+      IssueOperationsNotifier.new,
+    );

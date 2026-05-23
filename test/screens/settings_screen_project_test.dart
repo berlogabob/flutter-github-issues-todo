@@ -27,7 +27,7 @@ void main() {
       await tester.pumpWidget(
         ScreenUtilInit(
           designSize: const Size(360, 690),
-          builder: (_, __) => const MaterialApp(home: SettingsScreen()),
+          builder: (context, _) => const MaterialApp(home: SettingsScreen()),
         ),
       );
       await tester.pump();

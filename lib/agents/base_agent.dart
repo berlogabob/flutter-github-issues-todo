@@ -7,8 +7,8 @@ abstract class BaseAgent {
   final String role;
   final List<String> responsibilities;
 
-  /// Protected setter for active state - subclasses can set this
-  bool _isActive = false;
+  /// Active state for this agent.
+  bool isActive = false;
   final _messageController = StreamController<AgentMessage>.broadcast();
 
   BaseAgent({
@@ -17,42 +17,32 @@ abstract class BaseAgent {
     required this.responsibilities,
   });
 
-  bool get isActive => _isActive;
-  /// Protected setter for subclasses to update active state
-  set isActive(bool value) => _isActive = value;
   Stream<AgentMessage> get messageStream => _messageController.stream;
-  
+
   Future<void> init();
   Future<void> start();
-  
+
   Future<void> stop() async {
-    _isActive = false;
+    isActive = false;
     debugPrint('$name: Agent stopped');
   }
-  
+
   void sendMessage(AgentMessage message) {
     _messageController.add(message);
   }
-  
+
   void handleMessage(AgentMessage message);
   Future<void> execute();
-  
+
   void dispose() {
     _messageController.close();
   }
-  
+
   @override
   String toString() => '$name ($role)';
 }
 
-enum AgentMessageType {
-  task,
-  status,
-  error,
-  request,
-  response,
-  broadcast,
-}
+enum AgentMessageType { task, status, error, request, response, broadcast }
 
 class AgentMessage {
   final String from;
@@ -62,7 +52,7 @@ class AgentMessage {
   final String content;
   final DateTime timestamp;
   final Map<String, dynamic>? metadata;
-  
+
   AgentMessage({
     required this.from,
     this.to,
@@ -71,17 +61,12 @@ class AgentMessage {
     required this.content,
     this.metadata,
   }) : timestamp = DateTime.now();
-  
+
   @override
   String toString() => '[$type] $from: $subject - $content';
 }
 
-enum TaskPriority {
-  low,
-  normal,
-  high,
-  critical,
-}
+enum TaskPriority { low, normal, high, critical }
 
 class AgentTask {
   final String id;
@@ -92,7 +77,7 @@ class AgentTask {
   final DateTime deadline;
   bool isCompleted;
   String? result;
-  
+
   AgentTask({
     required this.id,
     required this.assignedTo,
@@ -103,7 +88,7 @@ class AgentTask {
     this.isCompleted = false,
     this.result,
   }) : deadline = deadline ?? DateTime.now().add(const Duration(hours: 24));
-  
+
   void complete({String? result}) {
     isCompleted = true;
     this.result = result;

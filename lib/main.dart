@@ -158,10 +158,8 @@ void main() async {
     ),
   );
 
-  // Cleanup on app exit
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    NetworkService().dispose();
-  });
+  // NetworkService is an app-lifetime singleton. Do not dispose it from here:
+  // a post-frame callback runs immediately after startup, not on process exit.
 }
 
 class GitDoItApp extends StatelessWidget {

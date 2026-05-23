@@ -16,9 +16,7 @@ import '../services/sync_service.dart';
 import '../services/conflict_detection_service.dart';
 import '../services/pending_operations_service.dart';
 import '../services/secure_storage_service.dart';
-import '../services/cache_service.dart';
 import '../widgets/braille_loader.dart';
-import '../widgets/loading_skeleton.dart'; // PERFORMANCE: Loading skeletons (Task 16.5)
 import '../widgets/dashboard_filters.dart';
 import '../widgets/dashboard_empty_state.dart';
 import '../widgets/repo_list.dart';
@@ -52,7 +50,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   final LocalStorageService _localStorage = LocalStorageService();
   final SyncService _syncService = SyncService();
   final PendingOperationsService _pendingOps = PendingOperationsService();
-  final CacheService _cache = CacheService();
 
   // Dashboard state
   String _filterStatus = 'open';
@@ -67,7 +64,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   bool _isLoadingCachedData = false;
   bool _isLoadingComplete = false;
   DateTime? _cachedDataTimestamp;
-  bool _isRefreshingInBackground = false;
 
   // Large dataset optimization: Track issue loading per repo
   final Map<String, bool> _repoIssueLoadingState = {};
@@ -526,22 +522,10 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
     debugPrint('[Dashboard] Starting background refresh...');
 
-    if (mounted) {
-      setState(() {
-        _isRefreshingInBackground = true;
-      });
-    }
-
     // Refresh in background (non-blocking)
     Future.delayed(Duration.zero, () async {
       await _fetchRepositories();
       await _fetchProjects();
-
-      if (mounted) {
-        setState(() {
-          _isRefreshingInBackground = false;
-        });
-      }
     });
   }
 
@@ -723,15 +707,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
         if (!mounted) return;
         {
-          // Preserve vault repo if exists, but refresh its issues from local storage
-          final vaultRepoIndex = _repositories.indexWhere(
-            (r) => r.id == 'vault',
-          );
-          final existingVaultRepo = vaultRepoIndex != -1
-              ? _repositories[vaultRepoIndex]
-              : null;
-
-          // Always reload local issues
           final localIssues = await _localStorage.getLocalIssues();
 
           if (!mounted) return;
@@ -895,7 +870,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           debugPrint('Network error - showing cached data');
         }
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('Error loading cached repos: $e');
       if (mounted) {
         setState(() {
@@ -1272,46 +1247,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
               'Retry',
               style: TextStyle(color: AppColors.primary),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Build fetching indicator with loading skeleton (Task 16.5)
-  ///
-  /// PERFORMANCE OPTIMIZATION:
-  /// - Uses LoadingSkeleton with shimmer effect
-  /// - Replaces BrailleLoader for better visual feedback
-  /// - Matches list item dimensions for consistent layout
-  Widget _buildFetchingIndicator() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header text
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                BrailleLoader(size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  'Fetching your repositories...',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // PERFORMANCE: Loading skeleton for repo list (Task 16.5)
-          const LoadingSkeleton(
-            height: 72, // Match repo header height
-            itemCount: 3,
-            spacing: 16,
           ),
         ],
       ),

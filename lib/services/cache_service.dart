@@ -66,6 +66,9 @@ class CacheService {
   /// TTL for user session data (1 hour)
   static const Duration sessionTtl = Duration(hours: 1);
 
+  /// Whether the backing Hive box has been opened.
+  bool get isInitialized => _isInitialized;
+
   /// Initialize the cache service.
   ///
   /// Opens the Hive box for cache storage. Safe to call multiple times -
@@ -136,20 +139,10 @@ class CacheService {
   /// NOTE: This is a synchronous method. For best results, call getAsync()
   /// or ensure cache.init() has completed before calling get().
   T? get<T>(String key) {
-    // Auto-initialize if needed - but must be careful with async
     if (!_isInitialized) {
-      debugPrint('CacheService: Not initialized, attempting init...');
-      // Since we can't await in a sync method, we try to initialize
-      // and return null if it fails. The next call should work.
-      try {
-        // Note: This is fire-and-forget but will set _isInitialized
-        // when complete. For guaranteed results, use getAsync().
-        init();
-      } catch (e) {
-        debugPrint('CacheService: Background init failed: $e');
-      }
-      // Return null on first call when not initialized
-      // This causes cache misses on first access
+      debugPrint(
+        'CacheService: Not initialized, returning cache miss for $key',
+      );
       return null;
     }
 
@@ -202,7 +195,12 @@ class CacheService {
   Future<void> set<T>(String key, T value, {Duration ttl = defaultTtl}) async {
     // Ensure initialization
     if (!_isInitialized) {
-      await init();
+      try {
+        await init();
+      } catch (e) {
+        debugPrint('CacheService: Skipping set for $key, init failed: $e');
+        return;
+      }
     }
 
     try {
@@ -298,7 +296,12 @@ class CacheService {
   Future<T?> getAsync<T>(String key) async {
     // Ensure initialization
     if (!_isInitialized) {
-      await init();
+      try {
+        await init();
+      } catch (e) {
+        debugPrint('CacheService: Cache miss for $key, init failed: $e');
+        return null;
+      }
     }
     return get<T>(key);
   }

@@ -59,7 +59,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _isSearching = false;
   List<IssueItem> _searchResults = [];
   String _lastQuery = '';
-  String _filterStatus = 'all';
+  final String _filterStatus = 'all';
   String? _searchError;
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
@@ -69,9 +69,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String? _cachedUserLogin;
 
   // Filter states
-  bool _filterTitle = true;
-  bool _filterBody = true;
-  bool _filterLabels = true;
+  final bool _filterTitle = true;
+  final bool _filterBody = true;
+  final bool _filterLabels = true;
 
   // Date filter states
   DateTime? _dateFrom;
@@ -109,7 +109,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     try {
       // Try cache first
       final cacheKey = 'current_user_login';
-      final cachedLogin = _cache.get<String>(cacheKey);
+      final cachedLogin = await _cache.getAsync<String>(cacheKey);
       if (cachedLogin != null) {
         setState(() {
           _cachedUserLogin = cachedLogin;

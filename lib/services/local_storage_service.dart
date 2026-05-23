@@ -33,6 +33,7 @@ class LocalStorageService {
     String? bodyMarkdown,
     List<String> labels = const [],
     String? assigneeLogin,
+    String? repoFullName,
     String? id,
     ItemStatus status = ItemStatus.open,
   }) {
@@ -46,6 +47,7 @@ class LocalStorageService {
       title: title,
       number: localNumber,
       bodyMarkdown: bodyMarkdown,
+      repoFullName: repoFullName,
       labels: labels,
       assigneeLogin: assigneeLogin,
       status: status,
@@ -252,6 +254,9 @@ class LocalStorageService {
     if (issue.assigneeLogin != null && issue.assigneeLogin!.isNotEmpty) {
       buffer.writeln('assignee: ${issue.assigneeLogin}');
     }
+    if (issue.repoFullName != null && issue.repoFullName!.isNotEmpty) {
+      buffer.writeln('repo_full_name: ${issue.repoFullName}');
+    }
     buffer.writeln(
       'status: ${issue.status == ItemStatus.open ? "open" : "closed"}',
     );
@@ -330,6 +335,7 @@ class LocalStorageService {
       ItemStatus status = ItemStatus.open;
       int? number;
       String? assigneeLogin;
+      String? repoFullName;
       DateTime? createdAt;
       DateTime? updatedAt;
       DateTime? localUpdatedAt;
@@ -388,6 +394,17 @@ class LocalStorageService {
           final rawAssignee = assigneeMatch.group(1)?.trim();
           if (rawAssignee != null && rawAssignee.isNotEmpty) {
             assigneeLogin = rawAssignee;
+          }
+        }
+
+        final repoFullNameMatch = RegExp(
+          r'^repo_full_name:\s*(.+)$',
+          multiLine: true,
+        ).firstMatch(frontmatter);
+        if (repoFullNameMatch != null) {
+          final rawRepo = repoFullNameMatch.group(1)?.trim();
+          if (rawRepo != null && rawRepo.isNotEmpty) {
+            repoFullName = rawRepo;
           }
         }
 
@@ -467,6 +484,7 @@ class LocalStorageService {
         title: title,
         number: number,
         bodyMarkdown: body,
+        repoFullName: repoFullName,
         labels: labels,
         assigneeLogin: assigneeLogin,
         status: status,
@@ -640,9 +658,12 @@ class LocalStorageService {
   ) async {
     try {
       final key = 'synced_issues_$repoFullName';
+      final issuesForRepo = issues
+          .map((issue) => issue.copyWith(repoFullName: repoFullName))
+          .toList();
       await _storage.write(
         key: key,
-        value: json.encode(issues.map((i) => i.toJson()).toList()),
+        value: json.encode(issuesForRepo.map((i) => i.toJson()).toList()),
       );
 
       // Save sync timestamp

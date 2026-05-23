@@ -7,20 +7,6 @@ import 'package:gitdoit/models/item.dart';
 
 void main() {
   group('Task 16.2 - Image Caching Tests', () {
-    late IssueItem testIssue;
-
-    setUp(() {
-      testIssue = IssueItem(
-        id: 'issue1',
-        title: 'Test Issue',
-        number: 1,
-        assigneeLogin: 'testuser',
-        assigneeAvatarUrl: 'https://avatars.githubusercontent.com/u/12345?v=4',
-        status: ItemStatus.open,
-        labels: ['bug'],
-      );
-    });
-
     group('Image loads from network', () {
       testWidgets('should display CachedNetworkImage for assignee avatar', (
         WidgetTester tester,

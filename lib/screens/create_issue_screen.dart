@@ -824,7 +824,11 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     final hasToken = await SecureStorageService.hasToken();
 
     if (!hasToken) {
-      final localIssue = await _saveAsLocalIssue(title, body);
+      final localIssue = await _saveAsLocalIssue(
+        title,
+        body,
+        repoFullName: repoFullName,
+      );
       if (mounted && localIssue != null) {
         Navigator.pop(
           context,
@@ -873,13 +877,23 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     final isOnline = await _networkService.checkConnectivity();
 
     if (!isOnline) {
-      // OFFLINE: Queue operation
+      // OFFLINE: Save a visible local copy and queue operation
       try {
+        final localIssue = await _saveAsLocalIssue(
+          title,
+          body,
+          repoFullName: repoFullName,
+        );
+        if (localIssue == null) {
+          return;
+        }
+
         final operationId = 'create_${DateTime.now().millisecondsSinceEpoch}';
         final operation = PendingOperation.createIssue(
           id: operationId,
           owner: owner,
           repo: repo,
+          issueId: localIssue.id,
           data: {
             'title': title,
             'body': body.isNotEmpty ? body : null,
@@ -893,8 +907,9 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         if (mounted) {
           Navigator.pop(
             context,
-            const CreateIssueResult(
-              successMessage: 'Issue queued for sync when online',
+            CreateIssueResult(
+              issue: localIssue,
+              successMessage: 'Issue saved locally and queued for sync',
             ),
           );
         }
@@ -941,7 +956,11 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
           );
         } else if (errorMessage.contains('401') ||
             errorMessage.contains('unauthorized')) {
-          final localIssue = await _saveAsLocalIssue(title, body);
+          final localIssue = await _saveAsLocalIssue(
+            title,
+            body,
+            repoFullName: repoFullName,
+          );
           if (mounted && localIssue != null) {
             Navigator.pop(
               context,
@@ -959,8 +978,18 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         } else if (errorMessage.contains('Network') ||
             errorMessage.contains('SocketException')) {
           // Network error during online attempt - queue and persist locally
-          await _queueIssueForLater(owner, repo, title, body);
-          final localIssue = await _saveAsLocalIssue(title, body);
+          final localIssue = await _saveAsLocalIssue(
+            title,
+            body,
+            repoFullName: repoFullName,
+          );
+          await _queueIssueForLater(
+            owner,
+            repo,
+            title,
+            body,
+            localIssueId: localIssue?.id,
+          );
           if (mounted && localIssue != null) {
             Navigator.pop(
               context,
@@ -978,11 +1007,18 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     }
   }
 
-  Future<IssueItem?> _saveAsLocalIssue(String title, String body) async {
+  Future<IssueItem?> _saveAsLocalIssue(
+    String title,
+    String body, {
+    String? repoFullName,
+  }) async {
     try {
       final localIssue = _localStorage.createStructuredLocalIssue(
         title: title,
         bodyMarkdown: body.isNotEmpty ? body : null,
+        labels: _labels,
+        assigneeLogin: _assignee,
+        repoFullName: repoFullName,
       );
 
       await _localStorage.saveLocalIssue(localIssue);
@@ -1002,14 +1038,16 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     String owner,
     String repo,
     String title,
-    String body,
-  ) async {
+    String body, {
+    String? localIssueId,
+  }) async {
     try {
       final operationId = 'create_${DateTime.now().millisecondsSinceEpoch}';
       final operation = PendingOperation.createIssue(
         id: operationId,
         owner: owner,
         repo: repo,
+        issueId: localIssueId,
         data: {
           'title': title,
           'body': body.isNotEmpty ? body : null,

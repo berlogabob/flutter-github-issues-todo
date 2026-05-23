@@ -75,6 +75,7 @@ class PageTemplate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: appBar ?? _buildAppBar(context),
       backgroundColor: AppColors.background,
       body: Container(
         decoration: BoxDecoration(
@@ -87,9 +88,7 @@ class PageTemplate extends StatelessWidget {
             ],
           ),
         ),
-        child: SafeArea(
-          child: _buildBody(context),
-        ),
+        child: SafeArea(child: _buildBody(context)),
       ),
       floatingActionButton: floatingActionButton,
     );
@@ -112,25 +111,18 @@ class PageTemplate extends StatelessWidget {
     if (body is ScrollView) {
       return body;
     }
-    
+
     // Wrap in SingleChildScrollView for consistent scrolling
-    return SingleChildScrollView(
-      child: body,
-    );
+    return SingleChildScrollView(child: body);
   }
 
   Widget _buildBottomNavigation() {
     final items = bottomNavItems ?? _getDefaultBottomNavItems();
-    
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.border,
-            width: 1,
-          ),
-        ),
+        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
       ),
       child: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,

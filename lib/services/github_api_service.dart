@@ -187,7 +187,7 @@ class GitHubApiService {
       // PERFORMANCE: Cache each page separately for faster subsequent loads
       // Cache key format: 'repos_page_{page}' as per task requirements
       final cacheKey = 'repos_page_$page';
-      final cachedRepos = _cache.get<List>(cacheKey);
+      final cachedRepos = await _cache.getAsync<List>(cacheKey);
       if (cachedRepos != null) {
         debugPrint('Cache hit for repositories (page $page)');
         return cachedRepos
@@ -259,7 +259,7 @@ class GitHubApiService {
     } on TimeoutException catch (e) {
       // Try to return cached data on timeout
       final reposCacheKey = 'repos_page_$page';
-      final cachedData = _cache.get<List>(reposCacheKey);
+      final cachedData = await _cache.getAsync<List>(reposCacheKey);
       if (cachedData != null) {
         debugPrint('Returning cached repos due to timeout');
         return cachedData
@@ -283,7 +283,7 @@ class GitHubApiService {
     } on SocketException catch (e) {
       // Try to return cached data on socket exception
       final reposCacheKey = 'repos_page_$page';
-      final cachedData = _cache.get<List>(reposCacheKey);
+      final cachedData = await _cache.getAsync<List>(reposCacheKey);
       if (cachedData != null) {
         debugPrint('Returning cached repos due to socket exception');
         return cachedData
@@ -311,7 +311,7 @@ class GitHubApiService {
     } on DioException catch (e) {
       if (_isRetriableDioError(e)) {
         final reposCacheKey = 'repos_page_$page';
-        final cachedData = _cache.get<List>(reposCacheKey);
+        final cachedData = await _cache.getAsync<List>(reposCacheKey);
         if (cachedData != null) {
           debugPrint('Returning cached repos due to Dio network error');
           return cachedData
@@ -351,7 +351,7 @@ class GitHubApiService {
           e.toString().contains('failed host lookup')) {
         // Try to return cached data
         final reposCacheKey = 'repos_page_$page';
-        final cachedData = _cache.get<List>(reposCacheKey);
+        final cachedData = await _cache.getAsync<List>(reposCacheKey);
         if (cachedData != null) {
           debugPrint('Returning cached repos due to network error');
           return cachedData
@@ -462,7 +462,7 @@ class GitHubApiService {
 
       // Check cache first (with new 'all' state key)
       final cacheKey = 'issues_${owner}_${repo}_$state';
-      final cachedIssues = _cache.get<List>(cacheKey);
+      final cachedIssues = await _cache.getAsync<List>(cacheKey);
       if (cachedIssues != null) {
         debugPrint('Cache hit for issues: $owner/$repo');
         return cachedIssues
@@ -515,7 +515,7 @@ class GitHubApiService {
         final issuesCacheKey = 'issues_${owner}_${repo}_$state';
 
         // Try cache first
-        final cachedData = _cache.get<List>(issuesCacheKey);
+        final cachedData = await _cache.getAsync<List>(issuesCacheKey);
         if (cachedData != null) {
           debugPrint('Returning cached issues due to network error');
           return cachedData
@@ -1120,7 +1120,7 @@ class GitHubApiService {
     try {
       // Check cache first (Task 19.2)
       final cacheKey = 'labels_${owner}_$repo';
-      final cachedLabels = _cache.get<List>(cacheKey);
+      final cachedLabels = await _cache.getAsync<List>(cacheKey);
       if (cachedLabels != null) {
         debugPrint('Cache HIT for labels: $owner/$repo');
         return cachedLabels
@@ -1217,7 +1217,7 @@ class GitHubApiService {
     try {
       // Check cache first (Task 19.2)
       final cacheKey = 'collaborators_${owner}_$repo';
-      final cachedCollaborators = _cache.get<List>(cacheKey);
+      final cachedCollaborators = await _cache.getAsync<List>(cacheKey);
       if (cachedCollaborators != null) {
         debugPrint('Cache HIT for collaborators: $owner/$repo');
         return cachedCollaborators
@@ -1384,7 +1384,7 @@ class GitHubApiService {
     try {
       // Check cache first
       final cacheKey = 'projects_$first';
-      final cachedProjects = _cache.get<List>(cacheKey);
+      final cachedProjects = await _cache.getAsync<List>(cacheKey);
       if (cachedProjects != null) {
         debugPrint('Cache hit for projects');
         return cachedProjects.cast<Map<String, dynamic>>();

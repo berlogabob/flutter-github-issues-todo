@@ -116,6 +116,8 @@ dev_dependencies:
 
   # Build tools
   build_config: ^1.1.0
+  path_provider_platform_interface: ^2.1.2
+  plugin_platform_interface: ^2.1.8
 
   # Integration testing
   integration_test:

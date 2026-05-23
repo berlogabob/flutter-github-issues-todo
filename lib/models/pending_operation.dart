@@ -11,12 +11,7 @@ enum OperationType {
 }
 
 /// Operation status for tracking sync progress
-enum OperationStatus {
-  pending,
-  syncing,
-  completed,
-  failed,
-}
+enum OperationStatus { pending, syncing, completed, failed }
 
 /// Pending operation model
 class PendingOperation {
@@ -53,10 +48,12 @@ class PendingOperation {
     required String owner,
     required String repo,
     required Map<String, dynamic> data,
+    String? issueId,
   }) {
     return PendingOperation(
       id: id,
       type: OperationType.createIssue,
+      issueId: issueId,
       owner: owner,
       repo: repo,
       data: data,

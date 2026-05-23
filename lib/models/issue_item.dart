@@ -6,6 +6,7 @@ class IssueItem extends Item {
   String? bodyMarkdown;
   String? projectColumnName;
   String? projectItemNodeId;
+  String? repoFullName;
   DateTime? createdAt;
   // PERFORMANCE OPTIMIZATION (Task 16.2): Cache assignee avatar URL for image caching
   String? assigneeAvatarUrl;
@@ -17,6 +18,7 @@ class IssueItem extends Item {
     this.bodyMarkdown,
     this.projectColumnName,
     this.projectItemNodeId,
+    this.repoFullName,
     this.createdAt,
     this.assigneeAvatarUrl,
     ItemStatus? status,
@@ -44,6 +46,7 @@ class IssueItem extends Item {
       'bodyMarkdown': bodyMarkdown,
       'projectColumnName': projectColumnName,
       'projectItemNodeId': projectItemNodeId,
+      'repoFullName': repoFullName,
       'createdAt': createdAt?.toIso8601String(),
       'status': status.toString().split('.').last,
       'updatedAt': updatedAt?.toIso8601String(),
@@ -65,6 +68,7 @@ class IssueItem extends Item {
       bodyMarkdown: json['bodyMarkdown'] as String?,
       projectColumnName: json['projectColumnName'] as String?,
       projectItemNodeId: json['projectItemNodeId'] as String?,
+      repoFullName: json['repoFullName'] as String?,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,
@@ -100,6 +104,7 @@ class IssueItem extends Item {
     String? bodyMarkdown,
     String? projectColumnName,
     String? projectItemNodeId,
+    String? repoFullName,
     DateTime? createdAt,
     ItemStatus? status,
     DateTime? updatedAt,
@@ -118,6 +123,7 @@ class IssueItem extends Item {
       bodyMarkdown: bodyMarkdown ?? this.bodyMarkdown,
       projectColumnName: projectColumnName ?? this.projectColumnName,
       projectItemNodeId: projectItemNodeId ?? this.projectItemNodeId,
+      repoFullName: repoFullName ?? this.repoFullName,
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
       updatedAt: updatedAt ?? this.updatedAt,

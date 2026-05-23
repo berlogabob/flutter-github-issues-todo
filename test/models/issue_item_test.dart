@@ -13,6 +13,7 @@ void main() {
         'labels': ['bug', 'priority'],
         'assigneeLogin': 'user1',
         'bodyMarkdown': 'Test body',
+        'repoFullName': 'owner/repo',
         'created_at': '2024-01-01T00:00:00Z',
         'updated_at': '2024-01-02T00:00:00Z',
       };
@@ -26,6 +27,7 @@ void main() {
       expect(issue.labels, ['bug', 'priority']);
       expect(issue.assigneeLogin, 'user1');
       expect(issue.bodyMarkdown, 'Test body');
+      expect(issue.repoFullName, 'owner/repo');
     });
 
     test('toJson creates valid JSON', () {
@@ -37,6 +39,7 @@ void main() {
         labels: ['bug'],
         assigneeLogin: 'user1',
         bodyMarkdown: 'Test body',
+        repoFullName: 'owner/repo',
       );
 
       final json = issue.toJson();
@@ -48,6 +51,7 @@ void main() {
       expect(json['labels'], ['bug']);
       expect(json['assigneeLogin'], 'user1');
       expect(json['bodyMarkdown'], 'Test body');
+      expect(json['repoFullName'], 'owner/repo');
     });
 
     test('copyWith creates modified instance', () {
@@ -58,12 +62,16 @@ void main() {
         status: ItemStatus.open,
       );
 
-      final modified = issue.copyWith(title: 'Modified');
+      final modified = issue.copyWith(
+        title: 'Modified',
+        repoFullName: 'owner/repo',
+      );
 
       expect(issue.title, 'Original');
       expect(modified.title, 'Modified');
       expect(modified.id, '123');
       expect(modified.number, 1);
+      expect(modified.repoFullName, 'owner/repo');
     });
 
     test('local issue has isLocalOnly true', () {

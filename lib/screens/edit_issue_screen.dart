@@ -323,9 +323,7 @@ class _EditIssueScreenState extends ConsumerState<EditIssueScreen> {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.5),
-          ),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
@@ -450,16 +448,13 @@ class _EditIssueScreenState extends ConsumerState<EditIssueScreen> {
       // OFFLINE or LOCAL: Update locally and queue for sync
       try {
         // Update local issue
-        final updatedIssue = IssueItem(
-          id: widget.issue.id,
+        final updatedIssue = widget.issue.copyWith(
           title: title,
-          number: widget.issue.number,
-          status: widget.issue.status,
           updatedAt: DateTime.now(),
+          localUpdatedAt: DateTime.now(),
           bodyMarkdown: body,
-          assigneeLogin: widget.issue.assigneeLogin,
           labels: _labels,
-          isLocalOnly: widget.issue.isLocalOnly,
+          repoFullName: '$owner/$repo',
         );
 
         await _localStorage.saveIssueForOfflineState(

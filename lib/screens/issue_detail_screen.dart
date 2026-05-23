@@ -294,8 +294,27 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     }
   }
 
-  String get _effectiveOwner => widget.owner ?? 'berlogabob';
-  String get _effectiveRepo => widget.repo ?? 'gitdoit';
+  String get _effectiveOwner {
+    final repoParts = _currentIssue.repoFullName?.split('/');
+    if (widget.owner != null && widget.owner!.isNotEmpty) {
+      return widget.owner!;
+    }
+    if (repoParts?.length == 2) {
+      return repoParts!.first;
+    }
+    return '';
+  }
+
+  String get _effectiveRepo {
+    final repoParts = _currentIssue.repoFullName?.split('/');
+    if (widget.repo != null && widget.repo!.isNotEmpty) {
+      return widget.repo!;
+    }
+    if (repoParts?.length == 2) {
+      return repoParts!.last;
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1007,15 +1026,18 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       try {
         final operationId =
             'toggle_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
+        final newStatus = _currentIssue.status == ItemStatus.open
+            ? ItemStatus.closed
+            : ItemStatus.open;
         final operation = PendingOperation(
           id: operationId,
-          type: _currentIssue.status == ItemStatus.open
+          type: newStatus == ItemStatus.closed
               ? OperationType.closeIssue
               : OperationType.reopenIssue,
           issueId: _currentIssue.id,
           issueNumber: _currentIssue.number,
-          owner: widget.owner,
-          repo: widget.repo,
+          owner: _effectiveOwner,
+          repo: _effectiveRepo,
           data: {},
           createdAt: DateTime.now(),
         );
@@ -1023,22 +1045,19 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         await _pendingOps.addOperation(operation);
 
         // Update UI optimistically
+        final updatedIssue = _currentIssue.copyWith(
+          status: newStatus,
+          updatedAt: DateTime.now(),
+          localUpdatedAt: DateTime.now(),
+          repoFullName: '$_effectiveOwner/$_effectiveRepo',
+        );
         setState(() {
-          _currentIssue = IssueItem(
-            id: _currentIssue.id,
-            title: _currentIssue.title,
-            number: _currentIssue.number,
-            status: _currentIssue.status == ItemStatus.open
-                ? ItemStatus.closed
-                : ItemStatus.open,
-            updatedAt: DateTime.now(),
-            bodyMarkdown: _currentIssue.bodyMarkdown,
-            assigneeLogin: _currentIssue.assigneeLogin,
-            labels: _currentIssue.labels,
-            projectColumnName: _currentIssue.projectColumnName,
-            isLocalOnly: _currentIssue.isLocalOnly,
-          );
+          _currentIssue = updatedIssue;
         });
+        await _localStorage.saveIssueForOfflineState(
+          updatedIssue,
+          repoFullName: '$_effectiveOwner/$_effectiveRepo',
+        );
 
         _showSnackBar('Issue queued for sync');
       } catch (e, stackTrace) {
@@ -1221,7 +1240,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     final cacheKey = 'assignees_${_effectiveOwner}_$_effectiveRepo';
 
     // Try cache first
-    final cachedAssignees = _cache.get<List>(cacheKey);
+    final cachedAssignees = await _cache.getAsync<List>(cacheKey);
     if (cachedAssignees != null) {
       setState(() {
         _assignees = cachedAssignees.cast<Map<String, dynamic>>();
@@ -1264,21 +1283,20 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   /// Sets the assignee for the current issue.
   Future<void> _setAssignee(String login) async {
     if (_currentIssue.isLocalOnly) {
-      // Local issue - update state only
+      // Local issue - update state and persist vault file
+      final updatedIssue = _currentIssue.copyWith(
+        assigneeLogin: login,
+        updatedAt: DateTime.now(),
+        localUpdatedAt: DateTime.now(),
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
       setState(() {
-        _currentIssue = IssueItem(
-          id: _currentIssue.id,
-          title: _currentIssue.title,
-          number: _currentIssue.number,
-          status: _currentIssue.status,
-          updatedAt: DateTime.now(),
-          bodyMarkdown: _currentIssue.bodyMarkdown,
-          assigneeLogin: login,
-          labels: _currentIssue.labels,
-          projectColumnName: _currentIssue.projectColumnName,
-          isLocalOnly: true,
-        );
+        _currentIssue = updatedIssue;
       });
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
       _showSnackBar('Assignee set to @$login');
       return;
     }
@@ -1293,34 +1311,31 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             'assignee_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
         final operation = PendingOperation(
           id: operationId,
-          type: OperationType.updateIssue,
+          type: OperationType.updateAssignee,
           issueId: _currentIssue.id,
           issueNumber: _currentIssue.number,
-          owner: widget.owner,
-          repo: widget.repo,
-          data: {
-            'assignees': [login],
-          },
+          owner: _effectiveOwner,
+          repo: _effectiveRepo,
+          data: {'assignee': login},
           createdAt: DateTime.now(),
         );
 
         await _pendingOps.addOperation(operation);
 
         // Update UI optimistically
+        final updatedIssue = _currentIssue.copyWith(
+          assigneeLogin: login,
+          updatedAt: DateTime.now(),
+          localUpdatedAt: DateTime.now(),
+          repoFullName: '$_effectiveOwner/$_effectiveRepo',
+        );
         setState(() {
-          _currentIssue = IssueItem(
-            id: _currentIssue.id,
-            title: _currentIssue.title,
-            number: _currentIssue.number,
-            status: _currentIssue.status,
-            updatedAt: DateTime.now(),
-            bodyMarkdown: _currentIssue.bodyMarkdown,
-            assigneeLogin: login,
-            labels: _currentIssue.labels,
-            projectColumnName: _currentIssue.projectColumnName,
-            isLocalOnly: _currentIssue.isLocalOnly,
-          );
+          _currentIssue = updatedIssue;
         });
+        await _localStorage.saveIssueForOfflineState(
+          updatedIssue,
+          repoFullName: '$_effectiveOwner/$_effectiveRepo',
+        );
 
         _showSnackBar('Assignee queued for sync');
       } catch (e, stackTrace) {
@@ -1543,7 +1558,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     final cacheKey = 'labels_${_effectiveOwner}_$_effectiveRepo';
 
     // Try cache first
-    final cachedLabels = _cache.get<List>(cacheKey);
+    final cachedLabels = await _cache.getAsync<List>(cacheKey);
     if (cachedLabels != null) {
       setState(() {
         _labels = cachedLabels.cast<Map<String, dynamic>>();
@@ -1585,20 +1600,68 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
 
   Future<void> _removeAssignee() async {
     if (_currentIssue.isLocalOnly) {
+      final updatedIssue = IssueItem(
+        id: _currentIssue.id,
+        title: _currentIssue.title,
+        number: _currentIssue.number,
+        status: _currentIssue.status,
+        updatedAt: DateTime.now(),
+        localUpdatedAt: DateTime.now(),
+        bodyMarkdown: _currentIssue.bodyMarkdown,
+        labels: _currentIssue.labels,
+        projectColumnName: _currentIssue.projectColumnName,
+        projectItemNodeId: _currentIssue.projectItemNodeId,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+        createdAt: _currentIssue.createdAt,
+        assigneeAvatarUrl: _currentIssue.assigneeAvatarUrl,
+        isLocalOnly: true,
+      );
       setState(() {
-        _currentIssue = IssueItem(
-          id: _currentIssue.id,
-          title: _currentIssue.title,
-          number: _currentIssue.number,
-          status: _currentIssue.status,
-          updatedAt: DateTime.now(),
-          bodyMarkdown: _currentIssue.bodyMarkdown,
-          assigneeLogin: null,
-          labels: _currentIssue.labels,
-          projectColumnName: _currentIssue.projectColumnName,
-          isLocalOnly: true,
-        );
+        _currentIssue = updatedIssue;
       });
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
+      return;
+    }
+
+    if (!await _networkService.checkConnectivity()) {
+      final operationId =
+          'assignee_remove_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
+      await _pendingOps.addOperation(
+        PendingOperation.updateAssignee(
+          id: operationId,
+          issueNumber: _currentIssue.number!,
+          owner: _effectiveOwner,
+          repo: _effectiveRepo,
+          assignee: null,
+        ),
+      );
+      final updatedIssue = IssueItem(
+        id: _currentIssue.id,
+        title: _currentIssue.title,
+        number: _currentIssue.number,
+        status: _currentIssue.status,
+        updatedAt: DateTime.now(),
+        localUpdatedAt: DateTime.now(),
+        bodyMarkdown: _currentIssue.bodyMarkdown,
+        labels: _currentIssue.labels,
+        projectColumnName: _currentIssue.projectColumnName,
+        projectItemNodeId: _currentIssue.projectItemNodeId,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+        createdAt: _currentIssue.createdAt,
+        assigneeAvatarUrl: _currentIssue.assigneeAvatarUrl,
+        isLocalOnly: _currentIssue.isLocalOnly,
+      );
+      setState(() {
+        _currentIssue = updatedIssue;
+      });
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
+      _showSnackBar('Assignee removal queued for sync');
       return;
     }
 
@@ -1626,22 +1689,50 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   }
 
   Future<void> _removeLabel(String label) async {
+    final newLabels = List<String>.from(_currentIssue.labels)..remove(label);
     if (_currentIssue.isLocalOnly) {
-      final newLabels = List<String>.from(_currentIssue.labels)..remove(label);
+      final updatedIssue = _currentIssue.copyWith(
+        labels: newLabels,
+        updatedAt: DateTime.now(),
+        localUpdatedAt: DateTime.now(),
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
       setState(() {
-        _currentIssue = IssueItem(
-          id: _currentIssue.id,
-          title: _currentIssue.title,
-          number: _currentIssue.number,
-          status: _currentIssue.status,
-          updatedAt: DateTime.now(),
-          bodyMarkdown: _currentIssue.bodyMarkdown,
-          assigneeLogin: _currentIssue.assigneeLogin,
-          labels: newLabels,
-          projectColumnName: _currentIssue.projectColumnName,
-          isLocalOnly: true,
-        );
+        _currentIssue = updatedIssue;
       });
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
+      return;
+    }
+
+    if (!await _networkService.checkConnectivity()) {
+      final operationId =
+          'label_remove_${_currentIssue.id}_${DateTime.now().millisecondsSinceEpoch}';
+      await _pendingOps.addOperation(
+        PendingOperation.updateIssue(
+          id: operationId,
+          issueNumber: _currentIssue.number!,
+          owner: _effectiveOwner,
+          repo: _effectiveRepo,
+          data: {'labels': newLabels},
+        ),
+      );
+      final updatedIssue = _currentIssue.copyWith(
+        labels: newLabels,
+        updatedAt: DateTime.now(),
+        localUpdatedAt: DateTime.now(),
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
+      setState(() {
+        _currentIssue = updatedIssue;
+      });
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
+      _showSnackBar('Label removal queued for sync');
       return;
     }
 
@@ -1673,22 +1764,21 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   /// [labelName] The name of the label to add.
   Future<void> _addLabel(String labelName) async {
     if (_currentIssue.isLocalOnly) {
-      // Local issue - update state only
+      // Local issue - update state and persist vault file
       final newLabels = List<String>.from(_currentIssue.labels)..add(labelName);
+      final updatedIssue = _currentIssue.copyWith(
+        labels: newLabels,
+        updatedAt: DateTime.now(),
+        localUpdatedAt: DateTime.now(),
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
       setState(() {
-        _currentIssue = IssueItem(
-          id: _currentIssue.id,
-          title: _currentIssue.title,
-          number: _currentIssue.number,
-          status: _currentIssue.status,
-          updatedAt: DateTime.now(),
-          bodyMarkdown: _currentIssue.bodyMarkdown,
-          assigneeLogin: _currentIssue.assigneeLogin,
-          labels: newLabels,
-          projectColumnName: _currentIssue.projectColumnName,
-          isLocalOnly: true,
-        );
+        _currentIssue = updatedIssue;
       });
+      await _localStorage.saveIssueForOfflineState(
+        updatedIssue,
+        repoFullName: '$_effectiveOwner/$_effectiveRepo',
+      );
       _showSnackBar('Label "$labelName" added');
       return;
     }
@@ -1706,8 +1796,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           type: OperationType.updateIssue,
           issueId: _currentIssue.id,
           issueNumber: _currentIssue.number,
-          owner: widget.owner,
-          repo: widget.repo,
+          owner: _effectiveOwner,
+          repo: _effectiveRepo,
           data: {
             'labels': [..._currentIssue.labels, labelName],
           },
@@ -1719,20 +1809,19 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         // Update UI optimistically
         final newLabels = List<String>.from(_currentIssue.labels)
           ..add(labelName);
+        final updatedIssue = _currentIssue.copyWith(
+          labels: newLabels,
+          updatedAt: DateTime.now(),
+          localUpdatedAt: DateTime.now(),
+          repoFullName: '$_effectiveOwner/$_effectiveRepo',
+        );
         setState(() {
-          _currentIssue = IssueItem(
-            id: _currentIssue.id,
-            title: _currentIssue.title,
-            number: _currentIssue.number,
-            status: _currentIssue.status,
-            updatedAt: DateTime.now(),
-            bodyMarkdown: _currentIssue.bodyMarkdown,
-            assigneeLogin: _currentIssue.assigneeLogin,
-            labels: newLabels,
-            projectColumnName: _currentIssue.projectColumnName,
-            isLocalOnly: _currentIssue.isLocalOnly,
-          );
+          _currentIssue = updatedIssue;
         });
+        await _localStorage.saveIssueForOfflineState(
+          updatedIssue,
+          repoFullName: '$_effectiveOwner/$_effectiveRepo',
+        );
 
         _showSnackBar('Label queued for sync');
       } catch (e, stackTrace) {

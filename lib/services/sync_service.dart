@@ -155,8 +155,8 @@ class SyncService {
     await _loadCachedData(); // OFFLINE-FIRST: Load cached data immediately
     await _loadAuthSyncMode();
     _setupConnectivityListener();
-    _checkNetworkStatus();
-    _loadLastSyncTimes();
+    await _checkNetworkStatus();
+    await _loadLastSyncTimes();
     await _initHistory();
     _transitionTo(SyncPhase.idle);
   }
@@ -170,7 +170,9 @@ class SyncService {
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace, showSnackBar: false);
       _isOfflineAuthMode = true;
-      debugPrint('SyncService: Failed to read auth mode, defaulting offline: $e');
+      debugPrint(
+        'SyncService: Failed to read auth mode, defaulting offline: $e',
+      );
     }
   }
 
@@ -459,7 +461,9 @@ class SyncService {
   Future<bool> syncAll({bool forceRefresh = false}) async {
     if (_isOfflineAuthMode) {
       _transitionTo(SyncPhase.idle);
-      _emitSyncEvent('sync_skipped_offline_mode', {'reason': 'offline auth mode'});
+      _emitSyncEvent('sync_skipped_offline_mode', {
+        'reason': 'offline auth mode',
+      });
       return true;
     }
 
@@ -641,7 +645,8 @@ class SyncService {
 
           // FIX (#34): Filter out already-synced local issues before conflict resolution
           final unsyncedLocalIssues = localIssues.where((issue) {
-            return !syncedLocalIssueIds.contains(issue.id);
+            return issue.repoFullName == repo.fullName &&
+                !syncedLocalIssueIds.contains(issue.id);
           }).toList();
 
           // Resolve conflicts and merge data
@@ -896,10 +901,16 @@ class SyncService {
           title: issue.title,
           body: issue.bodyMarkdown,
           labels: issue.labels.isNotEmpty ? issue.labels : null,
+          assignee: issue.assigneeLogin,
         );
 
         debugPrint(
           'SyncService: ✓ Created issue #${createdIssue.number} on GitHub',
+        );
+
+        await _localStorage.upsertSyncedIssue(
+          '$owner/$repo',
+          createdIssue.copyWith(repoFullName: '$owner/$repo'),
         );
 
         // Remove from local storage after successful sync
@@ -1070,9 +1081,13 @@ class SyncService {
       operation.repo!,
       title: operation.data['title'] as String,
       body: operation.data['body'] as String?,
-      labels: operation.data['labels'] as List<String>?,
+      labels: _stringListFromData(operation.data['labels']),
       assignee: operation.data['assignee'] as String?,
     );
+
+    if (operation.issueId != null && operation.issueId!.isNotEmpty) {
+      await _localStorage.removeLocalIssue(operation.issueId!);
+    }
 
     debugPrint(
       'SyncService: Created issue #${createdIssue.number} from queued operation',
@@ -1088,7 +1103,8 @@ class SyncService {
       operation.issueNumber!,
       title: operation.data['title'] as String?,
       body: operation.data['body'] as String?,
-      labels: operation.data['labels'] as List<String>?,
+      labels: _stringListFromData(operation.data['labels']),
+      assignees: _stringListFromData(operation.data['assignees']),
     );
 
     debugPrint(
@@ -1129,7 +1145,7 @@ class SyncService {
   Future<void> _executeUpdateLabels(PendingOperation operation) async {
     _ensureOperationHasRepoAndIssueNumber(operation);
 
-    final labels = operation.data['labels'] as List<String>?;
+    final labels = _stringListFromData(operation.data['labels']);
 
     await _githubApi.updateIssue(
       operation.owner!,
@@ -1147,7 +1163,7 @@ class SyncService {
     _ensureOperationHasRepoAndIssueNumber(operation);
 
     final assignee = operation.data['assignee'] as String?;
-    final List<String>? assignees = assignee != null ? [assignee] : null;
+    final List<String> assignees = assignee != null ? [assignee] : [];
 
     await _githubApi.updateIssue(
       operation.owner!,
@@ -1252,6 +1268,19 @@ class SyncService {
           RegExp(r'authorization:\s*[^\s,]+', caseSensitive: false),
           'authorization: [REDACTED]',
         );
+  }
+
+  List<String>? _stringListFromData(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is List<String>) {
+      return value;
+    }
+    if (value is List) {
+      return value.map((item) => item.toString()).toList();
+    }
+    return null;
   }
 
   void _emitSyncEvent(String event, Map<String, Object?> details) {

@@ -6,14 +6,16 @@ import '../models/item.dart';
 import '../services/github_api_service.dart';
 import '../services/issue_service.dart';
 import '../services/local_storage_service.dart';
+import '../services/network_service.dart';
+import '../services/pending_operations_service.dart';
+import '../models/pending_operation.dart';
 import '../screens/edit_issue_screen.dart';
 import 'braille_loader.dart';
 import 'loading_skeleton.dart'; // PERFORMANCE: Loading skeletons (Task 16.5)
 import 'issue_card.dart';
-import 'package:flutter/services.dart';
 
 /// ExpandableRepo - Modular, reusable widget for displaying a repository with collapsible issues list
-/// 
+///
 /// PERFORMANCE OPTIMIZATION (Task 16.4):
 /// - Uses ListView.builder for lazy loading
 /// - itemExtent: 80.0 for fixed-height issue cards
@@ -54,6 +56,8 @@ class ExpandableRepo extends StatefulWidget {
 class _ExpandableRepoState extends State<ExpandableRepo> {
   final IssueService _issueService = IssueService();
   final LocalStorageService _localStorage = LocalStorageService();
+  final NetworkService _networkService = NetworkService();
+  final PendingOperationsService _pendingOps = PendingOperationsService();
   bool _isLoadingIssues = false;
   bool _hasLoadedIssues = false;
   List<IssueItem> _issues = [];
@@ -83,13 +87,13 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
   @override
   void didUpdateWidget(ExpandableRepo oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // FIX (#25): Update issues when repo.children changes (e.g., when filter changes)
     // This ensures filtered issues from parent widget are reflected in the UI
     if (widget.repo.children != oldWidget.repo.children) {
       _issues = widget.repo.children.whereType<IssueItem>().toList();
     }
-    
+
     // Load issues when expanding externally for the first time
     if (_isExpanded && !_hasLoadedIssues && !_isLoadingIssues) {
       _loadIssues();
@@ -121,7 +125,11 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
 
       debugPrint('Loading issues for ${widget.repo.fullName}...');
       // FIX (#25): Fetch all issues (open + closed) to support filtering
-      final issues = await widget.githubApi.fetchIssues(parts[0], parts[1], state: 'all');
+      final issues = await widget.githubApi.fetchIssues(
+        parts[0],
+        parts[1],
+        state: 'all',
+      );
 
       if (mounted) {
         setState(() {
@@ -184,35 +192,8 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
       final repo = parts[1];
 
       if (issue.isLocalOnly || issue.number == null) {
-        // Local issue - update status and save to file
-        final updatedIssue = IssueItem(
-          id: issue.id,
-          title: issue.title,
-          number: issue.number,
-          status: ItemStatus.closed,
-          updatedAt: DateTime.now(),
-          bodyMarkdown: issue.bodyMarkdown,
-          assigneeLogin: issue.assigneeLogin,
-          labels: issue.labels,
-          projectColumnName: issue.projectColumnName,
-          isLocalOnly: true,
-        );
+        await _closeIssueLocally(issue);
 
-        // Optimistic local update so active filters can react immediately.
-        setState(() {
-          final index = _issues.indexWhere((i) => i.id == issue.id);
-          if (index != -1) {
-            _issues[index] = updatedIssue;
-          }
-        });
-        widget.onIssueStateChanged?.call(widget.repo.fullName, updatedIssue);
-
-        // Save the status change in the correct offline store
-        await _localStorage.saveIssueForOfflineState(
-          updatedIssue,
-          repoFullName: widget.repo.fullName,
-        );
-        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Issue closed (local)'),
@@ -220,34 +201,90 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
             duration: Duration(seconds: 2),
           ),
         );
-      } else {
-        // GitHub issue - use IssueService
-        final closedIssue = await _issueService.closeIssue(issue, owner, repo);
+      } else if (!await _networkService.checkConnectivity()) {
+        await _closeIssueLocally(issue);
+        final operationId =
+            'close_${issue.id}_${DateTime.now().millisecondsSinceEpoch}';
+        await _pendingOps.addOperation(
+          PendingOperation.closeIssue(
+            id: operationId,
+            issueNumber: issue.number!,
+            owner: owner,
+            repo: repo,
+          ),
+        );
 
         if (!mounted) return;
 
-        // Update the issue in the list with closed status
-        setState(() {
-          final index = _issues.indexWhere((i) => i.id == issue.id);
-          if (index != -1) {
-            _issues[index] = closedIssue;
-          }
-        });
-        widget.onIssueStateChanged?.call(widget.repo.fullName, closedIssue);
-
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
+              children: const [
+                Icon(Icons.cloud_off, color: Colors.white),
                 SizedBox(width: 8),
-                Text('Issue closed'),
+                Text('Issue closed locally and queued'),
               ],
             ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+            backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 2),
           ),
         );
+      } else {
+        // GitHub issue - use IssueService
+        try {
+          final closedIssue = await _issueService.closeIssue(
+            issue,
+            owner,
+            repo,
+          );
+
+          if (!mounted) return;
+
+          // Update the issue in the list with closed status
+          setState(() {
+            final index = _issues.indexWhere((i) => i.id == issue.id);
+            if (index != -1) {
+              _issues[index] = closedIssue;
+            }
+          });
+          widget.onIssueStateChanged?.call(widget.repo.fullName, closedIssue);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Issue closed'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } catch (_) {
+          final closedIssue = await _closeIssueLocally(issue);
+          final operationId =
+              'close_${issue.id}_${DateTime.now().millisecondsSinceEpoch}';
+          await _pendingOps.addOperation(
+            PendingOperation.closeIssue(
+              id: operationId,
+              issueNumber: issue.number!,
+              owner: owner,
+              repo: repo,
+            ),
+          );
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Issue closed locally and queued: ${closedIssue.title}',
+              ),
+              backgroundColor: AppColors.primary,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Failed to close issue: $e');
@@ -260,6 +297,32 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
         ),
       );
     }
+  }
+
+  Future<IssueItem> _closeIssueLocally(IssueItem issue) async {
+    final updatedIssue = issue.copyWith(
+      status: ItemStatus.closed,
+      updatedAt: DateTime.now(),
+      localUpdatedAt: DateTime.now(),
+      repoFullName: widget.repo.fullName,
+    );
+
+    if (mounted) {
+      setState(() {
+        final index = _issues.indexWhere((i) => i.id == issue.id);
+        if (index != -1) {
+          _issues[index] = updatedIssue;
+        }
+      });
+    }
+    widget.onIssueStateChanged?.call(widget.repo.fullName, updatedIssue);
+
+    await _localStorage.saveIssueForOfflineState(
+      updatedIssue,
+      repoFullName: widget.repo.fullName,
+    );
+
+    return updatedIssue;
   }
 
   void _toggleExpand() {
@@ -295,7 +358,9 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
           RepaintBoundary(
             child: InkWell(
               onTap: _toggleExpand,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -319,10 +384,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                         color: AppColors.primary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(
-                        Icons.folder,
-                        color: AppColors.primary,
-                      ),
+                      child: const Icon(Icons.folder, color: AppColors.primary),
                     ),
                     const SizedBox(width: 8),
                     // Pin icon for pinned repos
@@ -391,7 +453,7 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                 ),
               ),
             ),
-          ),  // RepaintBoundary
+          ), // RepaintBoundary
           // Issues List (collapsible)
           if (_isExpanded)
             AnimatedCrossFade(
@@ -405,13 +467,13 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
                   : CrossFadeState.showFirst,
               duration: const Duration(milliseconds: 300),
             ),
-        ],  // Column children
-      ),  // Column
-    );  // Card
+        ], // Column children
+      ), // Column
+    ); // Card
   }
 
   /// Build issues list with performance optimizations (Task 16.4)
-  /// 
+  ///
   /// PERFORMANCE OPTIMIZATION:
   /// - Uses ListView.builder for lazy loading
   /// - itemExtent: 80.0 for fixed-height issue cards (improves scroll performance)
@@ -487,14 +549,19 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
     Widget buildIssueList(List<IssueItem> issues) {
       return ListView.builder(
         shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(), // Parent handles scrolling
+        physics:
+            const NeverScrollableScrollPhysics(), // Parent handles scrolling
         itemCount: issues.length,
-        itemExtent: 80.0, // PERFORMANCE: Fixed height for better scroll performance
+        itemExtent:
+            80.0, // PERFORMANCE: Fixed height for better scroll performance
         itemBuilder: (context, index) {
           final issue = issues[index];
-          return RepaintBoundary( // PERFORMANCE: Isolate repaints
+          return RepaintBoundary(
+            // PERFORMANCE: Isolate repaints
             child: IssueCard(
-              key: ValueKey('issue-${issue.id}'), // PERFORMANCE: ValueKey instead of Key
+              key: ValueKey(
+                'issue-${issue.id}',
+              ), // PERFORMANCE: ValueKey instead of Key
               issue: issue,
               onTap: widget.onIssueTap,
               onSwipeRight: () => _openIssueForEdit(issue),
@@ -527,7 +594,9 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
           top: 8,
           bottom: 100,
         ),
-        child: buildIssueList(widget.repo.children.whereType<IssueItem>().toList()),
+        child: buildIssueList(
+          widget.repo.children.whereType<IssueItem>().toList(),
+        ),
       );
     }
 

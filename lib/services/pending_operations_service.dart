@@ -31,6 +31,15 @@ class PendingOperationsService {
     }
   }
 
+  /// Reset singleton state between tests.
+  @visibleForTesting
+  Future<void> resetForTesting() async {
+    if (_isInitialized) {
+      await _box.close();
+    }
+    _isInitialized = false;
+  }
+
   /// Add operation to queue
   Future<void> addOperation(PendingOperation operation) async {
     if (!_isInitialized) {

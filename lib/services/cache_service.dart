@@ -69,6 +69,16 @@ class CacheService {
   /// Whether the backing Hive box has been opened.
   bool get isInitialized => _isInitialized;
 
+  /// Reset singleton state between tests.
+  @visibleForTesting
+  Future<void> resetForTesting() async {
+    if (_isInitialized) {
+      await _cache.close();
+    }
+    _isInitialized = false;
+    _isInitializing = false;
+  }
+
   /// Initialize the cache service.
   ///
   /// Opens the Hive box for cache storage. Safe to call multiple times -

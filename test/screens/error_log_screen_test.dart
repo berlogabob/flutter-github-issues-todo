@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
 import 'package:gitdoit/screens/error_log_screen.dart';
 import 'package:gitdoit/services/error_logging_service.dart';
 import 'package:gitdoit/constants/app_colors.dart';
@@ -15,51 +16,64 @@ void main() {
     });
 
     Widget createTestApp() {
-      return const MaterialApp(
-        home: ErrorLogScreen(),
+      return MaterialApp(
+        home: ErrorLogScreen(
+          loadErrors: ErrorLoggingService.instance.getErrors,
+        ),
       );
+    }
+
+    Widget createLoadingTestApp() {
+      final pendingLoad = Completer<List<LogEntry>>();
+      return MaterialApp(
+        home: ErrorLogScreen(loadErrors: () => pendingLoad.future),
+      );
+    }
+
+    Future<void> pumpTestApp(WidgetTester tester) async {
+      await tester.pumpWidget(createTestApp());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    Future<void> pumpAfterAction(WidgetTester tester) async {
+      await tester.pump(const Duration(milliseconds: 300));
     }
 
     group('Screen Rendering', () {
       testWidgets('renders error log screen', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byType(ErrorLogScreen), findsOneWidget);
       });
 
       testWidgets('displays Error Log title in app bar', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.text('Error Log'), findsOneWidget);
       });
 
       testWidgets('has correct background color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
         expect(scaffold.backgroundColor, AppColors.background);
       });
 
       testWidgets('displays export button in app bar', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byIcon(Icons.share), findsWidgets);
       });
 
       testWidgets('displays clear button in app bar', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byIcon(Icons.delete_outline), findsWidgets);
       });
 
       testWidgets('displays refresh button in app bar', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byIcon(Icons.refresh), findsWidgets);
       });
@@ -67,7 +81,7 @@ void main() {
 
     group('Loading State', () {
       testWidgets('shows loading indicator initially', (tester) async {
-        await tester.pumpWidget(createTestApp());
+        await tester.pumpWidget(createLoadingTestApp());
         await tester.pump();
 
         expect(
@@ -79,15 +93,14 @@ void main() {
       });
 
       testWidgets('shows loading text', (tester) async {
-        await tester.pumpWidget(createTestApp());
+        await tester.pumpWidget(createLoadingTestApp());
         await tester.pump();
 
         expect(find.textContaining('Loading'), findsWidgets);
       });
 
       testWidgets('hides loading when data loaded', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // After settling, content should be visible
         expect(find.byType(ErrorLogScreen), findsOneWidget);
@@ -96,42 +109,36 @@ void main() {
 
     group('Empty State', () {
       testWidgets('shows empty state when no errors', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.text('No Errors Logged'), findsOneWidget);
       });
 
       testWidgets('displays empty state icon', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
       });
 
       testWidgets('empty state has success color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Icon should have success color with alpha
         expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
       });
 
       testWidgets('shows helpful message', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
-        expect(
-          find.textContaining('Great!'),
-          findsOneWidget,
-        );
+        expect(find.textContaining('Great!'), findsOneWidget);
       });
 
       testWidgets('empty state icon has correct size', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
-        final icon = tester.widget<Icon>(find.byIcon(Icons.check_circle_outline));
+        final icon = tester.widget<Icon>(
+          find.byIcon(Icons.check_circle_outline),
+        );
         expect(icon.size, 64);
       });
     });
@@ -141,8 +148,7 @@ void main() {
         await ErrorLoggingService.instance.logError('Test error 1');
         await ErrorLoggingService.instance.logError('Test error 2');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.textContaining('2 Errors'), findsOneWidget);
       });
@@ -150,8 +156,7 @@ void main() {
       testWidgets('shows error icon in summary bar', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byIcon(Icons.error_outline), findsWidgets);
       });
@@ -159,8 +164,7 @@ void main() {
       testWidgets('displays error cards', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byType(Container), findsWidgets);
       });
@@ -168,34 +172,36 @@ void main() {
       testWidgets('error cards have level indicator', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Level indicator circle
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              widget.decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('error cards show timestamp', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Timestamp should be displayed
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-              widget.data?.contains(':') == true,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Text && widget.data?.contains(':') == true,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('error cards show level badge', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Level badge should show ERROR
         expect(find.textContaining('ERROR'), findsWidgets);
@@ -204,8 +210,7 @@ void main() {
       testWidgets('error cards show expand icon', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byIcon(Icons.expand_more), findsWidgets);
       });
@@ -213,14 +218,16 @@ void main() {
       testWidgets('error cards have card background', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Cards should have proper background
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              widget.decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
     });
 
@@ -228,12 +235,11 @@ void main() {
       testWidgets('tapping error card expands details', (tester) async {
         await ErrorLoggingService.instance.logError('Test error message');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap to expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Should show expand_less
         expect(find.byIcon(Icons.expand_less), findsOneWidget);
@@ -242,12 +248,11 @@ void main() {
       testWidgets('expanded card shows full message', (tester) async {
         await ErrorLoggingService.instance.logError('Detailed error message');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap to expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.text('Detailed error message'), findsOneWidget);
       });
@@ -258,12 +263,11 @@ void main() {
           error: Exception('Test exception'),
         );
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap to expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.textContaining('Error:'), findsOneWidget);
       });
@@ -274,12 +278,11 @@ void main() {
           stackTrace: StackTrace.current,
         );
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap to expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.textContaining('Stack Trace:'), findsOneWidget);
       });
@@ -287,17 +290,16 @@ void main() {
       testWidgets('tapping expanded card collapses it', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
         expect(find.byIcon(Icons.expand_less), findsOneWidget);
 
         // Collapse
         await tester.tap(find.byIcon(Icons.expand_less));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
         expect(find.byIcon(Icons.expand_more), findsOneWidget);
       });
 
@@ -305,12 +307,11 @@ void main() {
         await ErrorLoggingService.instance.logError('Error 1');
         await ErrorLoggingService.instance.logError('Error 2');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand first error
         await tester.tap(find.byIcon(Icons.expand_more).first);
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // First should be expanded, second collapsed
         expect(find.byIcon(Icons.expand_less), findsOneWidget);
@@ -321,12 +322,11 @@ void main() {
       testWidgets('displays copy button', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand to show actions
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.text('Copy'), findsOneWidget);
       });
@@ -334,12 +334,11 @@ void main() {
       testWidgets('copy button has copy icon', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand to show actions
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.byIcon(Icons.copy), findsWidgets);
       });
@@ -347,16 +346,15 @@ void main() {
       testWidgets('copy button is clickable', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand to show actions
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Tap copy
         await tester.tap(find.text('Copy'));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Should show snackbar
         expect(find.byType(SnackBar), findsWidgets);
@@ -368,12 +366,11 @@ void main() {
           stackTrace: StackTrace.current,
         );
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand to show actions
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.text('Report'), findsOneWidget);
       });
@@ -384,12 +381,11 @@ void main() {
           stackTrace: StackTrace.current,
         );
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand to show actions
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.byIcon(Icons.bug_report), findsWidgets);
       });
@@ -400,16 +396,15 @@ void main() {
           stackTrace: StackTrace.current,
         );
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand to show actions
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Tap report
         await tester.tap(find.text('Report'));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.textContaining('coming soon'), findsWidgets);
       });
@@ -422,21 +417,22 @@ void main() {
           level: ErrorLevel.error,
         );
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Error level should use red
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              widget.decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('warning level has orange color', (tester) async {
         await ErrorLoggingService.instance.logWarning('Test warning');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Warning level should use orange
         expect(find.textContaining('WARNING'), findsWidgets);
@@ -445,8 +441,7 @@ void main() {
       testWidgets('info level has green color', (tester) async {
         await ErrorLoggingService.instance.logInfo('Test info');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Info level should use green
         expect(find.textContaining('INFO'), findsWidgets);
@@ -455,8 +450,7 @@ void main() {
       testWidgets('debug level has blue color', (tester) async {
         await ErrorLoggingService.instance.logDebug('Test debug');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Debug level should use blue
         expect(find.textContaining('DEBUG'), findsWidgets);
@@ -465,8 +459,7 @@ void main() {
       testWidgets('critical level has purple color', (tester) async {
         await ErrorLoggingService.instance.logCritical('Test critical');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Critical level should use purple
         expect(find.textContaining('CRITICAL'), findsWidgets);
@@ -477,19 +470,17 @@ void main() {
       testWidgets('export button is clickable', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         final exportButton = find.byIcon(Icons.share);
         if (exportButton.evaluate().isNotEmpty) {
           await tester.tap(exportButton);
-          await tester.pumpAndSettle();
+          await pumpAfterAction(tester);
         }
       });
 
       testWidgets('export button has orange color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Export button should use orange
         expect(find.byIcon(Icons.share), findsWidgets);
@@ -498,32 +489,29 @@ void main() {
       testWidgets('clear button is clickable', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         final clearButton = find.byIcon(Icons.delete_outline);
         if (clearButton.evaluate().isNotEmpty) {
           await tester.tap(clearButton);
-          await tester.pumpAndSettle();
+          await pumpAfterAction(tester);
         }
       });
 
       testWidgets('clear button has red color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Clear button should use red
         expect(find.byIcon(Icons.delete_outline), findsWidgets);
       });
 
       testWidgets('refresh button is clickable', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         final refreshButton = find.byIcon(Icons.refresh);
         if (refreshButton.evaluate().isNotEmpty) {
           await tester.tap(refreshButton);
-          await tester.pumpAndSettle();
+          await pumpAfterAction(tester);
         }
       });
 
@@ -540,12 +528,11 @@ void main() {
       testWidgets('clear shows confirmation dialog', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Dialog should appear
         expect(find.text('Clear Error Log'), findsOneWidget);
@@ -554,12 +541,11 @@ void main() {
       testWidgets('dialog has warning icon', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.byIcon(Icons.warning_amber_rounded), findsWidgets);
       });
@@ -567,28 +553,23 @@ void main() {
       testWidgets('dialog has warning message', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
-        expect(
-          find.textContaining('cannot be undone'),
-          findsWidgets,
-        );
+        expect(find.textContaining('cannot be undone'), findsWidgets);
       });
 
       testWidgets('dialog has Cancel button', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.text('Cancel'), findsOneWidget);
       });
@@ -596,12 +577,11 @@ void main() {
       testWidgets('dialog has Clear button', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.text('Clear'), findsOneWidget);
       });
@@ -609,12 +589,11 @@ void main() {
       testWidgets('Clear button has red background', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Clear button should have red styling
         expect(find.byType(ElevatedButton), findsWidgets);
@@ -623,16 +602,15 @@ void main() {
       testWidgets('canceling dialog keeps errors', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Tap cancel
         await tester.tap(find.text('Cancel'));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Error should still be there
         expect(find.textContaining('Error'), findsWidgets);
@@ -641,16 +619,15 @@ void main() {
       testWidgets('confirming clears errors', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Tap clear in dialog
         await tester.tap(find.text('Clear'));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Should show empty state
         expect(find.text('No Errors Logged'), findsOneWidget);
@@ -659,16 +636,15 @@ void main() {
       testWidgets('clearing shows success snackbar', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap clear button
         await tester.tap(find.byIcon(Icons.delete_outline));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Tap clear in dialog
         await tester.tap(find.text('Clear'));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.textContaining('cleared'), findsWidgets);
       });
@@ -676,15 +652,13 @@ void main() {
 
     group('Export Functionality', () {
       testWidgets('export button shows share icon', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byIcon(Icons.share), findsOneWidget);
       });
 
       testWidgets('export has tooltip', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Export button should have tooltip
         expect(find.byIcon(Icons.share), findsWidgets);
@@ -695,57 +669,65 @@ void main() {
       testWidgets('summary bar has card background', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Summary bar should have card background
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              widget.color == AppColors.cardBackground,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.color == AppColors.cardBackground,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('error cards have rounded corners', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Cards should have border radius
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              widget.decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('error cards have border', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Cards should have border
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              widget.decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('expanded content has different background', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Expanded content should have background color
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              widget.decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('stack trace is scrollable', (tester) async {
@@ -754,12 +736,11 @@ void main() {
           stackTrace: StackTrace.current,
         );
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Stack trace should be in scrollable
         expect(find.byType(SingleChildScrollView), findsWidgets);
@@ -768,12 +749,11 @@ void main() {
       testWidgets('error message is selectable', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Message should be selectable
         expect(find.byType(SelectableText), findsWidgets);
@@ -782,20 +762,18 @@ void main() {
 
     group('Refresh Functionality', () {
       testWidgets('refresh button reloads errors', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Tap refresh
         await tester.tap(find.byIcon(Icons.refresh));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Should reload
         expect(find.byType(ErrorLogScreen), findsOneWidget);
       });
 
       testWidgets('refresh button has white color', (tester) async {
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Refresh button should be white
         expect(find.byIcon(Icons.refresh), findsWidgets);
@@ -808,8 +786,7 @@ void main() {
         await ErrorLoggingService.instance.logError('Error 2');
         await ErrorLoggingService.instance.logError('Error 3');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.textContaining('3 Errors'), findsOneWidget);
       });
@@ -818,8 +795,7 @@ void main() {
         await ErrorLoggingService.instance.logError('Error 1');
         await ErrorLoggingService.instance.logError('Error 2');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.byType(ListView), findsOneWidget);
       });
@@ -828,8 +804,7 @@ void main() {
         await ErrorLoggingService.instance.logError('Error 1');
         await ErrorLoggingService.instance.logError('Error 2');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Cards should have margin
         expect(find.byType(Container), findsWidgets);
@@ -841,8 +816,7 @@ void main() {
         final longMessage = 'A' * 200;
         await ErrorLoggingService.instance.logError(longMessage);
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Long message should be handled
         expect(find.byType(Text), findsWidgets);
@@ -853,8 +827,7 @@ void main() {
           'Line 1\nLine 2\nLine 3\nLine 4',
         );
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Message should be displayed
         expect(find.byType(Text), findsWidgets);
@@ -863,12 +836,11 @@ void main() {
       testWidgets('full message shown when expanded', (tester) async {
         await ErrorLoggingService.instance.logError('Complete message');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.text('Complete message'), findsOneWidget);
       });
@@ -878,21 +850,21 @@ void main() {
       testWidgets('timestamp is formatted correctly', (tester) async {
         await ErrorLoggingService.instance.logError('Test');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Timestamp should be in HH:MM:SS format
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-              widget.data?.contains(':') == true,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Text && widget.data?.contains(':') == true,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('timestamp uses local time', (tester) async {
         await ErrorLoggingService.instance.logError('Test');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Timestamp should be displayed
         expect(find.byType(Text), findsWidgets);
@@ -903,8 +875,7 @@ void main() {
       testWidgets('level badge is uppercase', (tester) async {
         await ErrorLoggingService.instance.logError('Test');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         expect(find.textContaining('ERROR'), findsWidgets);
       });
@@ -912,27 +883,30 @@ void main() {
       testWidgets('level badge has colored background', (tester) async {
         await ErrorLoggingService.instance.logError('Test');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Badge should have background
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-              widget.decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('level badge has small font', (tester) async {
         await ErrorLoggingService.instance.logError('Test');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Badge text should be small
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-              widget.style?.fontSize == 10,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Text && widget.style?.fontSize == 10,
+          ),
+          findsWidgets,
+        );
       });
     });
 
@@ -940,16 +914,15 @@ void main() {
       testWidgets('copy shows success snackbar', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Tap copy
         await tester.tap(find.text('Copy'));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         expect(find.textContaining('copied'), findsWidgets);
       });
@@ -957,16 +930,15 @@ void main() {
       testWidgets('copy snackbar has orange background', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Tap copy
         await tester.tap(find.text('Copy'));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Snackbar should have orange styling
         expect(find.byType(SnackBar), findsWidgets);
@@ -975,16 +947,15 @@ void main() {
       testWidgets('copy snackbar has short duration', (tester) async {
         await ErrorLoggingService.instance.logError('Test error');
 
-        await tester.pumpWidget(createTestApp());
-        await tester.pumpAndSettle();
+        await pumpTestApp(tester);
 
         // Expand
         await tester.tap(find.byIcon(Icons.expand_more));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Tap copy
         await tester.tap(find.text('Copy'));
-        await tester.pumpAndSettle();
+        await pumpAfterAction(tester);
 
         // Duration should be 1 second
         expect(find.byType(SnackBar), findsWidgets);

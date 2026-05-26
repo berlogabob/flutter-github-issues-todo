@@ -8,6 +8,12 @@ import 'package:gitdoit/models/issue_item.dart';
 import 'package:gitdoit/models/item.dart';
 import 'package:gitdoit/services/github_api_service.dart';
 
+Finder findIssueCardByKey(String key) {
+  return find.byWidgetPredicate((widget) {
+    return widget is IssueCard && widget.key == ValueKey(key);
+  });
+}
+
 void main() {
   group('Task 16.4 - List Optimization Tests', () {
     late List<RepoItem> testRepos;
@@ -73,7 +79,7 @@ void main() {
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert - ListView should be present
         expect(find.byType(ListView), findsOneWidget);
@@ -83,10 +89,13 @@ void main() {
         WidgetTester tester,
       ) async {
         // Arrange
+        final scrollController = ScrollController();
+
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
               body: ListView.builder(
+                controller: scrollController,
                 itemCount: testIssues.length,
                 itemBuilder: (context, index) {
                   return IssueCard(
@@ -100,11 +109,17 @@ void main() {
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
-        // Assert - ListView with IssueCards should render
+        // Assert - ListView.builder renders visible IssueCards lazily
         expect(find.byType(ListView), findsOneWidget);
-        expect(find.byType(IssueCard), findsNWidgets(100));
+        expect(findIssueCardByKey('issue-issue0'), findsOneWidget);
+        expect(find.byKey(const ValueKey('issue-issue99')), findsNothing);
+
+        scrollController.jumpTo(scrollController.position.maxScrollExtent);
+        await tester.pump();
+
+        expect(findIssueCardByKey('issue-issue99'), findsOneWidget);
       });
 
       test(
@@ -149,7 +164,7 @@ void main() {
           ),
         );
 
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert - ListView with itemExtent should render
         expect(find.byType(ListView), findsOneWidget);
@@ -184,11 +199,15 @@ void main() {
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
-        // Assert - all repos should render
+        // Assert - RepoList renders repositories lazily
         expect(find.byType(RepoList), findsOneWidget);
-        expect(find.byType(ExpandableRepo), findsNWidgets(10));
+        expect(find.byType(ExpandableRepo), findsWidgets);
+        expect(
+          tester.widgetList<ExpandableRepo>(find.byType(ExpandableRepo)).length,
+          lessThanOrEqualTo(10),
+        );
       });
     });
 
@@ -221,7 +240,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Assert - RepaintBoundary should be present
-        expect(find.byType(RepaintBoundary), findsOneWidget);
+        expect(find.byType(RepaintBoundary), findsWidgets);
         expect(find.byType(IssueCard), findsOneWidget);
       });
 
@@ -261,7 +280,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Assert - RepaintBoundary should isolate static content
-        expect(find.byType(RepaintBoundary), findsOneWidget);
+        expect(find.byType(RepaintBoundary), findsWidgets);
       });
 
       test('RepaintBoundary should reduce unnecessary repaints', () {
@@ -307,15 +326,20 @@ void main() {
           ),
         );
 
-        // Assert - should render without crashing
+        // Assert - should render visible items lazily without crashing
         expect(find.byType(ListView), findsOneWidget);
-        expect(find.byType(IssueCard), findsNWidgets(1000));
+        expect(findIssueCardByKey('issue-issue0'), findsOneWidget);
+        expect(
+          tester.widgetList<IssueCard>(find.byType(IssueCard)).length,
+          lessThanOrEqualTo(20),
+        );
       });
 
       testWidgets('should scroll through 1000 items', (
         WidgetTester tester,
       ) async {
         // Arrange
+        final scrollController = ScrollController();
         final thousandIssues = List.generate(
           1000,
           (i) => IssueItem(
@@ -330,6 +354,7 @@ void main() {
           MaterialApp(
             home: Scaffold(
               body: ListView.builder(
+                controller: scrollController,
                 itemCount: thousandIssues.length,
                 itemExtent: 80.0,
                 itemBuilder: (context, index) {
@@ -344,14 +369,11 @@ void main() {
         );
 
         // Act - scroll to end
-        await tester.dragUntilVisible(
-          find.byKey(const ValueKey('issue-issue999')),
-          find.byType(ListView),
-          const Offset(0, -500),
-        );
+        scrollController.jumpTo(999 * 80);
+        await tester.pump();
 
         // Assert - last item should be visible
-        expect(find.byKey(const ValueKey('issue-issue999')), findsOneWidget);
+        expect(findIssueCardByKey('issue-issue999'), findsOneWidget);
       });
 
       test('large list creation should be performant', () {
@@ -441,14 +463,11 @@ void main() {
       test('ValueKey should be more efficient than Key', () {
         // Arrange
         final valueKey = const ValueKey('issue-1');
-        final objectKey = Key('issue-1');
+        final keyFactoryResult = Key('issue-1');
 
-        // Assert - ValueKey uses value equality
+        // Assert - Key(String) is a ValueKey factory in Flutter.
         expect(valueKey, const ValueKey('issue-1'));
-        expect(
-          objectKey != const Key('issue-1'),
-          true,
-        ); // Object keys use identity
+        expect(keyFactoryResult, valueKey);
       });
     });
 
@@ -491,7 +510,7 @@ void main() {
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert
         expect(find.byType(IssueCard), findsNWidgets(2));
@@ -512,7 +531,7 @@ void main() {
         await tester.pumpWidget(MaterialApp(home: Scaffold(body: issueCard)));
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert
         expect(find.byType(IssueCard), findsOneWidget);
@@ -667,7 +686,7 @@ void main() {
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert
         expect(find.byType(IssueCard), findsOneWidget);

@@ -106,6 +106,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
   final List<String> _labels = [];
   String? _assignee;
   String? _selectedRepoFullName;
+  String? _selectedProject;
   bool _isSaving = false;
   bool _isLoadingLabels = false;
   bool _isLoadingAssignees = false;
@@ -127,7 +128,8 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     _bodyController = TextEditingController();
     // Use expandedRepoFullName if available (from expanded repo on main screen),
     // otherwise fall back to repo parameter
-    _selectedRepoFullName = widget.expandedRepoFullName ?? widget.repo;
+    _selectedRepoFullName = widget.expandedRepoFullName ?? _defaultRepoFullName;
+    _selectedProject = widget.defaultProject;
 
     // Load repo data after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -135,6 +137,17 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         _loadRepoData();
       }
     });
+  }
+
+  String? get _defaultRepoFullName {
+    final repo = widget.repo;
+    if (repo == null || repo.isEmpty) return null;
+    if (repo.contains('/')) return repo;
+
+    final owner = widget.owner;
+    if (owner == null || owner.isEmpty) return repo;
+
+    return '$owner/$repo';
   }
 
   /// Load repository labels and assignees with caching support.
@@ -492,7 +505,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                       ),
                     ),
                     child: DropdownButton<String>(
-                      value: _selectedRepoFullName ?? widget.repo,
+                      value: _selectedRepoFullName ?? _defaultRepoFullName,
                       isExpanded: true,
                       dropdownColor: AppColors.card,
                       underline: const SizedBox(),
@@ -514,9 +527,9 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                             }).toList()
                           : [
                               DropdownMenuItem(
-                                value: widget.repo,
+                                value: _defaultRepoFullName,
                                 child: Text(
-                                  '${widget.owner}/${widget.repo}',
+                                  _defaultRepoFullName ?? 'Select repository',
                                   style: const TextStyle(color: Colors.white),
                                 ),
                               ),
@@ -607,6 +620,10 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
 
                   // Assignee
                   _buildAssigneeSection(),
+                  if (_hasProjects) ...[
+                    const SizedBox(height: 24),
+                    _buildProjectSection(),
+                  ],
                   const SizedBox(height: 32),
                 ],
               ),
@@ -786,6 +803,81 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
             onChanged: (value) {
               setState(() {
                 _assignee = value;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool get _hasProjects {
+    return widget.defaultProject != null ||
+        (widget.projects != null && widget.projects!.isNotEmpty);
+  }
+
+  Widget _buildProjectSection() {
+    final projectTitles = <String>[
+      if (widget.defaultProject != null) widget.defaultProject!,
+      ...?widget.projects?.map(
+        (project) =>
+            (project['title'] ?? project['name'] ?? project['id']).toString(),
+      ),
+    ].where((title) => title.isNotEmpty).toSet().toList();
+
+    final selectedProject = projectTitles.contains(_selectedProject)
+        ? _selectedProject
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Project',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButton<String?>(
+            value: selectedProject,
+            hint: const Text(
+              'No project',
+              style: TextStyle(color: Colors.white38),
+            ),
+            underline: const SizedBox(),
+            isExpanded: true,
+            dropdownColor: AppColors.card,
+            items: [
+              const DropdownMenuItem(
+                value: null,
+                child: Text(
+                  'No project',
+                  style: TextStyle(color: Colors.white38),
+                ),
+              ),
+              ...projectTitles.map(
+                (project) => DropdownMenuItem(
+                  value: project,
+                  child: Text(
+                    project,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _selectedProject = value;
               });
             },
           ),

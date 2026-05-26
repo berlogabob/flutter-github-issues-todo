@@ -74,11 +74,13 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
       opacity: _opacityAnimation.value,
       duration: const Duration(milliseconds: 300),
       child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
         itemCount: widget.itemCount,
         itemBuilder: (context, index) {
           return Padding(
             padding: EdgeInsets.only(bottom: widget.spacing),
-            child: _buildSkeletonItem(),
+            child: _buildSkeletonItem(index),
           );
         },
       ),
@@ -86,8 +88,15 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
   }
 
   /// Build a single skeleton item matching issue card dimensions
-  Widget _buildSkeletonItem() {
+  Widget _buildSkeletonItem(int index) {
+    final isCompact = widget.height < 64;
+    final contentPadding = isCompact ? 8.0 : 12.0;
+    final indicatorSize = isCompact ? 10.0 : 12.0;
+    final titleHeight = isCompact ? 10.0 : 14.0;
+    final chevronSize = isCompact ? 16.0 : 20.0;
+
     return Container(
+      key: ValueKey('loading_skeleton_item_$index'),
       height: widget.height,
       width: widget.width,
       decoration: BoxDecoration(
@@ -100,14 +109,14 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
           baseColor: AppColors.card,
           highlightColor: AppColors.background.withValues(alpha: 0.5),
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(contentPadding),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Status indicator skeleton (circle)
                 Container(
-                  width: 12,
-                  height: 12,
+                  width: indicatorSize,
+                  height: indicatorSize,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
@@ -118,48 +127,53 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: isCompact
+                        ? MainAxisAlignment.center
+                        : MainAxisAlignment.start,
                     children: [
                       // Title skeleton (wider rectangle)
                       Container(
-                        height: 14,
+                        height: titleHeight,
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      // Metadata skeleton (shorter rectangles)
-                      Row(
-                        children: [
-                          // Label chip skeleton
-                          Container(
-                            height: 16,
-                            width: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
+                      if (!isCompact) ...[
+                        const SizedBox(height: 8),
+                        // Metadata skeleton (shorter rectangles)
+                        Row(
+                          children: [
+                            // Label chip skeleton
+                            Container(
+                              height: 16,
+                              width: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Assignee skeleton
-                          Container(
-                            height: 16,
-                            width: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
+                            const SizedBox(width: 8),
+                            // Assignee skeleton
+                            Container(
+                              height: 16,
+                              width: 60,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 // Chevron skeleton
                 Container(
-                  width: 20,
-                  height: 20,
+                  width: chevronSize,
+                  height: chevronSize,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(4),

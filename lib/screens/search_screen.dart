@@ -9,6 +9,8 @@ import '../services/github_api_service.dart';
 import '../services/search_history_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/cache_service.dart';
+import '../services/network_service.dart';
+import '../services/secure_storage_service.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/empty_state_illustrations.dart';
 import '../widgets/error_boundary.dart';
@@ -63,6 +65,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String? _searchError;
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
+  final NetworkService _networkService = NetworkService();
   final CacheService _cache = CacheService();
 
   // Cached user login for "My Issues" filter
@@ -443,58 +446,65 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
 
     try {
-      // Search issues across all user repositories
       final allIssues = <IssueItem>[];
-      final repos = await _githubApi.fetchMyRepositories(perPage: _maxRepos);
 
-      for (final repo in repos) {
-        try {
-          final parts = repo.fullName.split('/');
-          if (parts.length == 2) {
-            final issues = await _githubApi.fetchIssues(parts[0], parts[1]);
+      final hasToken = await SecureStorageService.hasToken();
+      final isOnline = hasToken && await _networkService.checkConnectivity();
 
-            // Filter by search query (title, labels, body) based on active filters
-            final matchingIssues = issues.where((issue) {
-              final queryLower = query.toLowerCase();
-              bool matches = false;
+      if (!hasToken || !isOnline) {
+        final cachedData = await _localStorage.getCachedDashboardData();
+        allIssues.addAll(cachedData.localIssues);
+        for (final repo in cachedData.repositories) {
+          allIssues.addAll(repo.children.whereType<IssueItem>());
+        }
+      } else {
+        final repos = await _githubApi.fetchMyRepositories(perPage: _maxRepos);
 
-              if (_filterTitle &&
-                  issue.title.toLowerCase().contains(queryLower)) {
-                matches = true;
-              }
-              if (_filterLabels &&
-                  issue.labels.any(
-                    (label) => label.toLowerCase().contains(queryLower),
-                  )) {
-                matches = true;
-              }
-              if (_filterBody &&
-                  (issue.bodyMarkdown?.toLowerCase().contains(queryLower) ??
-                      false)) {
-                matches = true;
-              }
-
-              return matches;
-            }).toList();
-
-            allIssues.addAll(matchingIssues);
+        for (final repo in repos) {
+          try {
+            final parts = repo.fullName.split('/');
+            if (parts.length == 2) {
+              final issues = await _githubApi.fetchIssues(parts[0], parts[1]);
+              allIssues.addAll(issues);
+            }
+          } catch (e, stackTrace) {
+            debugPrint('Error searching ${repo.fullName}: $e');
+            if (mounted) {
+              AppErrorHandler.handle(
+                e,
+                stackTrace: stackTrace,
+                context: context,
+                showSnackBar: false,
+              );
+            }
+            // Continue with next repo
           }
-        } catch (e, stackTrace) {
-          debugPrint('Error searching ${repo.fullName}: $e');
-          if (mounted) {
-            AppErrorHandler.handle(
-              e,
-              stackTrace: stackTrace,
-              context: context,
-              showSnackBar: false,
-            );
-          }
-          // Continue with next repo
         }
       }
 
+      final queryLower = query.toLowerCase();
+      final matchingIssues = allIssues.where((issue) {
+        bool matches = false;
+
+        if (_filterTitle && issue.title.toLowerCase().contains(queryLower)) {
+          matches = true;
+        }
+        if (_filterLabels &&
+            issue.labels.any(
+              (label) => label.toLowerCase().contains(queryLower),
+            )) {
+          matches = true;
+        }
+        if (_filterBody &&
+            (issue.bodyMarkdown?.toLowerCase().contains(queryLower) ?? false)) {
+          matches = true;
+        }
+
+        return matches;
+      }).toList();
+
       // Apply status filter
-      final statusFiltered = allIssues.where((issue) {
+      final statusFiltered = matchingIssues.where((issue) {
         if (_filterStatus == 'all') return true;
         if (_filterStatus == 'open') return issue.status == ItemStatus.open;
         if (_filterStatus == 'closed') return issue.status == ItemStatus.closed;

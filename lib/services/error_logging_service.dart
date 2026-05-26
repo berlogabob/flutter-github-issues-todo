@@ -106,7 +106,9 @@ class ErrorLoggingService {
       await _rotateLogIfNeeded();
 
       _isInitialized = true;
-      debugPrint('ErrorLoggingService: Initialized with log file at ${_logFile!.path}');
+      debugPrint(
+        'ErrorLoggingService: Initialized with log file at ${_logFile!.path}',
+      );
     } catch (e, stackTrace) {
       debugPrint('ErrorLoggingService: Initialization failed: $e');
       debugPrint('Stack: $stackTrace');
@@ -115,19 +117,21 @@ class ErrorLoggingService {
 
   /// Rotate log file if it exceeds max size
   Future<void> _rotateLogIfNeeded() async {
-    if (_logFile == null || !await _logFile!.exists()) return;
+    if (_logFile == null || !_logFile!.existsSync()) return;
 
     try {
-      final stats = await _logFile!.stat();
+      final stats = _logFile!.statSync();
       if (stats.size > _maxLogSizeBytes) {
         // Keep only last _maxLogLines
-        final lines = await _logFile!.readAsLines();
+        final lines = _logFile!.readAsLinesSync();
         final startIdx = lines.length > _maxLogLines
             ? lines.length - _maxLogLines
             : 0;
         final recentLines = lines.sublist(startIdx);
-        await _logFile!.writeAsString('${recentLines.join('\n')}\n');
-        debugPrint('ErrorLoggingService: Log rotated, kept ${recentLines.length} lines');
+        _logFile!.writeAsStringSync('${recentLines.join('\n')}\n');
+        debugPrint(
+          'ErrorLoggingService: Log rotated, kept ${recentLines.length} lines',
+        );
       }
     } catch (e) {
       debugPrint('ErrorLoggingService: Log rotation failed: $e');
@@ -151,7 +155,7 @@ class ErrorLoggingService {
     try {
       final timestamp = DateTime.now().toIso8601String();
       final levelStr = _formatLevel(level);
-      
+
       // Format: [timestamp] [level] message
       var logEntry = '[$timestamp] [$levelStr] $message';
 
@@ -174,7 +178,7 @@ class ErrorLoggingService {
       logEntry += '\n${'-' * 80}\n';
 
       // Append to file
-      await _logFile!.writeAsString(logEntry, mode: FileMode.append);
+      _logFile!.writeAsStringSync(logEntry, mode: FileMode.append);
 
       // Also log to console in debug mode
       if (kDebugMode) {
@@ -190,23 +194,59 @@ class ErrorLoggingService {
   }
 
   /// Log a debug message
-  Future<void> logDebug(String message, {Object? error, StackTrace? stackTrace}) {
-    return logError(message, error: error, stackTrace: stackTrace, level: ErrorLevel.debug);
+  Future<void> logDebug(
+    String message, {
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    return logError(
+      message,
+      error: error,
+      stackTrace: stackTrace,
+      level: ErrorLevel.debug,
+    );
   }
 
   /// Log an info message
-  Future<void> logInfo(String message, {Object? error, StackTrace? stackTrace}) {
-    return logError(message, error: error, stackTrace: stackTrace, level: ErrorLevel.info);
+  Future<void> logInfo(
+    String message, {
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    return logError(
+      message,
+      error: error,
+      stackTrace: stackTrace,
+      level: ErrorLevel.info,
+    );
   }
 
   /// Log a warning
-  Future<void> logWarning(String message, {Object? error, StackTrace? stackTrace}) {
-    return logError(message, error: error, stackTrace: stackTrace, level: ErrorLevel.warning);
+  Future<void> logWarning(
+    String message, {
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    return logError(
+      message,
+      error: error,
+      stackTrace: stackTrace,
+      level: ErrorLevel.warning,
+    );
   }
 
   /// Log a critical error
-  Future<void> logCritical(String message, {Object? error, StackTrace? stackTrace}) {
-    return logError(message, error: error, stackTrace: stackTrace, level: ErrorLevel.critical);
+  Future<void> logCritical(
+    String message, {
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    return logError(
+      message,
+      error: error,
+      stackTrace: stackTrace,
+      level: ErrorLevel.critical,
+    );
   }
 
   /// Get all errors from the log file
@@ -215,12 +255,12 @@ class ErrorLoggingService {
       await init();
     }
 
-    if (_logFile == null || !await _logFile!.exists()) {
+    if (_logFile == null || !_logFile!.existsSync()) {
       return [];
     }
 
     try {
-      final content = await _logFile!.readAsString();
+      final content = _logFile!.readAsStringSync();
       if (content.isEmpty) return [];
 
       final entries = <LogEntry>[];
@@ -251,10 +291,13 @@ class ErrorLoggingService {
       if (lines.isEmpty) return null;
 
       // Parse header line: [timestamp] [level] message
-      final headerMatch = RegExp(r'\[([^\]]+)\] \[([^\]]+)\] (.+)').firstMatch(lines.first);
+      final headerMatch = RegExp(
+        r'\[([^\]]+)\] \[([^\]]+)\] (.+)',
+      ).firstMatch(lines.first);
       if (headerMatch == null) return null;
 
-      final timestamp = DateTime.tryParse(headerMatch.group(1)!) ?? DateTime.now();
+      final timestamp =
+          DateTime.tryParse(headerMatch.group(1)!) ?? DateTime.now();
       final level = _parseLevel(headerMatch.group(2)!) ?? ErrorLevel.error;
       final message = headerMatch.group(3)!;
 
@@ -331,7 +374,7 @@ class ErrorLoggingService {
 
     if (_logFile != null) {
       try {
-        await _logFile!.writeAsString('');
+        _logFile!.writeAsStringSync('');
         debugPrint('ErrorLoggingService: All errors cleared');
       } catch (e, stackTrace) {
         debugPrint('ErrorLoggingService: Failed to clear errors: $e');
@@ -347,7 +390,7 @@ class ErrorLoggingService {
       await init();
     }
 
-    if (_logFile == null || !await _logFile!.exists()) {
+    if (_logFile == null || !_logFile!.existsSync()) {
       return null;
     }
 
@@ -358,7 +401,7 @@ class ErrorLoggingService {
       final exportFile = File('${appDir.path}/errors_export_$timestamp.log');
 
       // Copy current log to export file
-      await _logFile!.copy(exportFile.path);
+      _logFile!.copySync(exportFile.path);
 
       debugPrint('ErrorLoggingService: Errors exported to ${exportFile.path}');
       return exportFile.path;

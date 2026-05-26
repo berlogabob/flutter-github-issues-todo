@@ -40,15 +40,17 @@ import 'mr_compliance.dart';
 class MrCoordinator {
   final Map<String, BaseAgent> _agents = {};
   final _messageBus = StreamController<AgentMessage>.broadcast();
+  final List<StreamSubscription<AgentMessage>> _agentSubscriptions = [];
+  Timer? _coordinatorTimer;
   bool _isRunning = false;
-  
+
   late final MrPlanner _pma;
   late final MrDeveloper _fda;
   late final MrDesigner _uda;
   late final MrTester _tqa;
   late final MrLogger _dda;
   late final MrCompliance _rca;
-  
+
   MrCoordinator() {
     _pma = MrPlanner();
     _fda = MrDeveloper();
@@ -56,7 +58,7 @@ class MrCoordinator {
     _tqa = MrTester();
     _dda = MrLogger();
     _rca = MrCompliance();
-    
+
     registerAgent(_pma);
     registerAgent(_fda);
     registerAgent(_uda);
@@ -64,32 +66,38 @@ class MrCoordinator {
     registerAgent(_dda);
     registerAgent(_rca);
   }
-  
+
   void registerAgent(BaseAgent agent) {
     _agents[agent.name] = agent;
     debugPrint('MrCoordinator: Registered ${agent.name}');
-    agent.messageStream.listen(_handleAgentMessage);
+    _agentSubscriptions.add(agent.messageStream.listen(_handleAgentMessage));
   }
-  
+
   T getAgent<T extends BaseAgent>(String name) {
     final agent = _agents[name];
     if (agent == null) throw Exception('Agent $name not found');
     if (agent is! T) throw Exception('Agent $name is not of type $T');
     return agent;
   }
-  
+
   List<BaseAgent> getAllAgents() => _agents.values.toList();
-  
+
   Map<String, dynamic> getAgentStatus() {
     return {
       'total': _agents.length,
       'active': _agents.values.where((a) => a.isActive).length,
-      'agents': _agents.map((name, agent) => 
-        MapEntry(name, {'active': agent.isActive})),
+      'agents': _agents.map(
+        (name, agent) => MapEntry(name, {'active': agent.isActive}),
+      ),
     };
   }
-  
+
   Future<void> startAll() async {
+    if (_isRunning && _agents.values.every((agent) => agent.isActive)) {
+      debugPrint('MrCoordinator: All agents already started');
+      return;
+    }
+
     debugPrint('MrCoordinator: Starting all agents...');
     _isRunning = true;
     for (final agent in _agents.values) {
@@ -99,12 +107,14 @@ class MrCoordinator {
       await agent.start();
     }
     debugPrint('MrCoordinator: All agents started');
-    _coordinatorLoop();
+    _startCoordinatorLoop();
   }
 
   Future<void> stopAll() async {
     debugPrint('MrCoordinator: Stopping all agents...');
     _isRunning = false;
+    _coordinatorTimer?.cancel();
+    _coordinatorTimer = null;
     // Create a copy of the values to avoid concurrent modification
     final agentsToStop = _agents.values.toList();
     for (final agent in agentsToStop) {
@@ -112,15 +122,17 @@ class MrCoordinator {
     }
     debugPrint('MrCoordinator: All agents stopped');
   }
-  
-  Future<void> _coordinatorLoop() async {
-    while (_isRunning) {
-      await Future.delayed(const Duration(seconds: 5));
+
+  void _startCoordinatorLoop() {
+    _coordinatorTimer?.cancel();
+    _coordinatorTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!_isRunning) return;
+
       await _checkAgentHealth();
       await _coordinateTasks();
-    }
+    });
   }
-  
+
   Future<void> _checkAgentHealth() async {
     for (final agent in _agents.values) {
       if (!agent.isActive) {
@@ -129,36 +141,42 @@ class MrCoordinator {
       }
     }
   }
-  
+
   Future<void> _coordinateTasks() async {
     final complianceReport = _rca.getComplianceReport();
     final qualityReport = _tqa.getQualityReport();
-    
+
     if ((complianceReport['violations'] as int) > 0) {
-      _pma.addTask(AgentTask(
-        id: 'fix_violations_${DateTime.now().millisecondsSinceEpoch}',
-        assignedTo: 'MrDeveloper',
-        title: 'Fix Rule Violations',
-        description: 'Fix ${complianceReport['violations']} rule violations',
-        priority: TaskPriority.high,
-      ));
+      _pma.addTask(
+        AgentTask(
+          id: 'fix_violations_${DateTime.now().millisecondsSinceEpoch}',
+          assignedTo: 'MrDeveloper',
+          title: 'Fix Rule Violations',
+          description: 'Fix ${complianceReport['violations']} rule violations',
+          priority: TaskPriority.high,
+        ),
+      );
     }
-    
+
     if ((qualityReport['issues'] as int) > 0) {
-      _pma.addTask(AgentTask(
-        id: 'fix_quality_${DateTime.now().millisecondsSinceEpoch}',
-        assignedTo: 'MrDeveloper',
-        title: 'Fix Quality Issues',
-        description: 'Fix ${qualityReport['issues']} quality issues',
-        priority: TaskPriority.high,
-      ));
+      _pma.addTask(
+        AgentTask(
+          id: 'fix_quality_${DateTime.now().millisecondsSinceEpoch}',
+          assignedTo: 'MrDeveloper',
+          title: 'Fix Quality Issues',
+          description: 'Fix ${qualityReport['issues']} quality issues',
+          priority: TaskPriority.high,
+        ),
+      );
     }
   }
-  
+
   void _handleAgentMessage(AgentMessage message) {
-    debugPrint('MrCoordinator: Message from ${message.from}: ${message.subject}');
+    debugPrint(
+      'MrCoordinator: Message from ${message.from}: ${message.subject}',
+    );
     _messageBus.add(message);
-    
+
     switch (message.type) {
       case AgentMessageType.error:
         _handleError(message);
@@ -173,28 +191,29 @@ class MrCoordinator {
         break;
     }
   }
-  
+
   void _handleError(AgentMessage error) {
     debugPrint('MrCoordinator: Error from ${error.from}: ${error.content}');
     _pma.handleMessage(error);
-    
+
     if (error.subject.contains('Design')) _uda.handleMessage(error);
     if (error.subject.contains('Quality') || error.subject.contains('Test')) {
       _tqa.handleMessage(error);
     }
-    if (error.subject.contains('Rule') || error.subject.contains('Compliance')) {
+    if (error.subject.contains('Rule') ||
+        error.subject.contains('Compliance')) {
       _rca.handleMessage(error);
     }
   }
-  
+
   void _handleStatus(AgentMessage status) {
     debugPrint('MrCoordinator: Status update - ${status.content}');
   }
-  
+
   void _handleRequest(AgentMessage request) {
     debugPrint('MrCoordinator: Request from ${request.from}');
   }
-  
+
   void sendMessageTo(String agentName, AgentMessage message) {
     final agent = _agents[agentName];
     if (agent != null) {
@@ -217,8 +236,14 @@ class MrCoordinator {
   Map<String, dynamic> getQualityStatus() => _tqa.getQualityReport();
 
   void dispose() {
-    stopAll();
-    _messageBus.close();
+    _isRunning = false;
+    _coordinatorTimer?.cancel();
+    _coordinatorTimer = null;
+    for (final subscription in _agentSubscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _agentSubscriptions.clear();
+    if (!_messageBus.isClosed) _messageBus.close();
     for (final agent in _agents.values) {
       agent.dispose();
     }
@@ -232,4 +257,5 @@ MrCoordinator get coordinator {
   _coordinatorInstance ??= MrCoordinator();
   return _coordinatorInstance!;
 }
+
 bool get isCoordinatorInitialized => _coordinatorInstance != null;

@@ -225,12 +225,35 @@ class LocalStorageService {
 
       final file = File(filePath);
       await file.writeAsString(content);
+      await _deleteStaleVaultFilesForIssue(issue.id, keepPath: filePath);
       debugPrint('Saved markdown file: $filePath');
       return true;
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error saving issue to vault: $e');
       return false;
+    }
+  }
+
+  Future<void> _deleteStaleVaultFilesForIssue(
+    String issueId, {
+    required String keepPath,
+  }) async {
+    final vaultPath = await getVaultFolder();
+    if (vaultPath == null) return;
+
+    final vaultDir = Directory(vaultPath);
+    if (!await vaultDir.exists()) return;
+
+    await for (final entity in vaultDir.list()) {
+      if (entity is! File || !entity.path.endsWith('.md')) continue;
+      if (entity.path == keepPath) continue;
+
+      final fileName = entity.path.split('/').last;
+      if (fileName == '$issueId.md' || fileName.startsWith('${issueId}_')) {
+        await entity.delete();
+        debugPrint('Deleted stale vault file: ${entity.path}');
+      }
     }
   }
 
@@ -966,13 +989,13 @@ class LocalStorageService {
   Future<bool> getAutoSyncWifi() async {
     try {
       final value = await _storage.read(key: _autoSyncWifiKey);
-      // Default to true (auto-sync on WiFi)
-      if (value == null) return true;
+      // Default to false for offline-first startup behavior.
+      if (value == null) return false;
       return value == 'true';
     } catch (e, stackTrace) {
       AppErrorHandler.handle(e, stackTrace: stackTrace);
       debugPrint('Error getting auto-sync WiFi setting: $e');
-      return true;
+      return false;
     }
   }
 

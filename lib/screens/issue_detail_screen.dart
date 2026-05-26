@@ -956,18 +956,31 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             ),
           ),
           SizedBox(width: 8.w),
-          _buildSquareAction(Icons.person_outline, _showAssigneeDialog),
+          _buildSquareAction(
+            Icons.person_outline,
+            _showAssigneeDialog,
+            key: const ValueKey('issue_detail_assignee_action'),
+          ),
           SizedBox(width: 4.w),
-          _buildSquareAction(Icons.label_outline, _showLabelsDialog),
+          _buildSquareAction(
+            Icons.label_outline,
+            _showLabelsDialog,
+            key: const ValueKey('issue_detail_labels_action'),
+          ),
           SizedBox(width: 4.w),
-          _buildSquareAction(Icons.comment_outlined, _addComment),
+          _buildSquareAction(
+            Icons.comment_outlined,
+            _addComment,
+            key: const ValueKey('issue_detail_comment_action'),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSquareAction(IconData icon, VoidCallback onTap) {
+  Widget _buildSquareAction(IconData icon, VoidCallback onTap, {Key? key}) {
     return GestureDetector(
+      key: key,
       onTap: onTap,
       child: Container(
         width: 40.w,

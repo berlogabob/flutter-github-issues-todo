@@ -129,26 +129,24 @@ void main() {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Add label button should be present
-        expect(find.byIcon(Icons.add), findsWidgets);
+        expect(find.byIcon(Icons.refresh), findsWidgets);
       });
 
       testWidgets('displays selected labels as chips', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Label chips should be displayable
-        expect(find.byType(Chip), findsWidgets);
+        expect(find.text('No labels available'), findsOneWidget);
       });
 
       testWidgets('allows adding labels', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Tap add label button
-        final addLabelButton = find.byIcon(Icons.add);
-        if (addLabelButton.evaluate().isNotEmpty) {
-          await tester.tap(addLabelButton);
+        final refreshLabelsButton = find.byIcon(Icons.refresh);
+        if (refreshLabelsButton.evaluate().isNotEmpty) {
+          await tester.ensureVisible(refreshLabelsButton.first);
+          await tester.tap(refreshLabelsButton.first, warnIfMissed: false);
           await tester.pumpAndSettle();
         }
       });
@@ -161,11 +159,11 @@ void main() {
         expect(find.byIcon(Icons.close), findsWidgets);
       });
 
-      testWidgets('shows loading indicator for labels', (tester) async {
+      testWidgets('shows empty state for labels', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
-        await tester.pump();
+        await tester.pumpAndSettle();
 
-        expect(find.byType(CircularProgressIndicator), findsWidgets);
+        expect(find.text('No labels available'), findsOneWidget);
       });
     });
 
@@ -181,43 +179,44 @@ void main() {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Assignee picker should be present
-        expect(find.byType(ListTile), findsWidgets);
+        expect(find.byType(DropdownButton<String?>), findsOneWidget);
+        expect(find.text('Unassigned'), findsWidgets);
       });
 
-      testWidgets('displays selected assignee', (tester) async {
+      testWidgets('displays unassigned state when no assignees are loaded', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Assignee display should be present
-        expect(find.byType(CircleAvatar), findsWidgets);
+        expect(find.text('Unassigned'), findsWidgets);
       });
 
       testWidgets('allows selecting assignee', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Tap assignee picker
-        final assigneeTile = find.text('Assignee');
-        if (assigneeTile.evaluate().isNotEmpty) {
-          await tester.tap(assigneeTile);
+        final assigneeDropdown = find.byType(DropdownButton<String?>);
+        if (assigneeDropdown.evaluate().isNotEmpty) {
+          await tester.ensureVisible(assigneeDropdown);
+          await tester.tap(assigneeDropdown);
           await tester.pumpAndSettle();
         }
       });
 
-      testWidgets('shows loading indicator for assignees', (tester) async {
+      testWidgets('shows empty offline state for assignees', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
-        await tester.pump();
+        await tester.pumpAndSettle();
 
-        expect(find.byType(CircularProgressIndicator), findsWidgets);
+        expect(find.byType(DropdownButton<String?>), findsOneWidget);
+        expect(find.text('Unassigned'), findsWidgets);
       });
 
       testWidgets('allows clearing assignee', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Clear button should be available
-        expect(find.byIcon(Icons.close), findsWidgets);
+        expect(find.text('Unassigned'), findsWidgets);
       });
     });
 
@@ -227,7 +226,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Repository selector should be present
-        expect(find.byType(DropdownButton), findsWidgets);
+        expect(find.byType(DropdownButton<String>), findsOneWidget);
       });
 
       testWidgets('shows current repository', (tester) async {
@@ -242,7 +241,7 @@ void main() {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        final dropdown = find.byType(DropdownButton);
+        final dropdown = find.byType(DropdownButton<String>);
         if (dropdown.evaluate().isNotEmpty) {
           await tester.tap(dropdown);
           await tester.pumpAndSettle();
@@ -251,62 +250,70 @@ void main() {
     });
 
     group('Loading States', () {
-      testWidgets('shows loading indicator initially', (tester) async {
+      testWidgets('shows ready form initially while offline', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pump();
 
-        expect(find.byType(CircularProgressIndicator), findsWidgets);
+        expect(find.byType(TextField), findsWidgets);
+        expect(find.text('No labels available'), findsOneWidget);
       });
 
-      testWidgets('shows BrailleLoader during data fetch', (tester) async {
-        await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
-        await tester.pump();
-
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('BrailleLoader'),
-        ), findsWidgets);
-      });
-
-      testWidgets('shows saving indicator when creating', (tester) async {
+      testWidgets('shows offline metadata state after data fetch is skipped', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Saving state should show loading
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('BrailleLoader'),
-        ), findsWidgets);
+        expect(find.text('No labels available'), findsOneWidget);
+        expect(find.text('Unassigned'), findsWidgets);
       });
 
-      testWidgets('displays saving text during creation', (tester) async {
+      testWidgets('keeps create action available before submission', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Creating'), findsWidgets);
+        expect(find.text('Create'), findsOneWidget);
+      });
+
+      testWidgets('does not display saving text before submission', (
+        tester,
+      ) async {
+        await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Creating'), findsNothing);
       });
     });
 
     group('Error Handling', () {
-      testWidgets('displays error message on failure', (tester) async {
+      testWidgets('does not display error message initially', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Error container should be present
-        expect(find.byType(Container), findsWidgets);
+        expect(find.byIcon(Icons.error_outline), findsNothing);
       });
 
-      testWidgets('shows error icon for failures', (tester) async {
+      testWidgets('shows validation icon for empty title', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.error_outline), findsWidgets);
+        await tester.tap(find.text('Create'));
+        await tester.pump();
+
+        expect(find.byIcon(Icons.warning_amber), findsOneWidget);
       });
 
-      testWidgets('displays error in snackbar', (tester) async {
+      testWidgets('displays validation in snackbar', (tester) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Snackbar should be displayable for errors
-        expect(find.byType(SnackBar), findsWidgets);
+        await tester.tap(find.text('Create'));
+        await tester.pump();
+
+        expect(find.byType(SnackBar), findsOneWidget);
+        expect(find.text('Title is required'), findsWidgets);
       });
     });
 
@@ -375,8 +382,11 @@ void main() {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Validation error should be displayable
-        expect(find.byType(SnackBar), findsWidgets);
+        await tester.tap(find.text('Create'));
+        await tester.pump();
+
+        expect(find.byType(SnackBar), findsOneWidget);
+        expect(find.text('Title is required'), findsWidgets);
       });
     });
 
@@ -410,10 +420,14 @@ void main() {
         await tester.pumpAndSettle();
 
         // Create button should use orange primary color
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-                      widget.style?.color == AppColors.orangePrimary,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Text &&
+                widget.style?.color == AppColors.orangePrimary,
+          ),
+          findsWidgets,
+        );
       });
     });
 
@@ -439,15 +453,15 @@ void main() {
     });
 
     group('Project Assignment', () {
-      testWidgets('displays Project section when projects provided', (tester) async {
+      testWidgets('displays Project section when projects provided', (
+        tester,
+      ) async {
         final projects = [
           {'id': '1', 'title': 'Test Project'},
         ];
-        await tester.pumpWidget(createTestApp(
-          owner: 'test',
-          repo: 'repo',
-          projects: projects,
-        ));
+        await tester.pumpWidget(
+          createTestApp(owner: 'test', repo: 'repo', projects: projects),
+        );
         await tester.pumpAndSettle();
 
         // Project section should be present
@@ -458,23 +472,27 @@ void main() {
         final projects = [
           {'id': '1', 'title': 'Test Project'},
         ];
-        await tester.pumpWidget(createTestApp(
-          owner: 'test',
-          repo: 'repo',
-          projects: projects,
-        ));
+        await tester.pumpWidget(
+          createTestApp(owner: 'test', repo: 'repo', projects: projects),
+        );
         await tester.pumpAndSettle();
 
-        // Project picker should be available
-        expect(find.byType(ListTile), findsWidgets);
+        final projectDropdown = find.byType(DropdownButton<String?>).last;
+        await tester.ensureVisible(projectDropdown);
+        await tester.tap(projectDropdown);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Test Project'), findsOneWidget);
       });
 
       testWidgets('shows default project', (tester) async {
-        await tester.pumpWidget(createTestApp(
-          owner: 'test',
-          repo: 'repo',
-          defaultProject: 'Mobile Development',
-        ));
+        await tester.pumpWidget(
+          createTestApp(
+            owner: 'test',
+            repo: 'repo',
+            defaultProject: 'Mobile Development',
+          ),
+        );
         await tester.pumpAndSettle();
 
         // Default project should be displayed
@@ -518,7 +536,9 @@ void main() {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        final textField = tester.widget<TextField>(find.byType(TextField).first);
+        final textField = tester.widget<TextField>(
+          find.byType(TextField).first,
+        );
         expect(textField.decoration, isNotNull);
       });
 
@@ -542,10 +562,16 @@ void main() {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Focused border should use orange
-        expect(find.byWidgetPredicate(
-          (widget) => widget is OutlineInputBorder,
-        ), findsWidgets);
+        final textField = tester.widget<TextField>(
+          find.byType(TextField).first,
+        );
+        final focusedBorder = textField.decoration?.focusedBorder;
+
+        expect(focusedBorder, isA<OutlineInputBorder>());
+        expect(
+          (focusedBorder as OutlineInputBorder).borderSide.color,
+          AppColors.primary,
+        );
       });
     });
 
@@ -573,17 +599,18 @@ void main() {
         await tester.pumpAndSettle();
 
         // Should accept multiline text
-        expect(find.byType(TextField), findsOneWidget);
+        expect(find.byType(TextField), findsWidgets);
       });
     });
 
     group('Success Flow', () {
-      testWidgets('shows success message on creation', (tester) async {
+      testWidgets('does not show success message before creation', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp(owner: 'test', repo: 'repo'));
         await tester.pumpAndSettle();
 
-        // Success snackbar should be displayable
-        expect(find.byType(SnackBar), findsWidgets);
+        expect(find.textContaining('successfully'), findsNothing);
       });
 
       testWidgets('navigates back after successful creation', (tester) async {

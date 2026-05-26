@@ -6,6 +6,9 @@ import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
+import '../services/local_storage_service.dart';
+import '../services/network_service.dart';
+import '../services/secure_storage_service.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/empty_state_illustrations.dart';
 import '../widgets/error_boundary.dart';
@@ -53,6 +56,8 @@ class RepoDetailScreen extends ConsumerStatefulWidget {
 
 class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
+  final LocalStorageService _localStorage = LocalStorageService();
+  final NetworkService _networkService = NetworkService();
   RepoItem? _repoInfo;
   List<IssueItem> _issues = [];
   bool _isLoading = true;
@@ -71,15 +76,38 @@ class _RepoDetailScreenState extends ConsumerState<RepoDetailScreen> {
     });
 
     try {
-      // Fetch repo details
-      final repos = await _githubApi.fetchMyRepositories(perPage: 100);
-      final repo = repos.firstWhere(
-        (r) => r.fullName == '${widget.owner}/${widget.repo}',
-        orElse: () => throw Exception('Repository not found'),
-      );
+      final fullName = '${widget.owner}/${widget.repo}';
+      final hasToken = await SecureStorageService.hasToken();
+      final isOnline = hasToken && await _networkService.checkConnectivity();
 
-      // Fetch issues
-      final issues = await _githubApi.fetchIssues(widget.owner, widget.repo);
+      late final RepoItem repo;
+      late final List<IssueItem> issues;
+
+      if (!hasToken || !isOnline) {
+        final cachedData = await _localStorage.getCachedDashboardData();
+        repo = cachedData.repositories.firstWhere(
+          (repo) => repo.fullName == fullName,
+          orElse: () => RepoItem(
+            id: fullName,
+            title: widget.repo,
+            fullName: fullName,
+            description: 'Offline repository',
+          ),
+        );
+        issues = [
+          ...repo.children.whereType<IssueItem>(),
+          ...cachedData.localIssues.where(
+            (issue) => issue.repoFullName == fullName,
+          ),
+        ];
+      } else {
+        final repos = await _githubApi.fetchMyRepositories(perPage: 100);
+        repo = repos.firstWhere(
+          (repo) => repo.fullName == fullName,
+          orElse: () => throw Exception('Repository not found'),
+        );
+        issues = await _githubApi.fetchIssues(widget.owner, widget.repo);
+      }
 
       if (mounted) {
         setState(() {

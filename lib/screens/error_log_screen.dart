@@ -16,7 +16,10 @@ import '../widgets/braille_loader.dart';
 /// - Copy error details to clipboard
 class ErrorLogScreen extends ConsumerStatefulWidget {
   /// Creates the error log screen.
-  const ErrorLogScreen({super.key});
+  const ErrorLogScreen({super.key, this.loadErrors});
+
+  /// Optional error loader for tests or alternate storage backends.
+  final Future<List<LogEntry>> Function()? loadErrors;
 
   @override
   ConsumerState<ErrorLogScreen> createState() => _ErrorLogScreenState();
@@ -38,7 +41,9 @@ class _ErrorLogScreenState extends ConsumerState<ErrorLogScreen> {
     setState(() => _isLoading = true);
     try {
       await _errorService.init();
-      final errors = await _errorService.getErrors();
+      final errors = widget.loadErrors != null
+          ? await widget.loadErrors!()
+          : await _errorService.getErrors();
       if (mounted) {
         setState(() {
           _errors = errors;
@@ -381,7 +386,7 @@ class _ErrorLogScreenState extends ConsumerState<ErrorLogScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Full message
-                  Text(
+                  SelectableText(
                     entry.message,
                     style: const TextStyle(
                       color: Colors.white,

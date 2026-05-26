@@ -4,19 +4,25 @@ import 'package:shimmer/shimmer.dart';
 import 'package:gitdoit/widgets/loading_skeleton.dart';
 import 'package:gitdoit/constants/app_colors.dart';
 
+Finder findLoadingSkeletonItems() {
+  return find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key is ValueKey<String> &&
+        key.value.startsWith('loading_skeleton_item_');
+  });
+}
+
 void main() {
   group('Task 16.5 - Loading Skeletons Tests', () {
     group('Skeleton shows while loading', () {
-      testWidgets('LoadingSkeleton displays shimmer effect', (WidgetTester tester) async {
+      testWidgets('LoadingSkeleton displays shimmer effect', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
           const MaterialApp(
             home: Scaffold(
-              body: LoadingSkeleton(
-                height: 80.0,
-                itemCount: 5,
-                spacing: 12.0,
-              ),
+              body: LoadingSkeleton(height: 80.0, itemCount: 5, spacing: 12.0),
             ),
           ),
         );
@@ -26,44 +32,43 @@ void main() {
         expect(find.byType(ListView), findsOneWidget);
       });
 
-      testWidgets('LoadingSkeleton shows correct number of items', (WidgetTester tester) async {
+      testWidgets('LoadingSkeleton shows correct number of items', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
           const MaterialApp(
             home: Scaffold(
-              body: LoadingSkeleton(
-                height: 80.0,
-                itemCount: 3,
-                spacing: 12.0,
-              ),
+              body: LoadingSkeleton(height: 80.0, itemCount: 3, spacing: 12.0),
             ),
           ),
         );
 
-        // Assert - should have 3 skeleton items
-        expect(find.byType(Container), findsNWidgets(3));
+        // Assert - should have 3 skeleton list rows
+        expect(findLoadingSkeletonItems(), findsNWidgets(3));
       });
 
-      testWidgets('LoadingSkeleton uses correct height', (WidgetTester tester) async {
+      testWidgets('LoadingSkeleton uses correct height', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         const skeletonHeight = 80.0;
 
         await tester.pumpWidget(
           const MaterialApp(
             home: Scaffold(
-              body: LoadingSkeleton(
-                height: skeletonHeight,
-                itemCount: 1,
-              ),
+              body: LoadingSkeleton(height: skeletonHeight, itemCount: 1),
             ),
           ),
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert - Container should have correct height
-        final container = tester.widget<Container>(find.byType(Container).first);
+        final container = tester.widget<Container>(
+          find.byKey(const ValueKey('loading_skeleton_item_0')),
+        );
         expect(container.constraints?.maxHeight, skeletonHeight);
       });
 
@@ -80,7 +85,9 @@ void main() {
     });
 
     group('Skeleton replaced by content', () {
-      testWidgets('skeleton can be conditionally replaced with content', (WidgetTester tester) async {
+      testWidgets('skeleton can be conditionally replaced with content', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         bool isLoading = true;
 
@@ -95,9 +102,7 @@ void main() {
                           itemCount: 3,
                           itemBuilder: (context, index) {
                             return Card(
-                              child: ListTile(
-                                title: Text('Item $index'),
-                              ),
+                              child: ListTile(title: Text('Item $index')),
                             );
                           },
                         ),
@@ -122,13 +127,13 @@ void main() {
         expect(find.text('Item 0'), findsOneWidget);
       });
 
-      testWidgets('LoadingSkeleton animates with AnimatedOpacity', (WidgetTester tester) async {
+      testWidgets('LoadingSkeleton animates with AnimatedOpacity', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         await tester.pumpWidget(
           const MaterialApp(
-            home: Scaffold(
-              body: LoadingSkeleton(itemCount: 1),
-            ),
+            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
           ),
         );
 
@@ -141,13 +146,13 @@ void main() {
     });
 
     group('Animation works', () {
-      testWidgets('skeleton has animation controller', (WidgetTester tester) async {
+      testWidgets('skeleton has animation controller', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
           const MaterialApp(
-            home: Scaffold(
-              body: LoadingSkeleton(itemCount: 1),
-            ),
+            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
           ),
         );
 
@@ -159,18 +164,20 @@ void main() {
         // Arrange
         await tester.pumpWidget(
           const MaterialApp(
-            home: Scaffold(
-              body: LoadingSkeleton(itemCount: 1),
-            ),
+            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
           ),
         );
 
         // Act - pump multiple times to see animation progress
         await tester.pump(const Duration(milliseconds: 500));
-        final opacity1 = tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity;
-        
+        final opacity1 = tester
+            .widget<AnimatedOpacity>(find.byType(AnimatedOpacity))
+            .opacity;
+
         await tester.pump(const Duration(milliseconds: 500));
-        final opacity2 = tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity;
+        final opacity2 = tester
+            .widget<AnimatedOpacity>(find.byType(AnimatedOpacity))
+            .opacity;
 
         // Assert - opacity should change (animation is running)
         expect(opacity1, isNotNull);
@@ -187,9 +194,7 @@ void main() {
         // Arrange & Act
         await tester.pumpWidget(
           const MaterialApp(
-            home: Scaffold(
-              body: LoadingSkeleton(itemCount: 1),
-            ),
+            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
           ),
         );
 
@@ -199,7 +204,9 @@ void main() {
     });
 
     group('No layout shift', () {
-      testWidgets('skeleton matches content dimensions', (WidgetTester tester) async {
+      testWidgets('skeleton matches content dimensions', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         const skeletonHeight = 80.0;
 
@@ -213,9 +220,7 @@ void main() {
                   Card(
                     child: SizedBox(
                       height: skeletonHeight,
-                      child: ListTile(
-                        title: Text('Content'),
-                      ),
+                      child: ListTile(title: Text('Content')),
                     ),
                   ),
                 ],
@@ -225,7 +230,7 @@ void main() {
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert - skeleton and content should have same height
         expect(find.byType(LoadingSkeleton), findsOneWidget);
@@ -245,16 +250,13 @@ void main() {
         await tester.pumpWidget(
           const MaterialApp(
             home: Scaffold(
-              body: LoadingSkeleton(
-                itemCount: 3,
-                spacing: spacing,
-              ),
+              body: LoadingSkeleton(itemCount: 3, spacing: spacing),
             ),
           ),
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert - spacing should be consistent
         expect(find.byType(Padding), findsWidgets);
@@ -262,7 +264,9 @@ void main() {
     });
 
     group('Matches dark theme', () {
-      testWidgets('skeleton uses AppColors.cardBackground', (WidgetTester tester) async {
+      testWidgets('skeleton uses AppColors.cardBackground', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
           const MaterialApp(
@@ -287,7 +291,9 @@ void main() {
         expect(AppColors.background, isNotNull);
       });
 
-      testWidgets('skeleton integrates with dark theme', (WidgetTester tester) async {
+      testWidgets('skeleton integrates with dark theme', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         await tester.pumpWidget(
           MaterialApp(
@@ -295,14 +301,12 @@ void main() {
               scaffoldBackgroundColor: AppColors.background,
               cardColor: AppColors.cardBackground,
             ),
-            home: const Scaffold(
-              body: LoadingSkeleton(itemCount: 3),
-            ),
+            home: const Scaffold(body: LoadingSkeleton(itemCount: 3)),
           ),
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert - should render in dark theme
         expect(find.byType(LoadingSkeleton), findsOneWidget);
@@ -310,14 +314,12 @@ void main() {
     });
 
     group('RepoHeaderSkeleton', () {
-      testWidgets('RepoHeaderSkeleton displays correctly', (WidgetTester tester) async {
+      testWidgets('RepoHeaderSkeleton displays correctly', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(
-              body: RepoHeaderSkeleton(),
-            ),
-          ),
+          const MaterialApp(home: Scaffold(body: RepoHeaderSkeleton())),
         );
 
         // Assert
@@ -325,32 +327,30 @@ void main() {
         expect(find.byType(Shimmer), findsWidgets);
       });
 
-      testWidgets('RepoHeaderSkeleton has correct height', (WidgetTester tester) async {
+      testWidgets('RepoHeaderSkeleton has correct height', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(
-              body: RepoHeaderSkeleton(),
-            ),
-          ),
+          const MaterialApp(home: Scaffold(body: RepoHeaderSkeleton())),
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert - should have 72px height
-        final container = tester.widget<Container>(find.byType(Container).first);
+        final container = tester.widget<Container>(
+          find.byType(Container).first,
+        );
         expect(container.constraints?.maxHeight, 72.0);
       });
 
-      testWidgets('RepoHeaderSkeleton uses shimmer effect', (WidgetTester tester) async {
+      testWidgets('RepoHeaderSkeleton uses shimmer effect', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(
-              body: RepoHeaderSkeleton(),
-            ),
-          ),
+          const MaterialApp(home: Scaffold(body: RepoHeaderSkeleton())),
         );
 
         // Assert
@@ -366,20 +366,20 @@ void main() {
         // Act
         await tester.pumpWidget(
           const MaterialApp(
-            home: Scaffold(
-              body: LoadingSkeleton(itemCount: 5),
-            ),
+            home: Scaffold(body: LoadingSkeleton(itemCount: 5)),
           ),
         );
 
-        await tester.pumpAndSettle();
+        await tester.pump();
         stopwatch.stop();
 
         // Assert - should render in under 100ms
         expect(stopwatch.elapsedMilliseconds, lessThan(100));
       });
 
-      testWidgets('multiple skeletons render efficiently', (WidgetTester tester) async {
+      testWidgets('multiple skeletons render efficiently', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         final stopwatch = Stopwatch()..start();
 
@@ -387,18 +387,20 @@ void main() {
         await tester.pumpWidget(
           const MaterialApp(
             home: Scaffold(
-              body: Column(
-                children: [
-                  LoadingSkeleton(itemCount: 3, height: 72),
-                  LoadingSkeleton(itemCount: 5, height: 80),
-                  LoadingSkeleton(itemCount: 2, height: 40),
-                ],
+              body: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    LoadingSkeleton(itemCount: 3, height: 72),
+                    LoadingSkeleton(itemCount: 5, height: 80),
+                    LoadingSkeleton(itemCount: 2, height: 40),
+                  ],
+                ),
               ),
             ),
           ),
         );
 
-        await tester.pumpAndSettle();
+        await tester.pump();
         stopwatch.stop();
 
         // Assert - should render efficiently
@@ -416,7 +418,9 @@ void main() {
     });
 
     group('Integration Tests', () {
-      testWidgets('LoadingSkeleton in list context', (WidgetTester tester) async {
+      testWidgets('LoadingSkeleton in list context', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         bool isLoading = true;
         final items = List.generate(10, (i) => 'Item $i');
@@ -431,9 +435,7 @@ void main() {
                       : ListView.builder(
                           itemCount: items.length,
                           itemBuilder: (context, index) {
-                            return ListTile(
-                              title: Text(items[index]),
-                            );
+                            return ListTile(title: Text(items[index]));
                           },
                         ),
                 );
@@ -456,7 +458,9 @@ void main() {
         expect(find.text('Item 0'), findsOneWidget);
       });
 
-      testWidgets('LoadingSkeleton with custom parameters', (WidgetTester tester) async {
+      testWidgets('LoadingSkeleton with custom parameters', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
           const MaterialApp(
@@ -483,22 +487,13 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
-            home: Scaffold(
-              body: LoadingSkeleton(
-                key: key,
-                itemCount: 1,
-              ),
-            ),
+            home: Scaffold(body: LoadingSkeleton(key: key, itemCount: 1)),
           ),
         );
 
         // Act - remove widget
         await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(
-              body: SizedBox(),
-            ),
-          ),
+          const MaterialApp(home: Scaffold(body: SizedBox())),
         );
 
         // Assert - widget should be disposed without errors
@@ -507,13 +502,13 @@ void main() {
     });
 
     group('Accessibility', () {
-      testWidgets('skeleton has semantic information', (WidgetTester tester) async {
+      testWidgets('skeleton has semantic information', (
+        WidgetTester tester,
+      ) async {
         // Arrange & Act
         await tester.pumpWidget(
           const MaterialApp(
-            home: Scaffold(
-              body: LoadingSkeleton(itemCount: 1),
-            ),
+            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
           ),
         );
 
@@ -521,18 +516,18 @@ void main() {
         expect(find.byType(LoadingSkeleton), findsOneWidget);
       });
 
-      testWidgets('skeleton does not block screen readers', (WidgetTester tester) async {
+      testWidgets('skeleton does not block screen readers', (
+        WidgetTester tester,
+      ) async {
         // Arrange
         await tester.pumpWidget(
           const MaterialApp(
-            home: Scaffold(
-              body: LoadingSkeleton(itemCount: 3),
-            ),
+            home: Scaffold(body: LoadingSkeleton(itemCount: 3)),
           ),
         );
 
         // Act
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Assert - should render without blocking
         expect(find.byType(LoadingSkeleton), findsOneWidget);

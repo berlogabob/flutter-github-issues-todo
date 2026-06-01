@@ -56,6 +56,49 @@ flutter test
 flutter analyze --no-fatal-infos --no-fatal-warnings
 ```
 
+## Release
+
+GitDoIt v1.0.0 targets Android and Web. iOS/TestFlight is not part of
+the v1.0.0 release gate.
+
+### Build locally
+
+```bash
+flutter analyze --no-fatal-infos --no-fatal-warnings
+flutter test
+flutter build apk --release
+flutter build appbundle --release
+flutter build web --release --base-href=/flutter-github-issues-todo/
+```
+
+Android artifacts are written to:
+
+```text
+build/app/outputs/flutter-apk/app-release.apk
+build/app/outputs/bundle/release/app-release.aab
+```
+
+### Publish v1.0.0
+
+1. Ensure `pubspec.yaml` is set to `version: 1.0.0+135`.
+2. Merge the release branch into `main`.
+3. Create an annotated tag from the merged `main` commit:
+
+   ```bash
+   git tag -a v1.0.0 -m "GitDoIt v1.0.0"
+   git push origin main
+   git push origin v1.0.0
+   ```
+
+4. The tag push triggers the release artifact CI job.
+5. Create the GitHub Release `v1.0.0` using
+   `RELEASE_NOTES_v1.0.0.md` and attach the release APK/AAB.
+
+The Makefile keeps version changes separate from builds. Use
+`make version-increment` only when intentionally bumping the build number;
+`make build-android`, `make build-web`, and `make release-artifacts` do not
+modify tracked release metadata.
+
 ## Key folders
 
 ```text
@@ -71,7 +114,7 @@ test/
 
 ## Version
 
-`0.5.0+129`
+`1.0.0+135`
 
 ## License
 

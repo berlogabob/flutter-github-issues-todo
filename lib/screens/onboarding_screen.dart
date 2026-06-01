@@ -457,7 +457,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<String?> _showFolderSelectionDialog() async {
-    final result = await FilePicker.platform.getDirectoryPath(
+    final result = await FilePicker.getDirectoryPath(
       dialogTitle: 'Select folder for your offline vault',
       initialDirectory: '/storage/emulated/0',
     );

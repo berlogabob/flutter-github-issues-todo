@@ -19,7 +19,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 version: 0.5.0+134
 
 environment:
-  sdk: ^3.11.0
+  sdk: ^3.12.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -65,7 +65,7 @@ dependencies:
   connectivity_plus: ^7.0.0
 
   # File picker for folder selection
-  file_picker: ^10.3.10
+  file_picker: ^11.0.2
 
   # Permission handler
   permission_handler: ^12.0.1
@@ -81,7 +81,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Package info for dynamic version reading
-  package_info_plus: ^9.0.0
+  package_info_plus: ^9.0.1
 
   # Image caching
   cached_network_image: ^3.3.1
@@ -96,7 +96,7 @@ dependencies:
   share_plus: ^12.0.1
 
   # Environment variables (proper .env support)
-  flutter_dotenv: ^5.1.0
+  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
   flutter_test:

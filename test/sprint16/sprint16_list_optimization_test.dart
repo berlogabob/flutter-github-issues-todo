@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gitdoit/widgets/repo_list.dart';
 import 'package:gitdoit/widgets/issue_card.dart';
@@ -314,7 +315,7 @@ void main() {
                 itemCount: thousandIssues.length,
                 itemExtent: 80.0,
                 addAutomaticKeepAlives: true,
-                cacheExtent: 200.0,
+                scrollCacheExtent: const ScrollCacheExtent.pixels(200.0),
                 itemBuilder: (context, index) {
                   return IssueCard(
                     key: ValueKey('issue-${thousandIssues[index].id}'),
@@ -556,7 +557,9 @@ void main() {
             home: Scaffold(
               body: ListView.builder(
                 itemCount: issues.length,
-                cacheExtent: 200.0, // Pre-load off-screen items
+                scrollCacheExtent: const ScrollCacheExtent.pixels(
+                  200.0,
+                ), // Pre-load off-screen items
                 itemBuilder: (context, index) {
                   return IssueCard(
                     key: ValueKey('issue-${issues[index].id}'),

@@ -88,113 +88,122 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
   }
 
   Widget _buildErrorUI() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Error Icon
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: AppColors.error.withValues(alpha: 0.8),
-          ),
-          const SizedBox(height: 16),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Error Icon
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: AppColors.error.withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(height: 16),
 
-          // Error Message
-          Text(
-            widget.errorMessage ?? 'Something went wrong',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
+                  // Error Message
+                  Text(
+                    widget.errorMessage ?? 'Something went wrong',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
 
-          // Brief Error Summary
-          if (_errorDetails != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _errorDetails!,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 12,
+                  // Brief Error Summary
+                  if (_errorDetails != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorDetails!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+
+                  // Action Buttons
+                  const SizedBox(height: 24),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      // Retry Button
+                      if (widget.showRetryButton)
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _hasError = false;
+                              _errorDetails = null;
+                              _stackTrace = null;
+                              _isDetailsExpanded = false;
+                            });
+                            widget.onRetry?.call();
+                          },
+                        ),
+
+                      // Go Back Button
+                      if (widget.showGoBackButton)
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.arrow_back),
+                          label: const Text('Go Back'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () {
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+
+                  // Expandable Error Details Section
+                  if (widget.allowExpandDetails && _errorDetails != null) ...[
+                    const SizedBox(height: 24),
+                    _buildExpandableErrorDetails(),
+                  ],
+                ],
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
-          ],
-
-          // Action Buttons
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              // Retry Button
-              if (widget.showRetryButton && widget.onRetry != null)
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _hasError = false;
-                      _errorDetails = null;
-                      _stackTrace = null;
-                      _isDetailsExpanded = false;
-                    });
-                    widget.onRetry!();
-                  },
-                ),
-
-              // Go Back Button
-              if (widget.showGoBackButton)
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Go Back'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () {
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
-            ],
           ),
-
-          // Expandable Error Details Section
-          if (widget.allowExpandDetails && _errorDetails != null) ...[
-            const SizedBox(height: 24),
-            _buildExpandableErrorDetails(),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -204,9 +213,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.error.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,9 +230,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
               child: Row(
                 children: [
                   Icon(
-                    _isDetailsExpanded
-                        ? Icons.expand_less
-                        : Icons.expand_more,
+                    _isDetailsExpanded ? Icons.expand_less : Icons.expand_more,
                     color: AppColors.error.withValues(alpha: 0.7),
                     size: 20,
                   ),
@@ -329,7 +334,8 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                         ),
                       ),
                       onPressed: () {
-                        final errorText = 'Error: $_errorDetails\n\nStackTrace: $_stackTrace';
+                        final errorText =
+                            'Error: $_errorDetails\n\nStackTrace: $_stackTrace';
                         // Copy to clipboard would be implemented here
                         debugPrint('Error copied: $errorText');
                       },
@@ -369,6 +375,14 @@ extension ErrorBoundaryExtension on BuildContext {
   /// [error] is the error object or message.
   /// [stackTrace] is optional and defaults to current stack trace.
   void reportError(Object error, [StackTrace? stackTrace]) {
+    if (this is StatefulElement) {
+      final state = (this as StatefulElement).state;
+      if (state is _ErrorBoundaryState) {
+        state._handleError(error, stackTrace ?? StackTrace.current);
+        return;
+      }
+    }
+
     final scope = _ErrorBoundaryScope.of(this);
     if (scope != null) {
       scope.onError(error, stackTrace ?? StackTrace.current);
@@ -447,7 +461,7 @@ class InlineError extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (details != null && !compact) ...[
+                  if (details != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       details!,

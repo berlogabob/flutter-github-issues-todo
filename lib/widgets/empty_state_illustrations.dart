@@ -51,9 +51,10 @@ class _EmptyStateIllustrationState extends State<EmptyStateIllustration>
       duration: const Duration(seconds: 2),
       vsync: this,
     );
-    _animation = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.6,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (widget.animate) {
       _controller.repeat(reverse: true);
     }
@@ -136,8 +137,12 @@ class NoReposPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     // Folder body
-    final folderRect = Rect.fromLTWH(size.width * 0.15, size.height * 0.35,
-        size.width * 0.7, size.height * 0.5);
+    final folderRect = Rect.fromLTWH(
+      size.width * 0.15,
+      size.height * 0.35,
+      size.width * 0.7,
+      size.height * 0.5,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(folderRect, const Radius.circular(4)),
       fillPaint,
@@ -149,7 +154,11 @@ class NoReposPainter extends CustomPainter {
 
     // Folder tab
     final tabRect = Rect.fromLTWH(
-        size.width * 0.15, size.height * 0.35, size.width * 0.3, size.height * 0.1);
+      size.width * 0.15,
+      size.height * 0.35,
+      size.width * 0.3,
+      size.height * 0.1,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(tabRect, const Radius.circular(2)),
       paint,
@@ -163,11 +172,23 @@ class NoReposPainter extends CustomPainter {
     final questionPath = Path();
     questionPath.moveTo(centerX - 3, centerY - 8);
     questionPath.quadraticBezierTo(
-        centerX - 6, centerY - 12, centerX - 3, centerY - 15);
+      centerX - 6,
+      centerY - 12,
+      centerX - 3,
+      centerY - 15,
+    );
     questionPath.quadraticBezierTo(
-        centerX + 3, centerY - 18, centerX + 6, centerY - 15);
+      centerX + 3,
+      centerY - 18,
+      centerX + 6,
+      centerY - 15,
+    );
     questionPath.quadraticBezierTo(
-        centerX + 8, centerY - 12, centerX + 6, centerY - 8);
+      centerX + 8,
+      centerY - 12,
+      centerX + 6,
+      centerY - 8,
+    );
     canvas.drawPath(questionPath, questionPaint);
 
     // Question mark dot
@@ -202,8 +223,12 @@ class NoIssuesPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     // Clipboard body
-    final clipboardRect = Rect.fromLTWH(size.width * 0.2, size.height * 0.25,
-        size.width * 0.6, size.height * 0.55);
+    final clipboardRect = Rect.fromLTWH(
+      size.width * 0.2,
+      size.height * 0.25,
+      size.width * 0.6,
+      size.height * 0.55,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(clipboardRect, const Radius.circular(4)),
       fillPaint,
@@ -215,7 +240,11 @@ class NoIssuesPainter extends CustomPainter {
 
     // Clipboard clip
     final clipRect = Rect.fromLTWH(
-        size.width * 0.4, size.height * 0.2, size.width * 0.2, size.height * 0.1);
+      size.width * 0.4,
+      size.height * 0.2,
+      size.width * 0.2,
+      size.height * 0.1,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(clipRect, const Radius.circular(2)),
       paint,
@@ -313,11 +342,23 @@ class NoCommentsPainter extends CustomPainter {
     final questionPath = Path();
     questionPath.moveTo(centerX - 5, centerY - 8);
     questionPath.quadraticBezierTo(
-        centerX - 8, centerY - 12, centerX - 5, centerY - 15);
+      centerX - 8,
+      centerY - 12,
+      centerX - 5,
+      centerY - 15,
+    );
     questionPath.quadraticBezierTo(
-        centerX + 2, centerY - 18, centerX + 5, centerY - 15);
+      centerX + 2,
+      centerY - 18,
+      centerX + 5,
+      centerY - 15,
+    );
     questionPath.quadraticBezierTo(
-        centerX + 7, centerY - 12, centerX + 5, centerY - 8);
+      centerX + 7,
+      centerY - 12,
+      centerX + 5,
+      centerY - 8,
+    );
     canvas.drawPath(questionPath, questionPaint);
 
     // Question mark dot
@@ -352,8 +393,12 @@ class NoProjectsPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     // Board frame
-    final boardRect = Rect.fromLTWH(size.width * 0.15, size.height * 0.25,
-        size.width * 0.7, size.height * 0.5);
+    final boardRect = Rect.fromLTWH(
+      size.width * 0.15,
+      size.height * 0.25,
+      size.width * 0.7,
+      size.height * 0.5,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(boardRect, const Radius.circular(4)),
       fillPaint,
@@ -369,18 +414,30 @@ class NoProjectsPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.2, size.height * 0.32,
-          size.width * 0.18, size.height * 0.35),
+      Rect.fromLTWH(
+        size.width * 0.2,
+        size.height * 0.32,
+        size.width * 0.18,
+        size.height * 0.35,
+      ),
       columnPaint,
     );
     canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.41, size.height * 0.32,
-          size.width * 0.18, size.height * 0.35),
+      Rect.fromLTWH(
+        size.width * 0.41,
+        size.height * 0.32,
+        size.width * 0.18,
+        size.height * 0.35,
+      ),
       columnPaint,
     );
     canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.62, size.height * 0.32,
-          size.width * 0.18, size.height * 0.35),
+      Rect.fromLTWH(
+        size.width * 0.62,
+        size.height * 0.32,
+        size.width * 0.18,
+        size.height * 0.35,
+      ),
       columnPaint,
     );
 
@@ -391,11 +448,23 @@ class NoProjectsPainter extends CustomPainter {
     final questionPath = Path();
     questionPath.moveTo(centerX - 6, centerY - 10);
     questionPath.quadraticBezierTo(
-        centerX - 10, centerY - 15, centerX - 6, centerY - 19);
+      centerX - 10,
+      centerY - 15,
+      centerX - 6,
+      centerY - 19,
+    );
     questionPath.quadraticBezierTo(
-        centerX + 3, centerY - 23, centerX + 7, centerY - 19);
+      centerX + 3,
+      centerY - 23,
+      centerX + 7,
+      centerY - 19,
+    );
     questionPath.quadraticBezierTo(
-        centerX + 10, centerY - 15, centerX + 7, centerY - 10);
+      centerX + 10,
+      centerY - 15,
+      centerX + 7,
+      centerY - 10,
+    );
     canvas.drawPath(questionPath, questionPaint);
 
     // Question mark dot
@@ -438,25 +507,31 @@ class SearchEmptyPainter extends CustomPainter {
 
     // Magnifying glass handle
     final handlePath = Path();
-    handlePath.moveTo(
-      centerX + lensRadius * 0.7,
-      centerY + lensRadius * 0.7,
-    );
-    handlePath.lineTo(
-      centerX + lensRadius * 1.4,
-      centerY + lensRadius * 1.4,
-    );
+    handlePath.moveTo(centerX + lensRadius * 0.7, centerY + lensRadius * 0.7);
+    handlePath.lineTo(centerX + lensRadius * 1.4, centerY + lensRadius * 1.4);
     canvas.drawPath(handlePath, paint);
 
     // Question mark inside lens
     final questionPath = Path();
     questionPath.moveTo(centerX - 5, centerY - 8);
     questionPath.quadraticBezierTo(
-        centerX - 8, centerY - 12, centerX - 5, centerY - 15);
+      centerX - 8,
+      centerY - 12,
+      centerX - 5,
+      centerY - 15,
+    );
     questionPath.quadraticBezierTo(
-        centerX + 2, centerY - 18, centerX + 5, centerY - 15);
+      centerX + 2,
+      centerY - 18,
+      centerX + 5,
+      centerY - 15,
+    );
     questionPath.quadraticBezierTo(
-        centerX + 7, centerY - 12, centerX + 5, centerY - 8);
+      centerX + 7,
+      centerY - 12,
+      centerX + 5,
+      centerY - 8,
+    );
     canvas.drawPath(questionPath, questionPaint);
 
     // Question mark dot
@@ -500,41 +575,55 @@ class EmptyStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            EmptyStateIllustration(type: type, size: 100),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact =
+            constraints.hasBoundedHeight && constraints.maxHeight < 220;
+        final padding = isCompact ? 12.0 : 24.0;
+        final spacing = isCompact ? 12.0 : 24.0;
+        final illustrationSize = isCompact
+            ? (constraints.maxHeight - padding * 2 - 44).clamp(32.0, 100.0)
+            : 100.0;
+
+        return Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(padding),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  EmptyStateIllustration(type: type, size: illustrationSize),
+                  SizedBox(height: spacing),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: isCompact ? 16 : 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (subtitle != null) ...[
+                    SizedBox(height: isCompact ? 6 : 8),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: isCompact ? 13 : 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  if (action != null) ...[
+                    SizedBox(height: isCompact ? 12 : 16),
+                    action!,
+                  ],
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                subtitle!,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (action != null) ...[
-              const SizedBox(height: 16),
-              action!,
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

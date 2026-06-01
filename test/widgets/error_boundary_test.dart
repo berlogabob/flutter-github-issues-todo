@@ -361,14 +361,21 @@ void main() {
       ) async {
         await tester.pumpWidget(
           MaterialApp(
-            home: Scaffold(
-              body: ErrorBoundary(
-                errorMessage: 'Error',
-                child: const Text('Child'),
+            initialRoute: '/',
+            routes: {
+              '/': (_) => const Scaffold(body: Text('Previous')),
+              '/error': (_) => Scaffold(
+                body: ErrorBoundary(
+                  errorMessage: 'Error',
+                  child: const Text('Child'),
+                ),
               ),
-            ),
+            },
           ),
         );
+        await tester.pumpAndSettle();
+
+        Navigator.of(tester.element(find.text('Previous'))).pushNamed('/error');
         await tester.pumpAndSettle();
 
         // Trigger error
@@ -380,8 +387,9 @@ void main() {
         await tester.tap(find.text('Go Back'));
         await tester.pumpAndSettle();
 
-        // Should pop the screen
+        // Should pop back to the previous screen
         expect(find.byType(ErrorBoundary), findsNothing);
+        expect(find.text('Previous'), findsOneWidget);
       });
     });
 
@@ -523,7 +531,7 @@ void main() {
         await tester.tap(find.text('Error Details'));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('StackTrace:'), findsWidgets);
+        expect(find.textContaining('Stack Trace:'), findsWidgets);
       });
 
       testWidgets('details has copy button', (tester) async {
@@ -849,7 +857,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(Scaffold), findsOneWidget);
-      expect(find.byType(Center), findsOneWidget);
+      expect(find.byType(Center), findsWidgets);
     });
 
     testWidgets('has red background with opacity', (tester) async {

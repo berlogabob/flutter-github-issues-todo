@@ -307,12 +307,24 @@ class LocalStorageService {
     return await _loadIssuesFromVault();
   }
 
+  /// Load cached local issues without creating a fallback vault folder.
+  ///
+  /// Dashboard and detail cache hydration should be read-only. Creating or
+  /// probing a vault path while rendering cached data can block first paint.
+  Future<List<IssueItem>> getCachedLocalIssues() async {
+    return await _loadIssuesFromVault(createFallbackVault: false);
+  }
+
   /// Load issues from vault folder markdown files
-  Future<List<IssueItem>> _loadIssuesFromVault() async {
+  Future<List<IssueItem>> _loadIssuesFromVault({
+    bool createFallbackVault = true,
+  }) async {
     final List<IssueItem> issues = [];
 
     try {
-      final vaultPath = await getVaultFolder();
+      final vaultPath = createFallbackVault
+          ? await getVaultFolder()
+          : await _storage.read(key: 'vault_folder');
       if (vaultPath == null) return issues;
 
       final vaultDir = Directory(vaultPath);
@@ -1102,7 +1114,7 @@ class LocalStorageService {
     try {
       final repos = await getRepos();
       final projects = await getSyncedProjects();
-      final localIssues = await getLocalIssues();
+      final localIssues = await getCachedLocalIssues();
 
       // Load issues for each repo
       final reposWithIssues = <RepoItem>[];

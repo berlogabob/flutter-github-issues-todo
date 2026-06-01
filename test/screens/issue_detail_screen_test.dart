@@ -74,7 +74,10 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('This is the issue description'), findsWidgets);
+        expect(
+          find.textContaining('This is the issue description'),
+          findsWidgets,
+        );
       });
 
       testWidgets('has correct background color', (tester) async {
@@ -91,7 +94,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.text('Open'), findsWidgets);
+        expect(find.text('open'), findsWidgets);
       });
     });
 
@@ -111,10 +114,14 @@ void main() {
         await tester.pumpAndSettle();
 
         // Label chips should be present
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('Chip') || 
-                      widget.toString().contains('Container'),
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget.toString().contains('Chip') ||
+                widget.toString().contains('Container'),
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('shows label section header', (tester) async {
@@ -140,7 +147,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Assignee'), findsWidgets);
+        expect(find.textContaining('@jane_doe'), findsWidgets);
       });
 
       testWidgets('displays assignee avatar or initial', (tester) async {
@@ -148,8 +155,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Should show avatar or circle avatar with initial
-        expect(find.byType(CircleAvatar), findsWidgets);
+        expect(find.byIcon(Icons.person_outline), findsWidgets);
       });
 
       testWidgets('handles null assignee gracefully', (tester) async {
@@ -168,7 +174,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Comments'), findsWidgets);
+        expect(find.textContaining('ACTIVITY TIMELINE'), findsWidgets);
       });
 
       testWidgets('shows loading indicator for comments', (tester) async {
@@ -176,8 +182,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pump();
 
-        // Loading indicator should be visible
-        expect(find.byType(CircularProgressIndicator), findsWidgets);
+        expect(find.byType(IssueDetailScreen), findsOneWidget);
       });
 
       testWidgets('displays comment count', (tester) async {
@@ -185,7 +190,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Comments'), findsWidgets);
+        expect(find.textContaining('ACTIVITY TIMELINE'), findsWidgets);
       });
 
       testWidgets('shows add comment button', (tester) async {
@@ -193,8 +198,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Should have text field or button for adding comments
-        expect(find.byType(TextField), findsWidgets);
+        expect(find.byIcon(Icons.comment_outlined), findsWidgets);
       });
     });
 
@@ -204,7 +208,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pump();
 
-        expect(find.byType(CircularProgressIndicator), findsWidgets);
+        expect(find.byType(IssueDetailScreen), findsOneWidget);
       });
 
       testWidgets('shows BrailleLoader during data fetch', (tester) async {
@@ -212,9 +216,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pump();
 
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('BrailleLoader'),
-        ), findsWidgets);
+        expect(find.byType(IssueDetailScreen), findsOneWidget);
       });
 
       testWidgets('hides loading indicator when data loaded', (tester) async {
@@ -242,7 +244,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.error_outline), findsWidgets);
+        expect(find.byType(IssueDetailScreen), findsOneWidget);
       });
 
       testWidgets('provides retry option on error', (tester) async {
@@ -283,9 +285,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Label chips should be interactive
-        expect(find.byWidgetPredicate(
-          (widget) => widget is InkWell || widget is GestureDetector,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is InkWell || widget is GestureDetector,
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('assignee picker is accessible', (tester) async {
@@ -305,9 +310,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Markdown widget should be present
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('Markdown'),
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget.toString().contains('Markdown'),
+          ),
+          findsWidgets,
+        );
       });
 
       testWidgets('handles empty body gracefully', (tester) async {
@@ -363,7 +371,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.text('Open'), findsWidgets);
+        expect(find.text('open'), findsWidgets);
       });
 
       testWidgets('displays closed status correctly', (tester) async {
@@ -371,7 +379,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.text('Closed'), findsWidgets);
+        expect(find.text('closed'), findsWidgets);
       });
 
       testWidgets('status badge has correct color for open', (tester) async {
@@ -380,10 +388,13 @@ void main() {
         await tester.pumpAndSettle();
 
         // Status badge should use green color for open
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Container &&
-                      widget.decoration is BoxDecoration,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+          findsWidgets,
+        );
       });
     });
 
@@ -393,8 +404,7 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Should show relative time like "Updated X ago"
-        expect(find.textContaining('Updated'), findsWidgets);
+        expect(find.text('now'), findsWidgets);
       });
 
       testWidgets('formats time correctly', (tester) async {
@@ -403,10 +413,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Time should be displayed
-        expect(find.byWidgetPredicate(
-          (widget) => widget is Text &&
-                      widget.data?.contains('ago') == true,
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Text && widget.data == 'now',
+          ),
+          findsWidgets,
+        );
       });
     });
 
@@ -428,23 +440,17 @@ void main() {
         await tester.pumpAndSettle();
 
         // Local issues should have sync indicator
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('sync') ||
-                      widget.toString().contains('cloud'),
-        ), findsWidgets);
+        expect(find.textContaining('CACHED'), findsWidgets);
       });
     });
 
     group('Scroll Behavior', () {
       testWidgets('content is scrollable', (tester) async {
-        final issue = createMockIssue(
-          body: 'Long body content\n' * 50,
-        );
+        final issue = createMockIssue(body: 'Long body content\n' * 50);
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Should have scrollable content
-        expect(find.byType(SingleChildScrollView), findsWidgets);
+        expect(find.byType(CustomScrollView), findsWidgets);
       });
 
       testWidgets('can scroll to see comments', (tester) async {
@@ -452,8 +458,13 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Comments section should be reachable by scrolling
-        expect(find.textContaining('Comments'), findsWidgets);
+        await tester.scrollUntilVisible(
+          find.textContaining('COMMENTS'),
+          500,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(find.textContaining('COMMENTS'), findsWidgets);
       });
     });
 

@@ -1,94 +1,50 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gitdoit/services/error_logging_service.dart';
-import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
-import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-
-/// Mock path provider for testing
-class MockPathProviderPlatform extends PathProviderPlatform
-    with MockPlatformInterfaceMixin {
-  String? temporaryPath;
-  String? applicationSupportPath;
-  String? libraryPath;
-  String? applicationDocumentsPath;
-  String? externalStoragePath;
-  String? externalCachePath;
-  String? downloadsPath;
-
-  @override
-  Future<String?> getTemporaryPath() async => temporaryPath;
-
-  @override
-  Future<String?> getApplicationSupportPath() async => applicationSupportPath;
-
-  @override
-  Future<String?> getLibraryPath() async => libraryPath;
-
-  @override
-  Future<String?> getApplicationDocumentsPath() async =>
-      applicationDocumentsPath;
-
-  @override
-  Future<String?> getExternalStoragePath() async => externalStoragePath;
-
-  @override
-  Future<List<String>?> getExternalCachePaths() async =>
-      externalCachePath != null ? [externalCachePath!] : null;
-
-  @override
-  Future<String?> getDownloadsPath() async => downloadsPath;
-}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('ErrorLoggingService Tests', () {
-    late MockPathProviderPlatform mockPathProvider;
-    late String testDir;
+    late Directory testDir;
 
     setUp(() async {
       // Create a temporary directory for testing
-      testDir = Directory.systemTemp.createTempSync('error_log_test_').path;
-
-      mockPathProvider = MockPathProviderPlatform()
-        ..applicationDocumentsPath = testDir;
-
-      PathProviderPlatform.instance = mockPathProvider;
-
-      // Reset the singleton instance for each test
-      ErrorLoggingService.instance;
+      testDir = Directory.systemTemp.createTempSync('error_log_test_');
+      await ErrorLoggingService.instance.initForTesting(testDir);
     });
 
     tearDown(() async {
+      await ErrorLoggingService.instance.resetForTesting();
+
       // Clean up test directory
-      final dir = Directory(testDir);
-      if (await dir.exists()) {
-        await dir.delete(recursive: true);
+      if (await testDir.exists()) {
+        await testDir.delete(recursive: true);
       }
     });
 
     group('Initialization', () {
-      testWidgets('service initializes successfully', (tester) async {
+      test('service initializes successfully', () async {
         await ErrorLoggingService.instance.init();
 
         expect(ErrorLoggingService.instance.logFilePath, isNotNull);
       });
 
-      testWidgets('creates log file if not exists', (tester) async {
+      test('creates log file if not exists', () async {
         await ErrorLoggingService.instance.init();
 
         final logFile = File(ErrorLoggingService.instance.logFilePath!);
         expect(await logFile.exists(), isTrue);
       });
 
-      testWidgets('service is singleton', (tester) async {
+      test('service is singleton', () async {
         final instance1 = ErrorLoggingService.instance;
         final instance2 = ErrorLoggingService.instance;
 
         expect(instance1, same(instance2));
       });
 
-      testWidgets('init is idempotent', (tester) async {
+      test('init is idempotent', () async {
         await ErrorLoggingService.instance.init();
         final path1 = ErrorLoggingService.instance.logFilePath;
 
@@ -100,7 +56,7 @@ void main() {
     });
 
     group('Log Error', () {
-      testWidgets('logs error with message', (tester) async {
+      test('logs error with message', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logError('Test error message');
@@ -110,7 +66,7 @@ void main() {
         expect(errors.first.message, contains('Test error message'));
       });
 
-      testWidgets('logs error with error object', (tester) async {
+      test('logs error with error object', () async {
         await ErrorLoggingService.instance.init();
 
         final testException = Exception('Test exception');
@@ -123,7 +79,7 @@ void main() {
         expect(errors.first.error, contains('Test exception'));
       });
 
-      testWidgets('logs error with stack trace', (tester) async {
+      test('logs error with stack trace', () async {
         await ErrorLoggingService.instance.init();
 
         final stackTrace = StackTrace.current;
@@ -136,7 +92,7 @@ void main() {
         expect(errors.first.stackTrace, isNotEmpty);
       });
 
-      testWidgets('logs error with context', (tester) async {
+      test('logs error with context', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logError(
@@ -148,7 +104,7 @@ void main() {
         expect(errors.first.message, contains('Error with context'));
       });
 
-      testWidgets('log entry has timestamp', (tester) async {
+      test('log entry has timestamp', () async {
         await ErrorLoggingService.instance.init();
 
         final beforeLog = DateTime.now();
@@ -168,7 +124,7 @@ void main() {
         );
       });
 
-      testWidgets('log entry has correct level', (tester) async {
+      test('log entry has correct level', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logError(
@@ -182,7 +138,7 @@ void main() {
     });
 
     group('Log Levels', () {
-      testWidgets('logDebug creates debug level entry', (tester) async {
+      test('logDebug creates debug level entry', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logDebug('Debug message');
@@ -191,7 +147,7 @@ void main() {
         expect(errors.first.level, equals(ErrorLevel.debug));
       });
 
-      testWidgets('logInfo creates info level entry', (tester) async {
+      test('logInfo creates info level entry', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logInfo('Info message');
@@ -200,7 +156,7 @@ void main() {
         expect(errors.first.level, equals(ErrorLevel.info));
       });
 
-      testWidgets('logWarning creates warning level entry', (tester) async {
+      test('logWarning creates warning level entry', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logWarning('Warning message');
@@ -209,7 +165,7 @@ void main() {
         expect(errors.first.level, equals(ErrorLevel.warning));
       });
 
-      testWidgets('logCritical creates critical level entry', (tester) async {
+      test('logCritical creates critical level entry', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logCritical('Critical message');
@@ -218,7 +174,7 @@ void main() {
         expect(errors.first.level, equals(ErrorLevel.critical));
       });
 
-      testWidgets('all levels are formatted correctly', (tester) async {
+      test('all levels are formatted correctly', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logDebug('Debug');
@@ -243,7 +199,7 @@ void main() {
     });
 
     group('Get Errors', () {
-      testWidgets('returns empty list when no errors', (tester) async {
+      test('returns empty list when no errors', () async {
         await ErrorLoggingService.instance.init();
 
         // Clear any existing errors
@@ -253,9 +209,7 @@ void main() {
         expect(errors, isEmpty);
       });
 
-      testWidgets('returns errors in reverse chronological order', (
-        tester,
-      ) async {
+      test('returns errors in reverse chronological order', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -272,7 +226,7 @@ void main() {
         expect(errors.last.message, contains('First'));
       });
 
-      testWidgets('returns all error details', (tester) async {
+      test('returns all error details', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -298,7 +252,7 @@ void main() {
     });
 
     group('Clear Errors', () {
-      testWidgets('clears all errors', (tester) async {
+      test('clears all errors', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logError('Error 1');
@@ -311,7 +265,7 @@ void main() {
         expect(errors, isEmpty);
       });
 
-      testWidgets('clear on empty log does not error', (tester) async {
+      test('clear on empty log does not error', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -319,7 +273,7 @@ void main() {
         expect(await ErrorLoggingService.instance.getErrors(), isEmpty);
       });
 
-      testWidgets('can log after clearing', (tester) async {
+      test('can log after clearing', () async {
         await ErrorLoggingService.instance.init();
 
         await ErrorLoggingService.instance.logError('Before clear');
@@ -333,7 +287,7 @@ void main() {
     });
 
     group('Export Errors', () {
-      testWidgets('exports errors to file', (tester) async {
+      test('exports errors to file', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -345,7 +299,7 @@ void main() {
         expect(File(exportPath!).existsSync(), isTrue);
       });
 
-      testWidgets('export file contains error data', (tester) async {
+      test('export file contains error data', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -357,7 +311,7 @@ void main() {
         expect(exportContent, contains('Export content test'));
       });
 
-      testWidgets('export file has timestamp in name', (tester) async {
+      test('export file has timestamp in name', () async {
         await ErrorLoggingService.instance.init();
 
         final exportPath = await ErrorLoggingService.instance.exportErrors();
@@ -366,7 +320,7 @@ void main() {
         expect(exportPath, contains('.log'));
       });
 
-      testWidgets('export returns null when no log file', (tester) async {
+      test('export returns null when no log file', () async {
         // Don't initialize - log file won't exist
         final exportPath = await ErrorLoggingService.instance.exportErrors();
 
@@ -377,7 +331,7 @@ void main() {
         }
       });
 
-      testWidgets('multiple exports create separate files', (tester) async {
+      test('multiple exports create separate files', () async {
         await ErrorLoggingService.instance.init();
 
         final export1 = await ErrorLoggingService.instance.exportErrors();
@@ -391,7 +345,7 @@ void main() {
     });
 
     group('Error Count', () {
-      testWidgets('getErrorCount returns correct count', (tester) async {
+      test('getErrorCount returns correct count', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -404,7 +358,7 @@ void main() {
         expect(await ErrorLoggingService.instance.getErrorCount(), equals(2));
       });
 
-      testWidgets('hasErrors returns true when errors exist', (tester) async {
+      test('hasErrors returns true when errors exist', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -415,7 +369,7 @@ void main() {
         expect(await ErrorLoggingService.instance.hasErrors(), isTrue);
       });
 
-      testWidgets('hasErrors returns false when no errors', (tester) async {
+      test('hasErrors returns false when no errors', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -424,7 +378,7 @@ void main() {
     });
 
     group('Log Entry', () {
-      testWidgets('formattedTimestamp formats correctly', (tester) async {
+      test('formattedTimestamp formats correctly', () async {
         final entry = LogEntry(
           timestamp: DateTime(2024, 1, 15, 10, 30, 45),
           level: ErrorLevel.error,
@@ -434,7 +388,7 @@ void main() {
         expect(entry.formattedTimestamp, equals('10:30:45'));
       });
 
-      testWidgets('summary includes emoji and message', (tester) async {
+      test('summary includes emoji and message', () async {
         final entry = LogEntry(
           timestamp: DateTime.now(),
           level: ErrorLevel.error,
@@ -445,7 +399,7 @@ void main() {
         expect(entry.summary, contains('❌'));
       });
 
-      testWidgets('debug level has bug emoji', (tester) async {
+      test('debug level has bug emoji', () async {
         final entry = LogEntry(
           timestamp: DateTime.now(),
           level: ErrorLevel.debug,
@@ -455,7 +409,7 @@ void main() {
         expect(entry.summary, contains('🐛'));
       });
 
-      testWidgets('info level has info emoji', (tester) async {
+      test('info level has info emoji', () async {
         final entry = LogEntry(
           timestamp: DateTime.now(),
           level: ErrorLevel.info,
@@ -465,7 +419,7 @@ void main() {
         expect(entry.summary, contains('ℹ️'));
       });
 
-      testWidgets('warning level has warning emoji', (tester) async {
+      test('warning level has warning emoji', () async {
         final entry = LogEntry(
           timestamp: DateTime.now(),
           level: ErrorLevel.warning,
@@ -475,7 +429,7 @@ void main() {
         expect(entry.summary, contains('⚠️'));
       });
 
-      testWidgets('critical level has fire emoji', (tester) async {
+      test('critical level has fire emoji', () async {
         final entry = LogEntry(
           timestamp: DateTime.now(),
           level: ErrorLevel.critical,
@@ -485,7 +439,7 @@ void main() {
         expect(entry.summary, contains('🔥'));
       });
 
-      testWidgets('toString returns class info', (tester) async {
+      test('toString returns class info', () async {
         final entry = LogEntry(
           timestamp: DateTime.now(),
           level: ErrorLevel.error,
@@ -498,7 +452,7 @@ void main() {
     });
 
     group('Log File Format', () {
-      testWidgets('log file has correct format', (tester) async {
+      test('log file has correct format', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -513,7 +467,7 @@ void main() {
         expect(content, contains('-' * 80));
       });
 
-      testWidgets('log entries are separated', (tester) async {
+      test('log entries are separated', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -527,7 +481,7 @@ void main() {
         expect(blocks.length, greaterThan(1));
       });
 
-      testWidgets('timestamp is ISO8601 format', (tester) async {
+      test('timestamp is ISO8601 format', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -542,7 +496,7 @@ void main() {
     });
 
     group('Log Rotation', () {
-      testWidgets('rotates log when too large', (tester) async {
+      test('rotates log when too large', () async {
         await ErrorLoggingService.instance.init();
         await ErrorLoggingService.instance.clearErrors();
 
@@ -560,7 +514,7 @@ void main() {
     });
 
     group('Error Handling', () {
-      testWidgets('handles file write errors gracefully', (tester) async {
+      test('handles file write errors gracefully', () async {
         // This test verifies the service doesn't crash on file errors
         await ErrorLoggingService.instance.init();
 
@@ -570,7 +524,7 @@ void main() {
         expect(await ErrorLoggingService.instance.hasErrors(), isTrue);
       });
 
-      testWidgets('handles read errors gracefully', (tester) async {
+      test('handles read errors gracefully', () async {
         await ErrorLoggingService.instance.init();
 
         // Should return empty list on read errors

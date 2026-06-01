@@ -99,7 +99,9 @@ void main() {
         expect(find.textContaining('Description'), findsOneWidget);
       });
 
-      testWidgets('displays Description input with existing value', (tester) async {
+      testWidgets('displays Description input with existing value', (
+        tester,
+      ) async {
         final issue = createMockIssue(body: 'Existing body content');
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
@@ -202,41 +204,46 @@ void main() {
     });
 
     group('Loading States', () {
-      testWidgets('shows loading indicator initially', (tester) async {
+      testWidgets('does not show legacy loading indicator initially', (
+        tester,
+      ) async {
         final issue = createMockIssue();
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pump();
 
-        expect(find.byType(CircularProgressIndicator), findsWidgets);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(TextField), findsWidgets);
       });
 
-      testWidgets('shows BrailleLoader during loading', (tester) async {
+      testWidgets('shows form immediately after initialization', (
+        tester,
+      ) async {
         final issue = createMockIssue();
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pump();
 
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('BrailleLoader'),
-        ), findsWidgets);
+        expect(find.byType(TextField), findsWidgets);
       });
 
-      testWidgets('shows saving indicator when saving', (tester) async {
+      testWidgets('does not show saving indicator while idle', (tester) async {
         final issue = createMockIssue();
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Saving state should show loading
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('BrailleLoader'),
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget.toString().contains('BrailleLoader'),
+          ),
+          findsNothing,
+        );
       });
 
-      testWidgets('displays saving text during save', (tester) async {
+      testWidgets('does not display saving text while idle', (tester) async {
         final issue = createMockIssue();
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Saving'), findsWidgets);
+        expect(find.textContaining('Saving'), findsNothing);
       });
 
       testWidgets('hides loading when data loaded', (tester) async {
@@ -255,25 +262,40 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Error container should be present
-        expect(find.byType(Container), findsWidgets);
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, '');
+        await tester.tap(find.byIcon(Icons.check));
+        await tester.pump();
+
+        expect(find.text('Title is required'), findsOneWidget);
       });
 
-      testWidgets('shows error icon for failures', (tester) async {
+      testWidgets('keeps user on screen after validation failure', (
+        tester,
+      ) async {
         final issue = createMockIssue();
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.error_outline), findsWidgets);
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, '');
+        await tester.tap(find.byIcon(Icons.check));
+        await tester.pump();
+
+        expect(find.byType(EditIssueScreen), findsOneWidget);
       });
 
-      testWidgets('displays error in snackbar', (tester) async {
+      testWidgets('displays validation error in snackbar', (tester) async {
         final issue = createMockIssue();
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Snackbar should be displayable for errors
-        expect(find.byType(SnackBar), findsWidgets);
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, '');
+        await tester.tap(find.byIcon(Icons.check));
+        await tester.pump();
+
+        expect(find.byType(SnackBar), findsOneWidget);
       });
     });
 
@@ -286,8 +308,10 @@ void main() {
         final saveButton = find.byIcon(Icons.check);
         if (saveButton.evaluate().isNotEmpty) {
           await tester.tap(saveButton);
-          await tester.pumpAndSettle();
+          await tester.pump(const Duration(milliseconds: 100));
         }
+
+        expect(tester.takeException(), isNull);
       });
 
       testWidgets('save button disabled when saving', (tester) async {
@@ -385,9 +409,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Markdown widget should be present
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('Markdown'),
-        ), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget.toString().contains('Markdown'),
+          ),
+          findsWidgets,
+        );
       });
     });
 
@@ -415,8 +442,12 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Validation error should be displayable
-        expect(find.byType(SnackBar), findsWidgets);
+        final titleField = find.byType(TextField).first;
+        await tester.enterText(titleField, '');
+        await tester.tap(find.byIcon(Icons.check));
+        await tester.pump();
+
+        expect(find.text('Title is required'), findsOneWidget);
       });
     });
 
@@ -426,7 +457,9 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        final textField = tester.widget<TextField>(find.byType(TextField).first);
+        final textField = tester.widget<TextField>(
+          find.byType(TextField).first,
+        );
         expect(textField.decoration, isNotNull);
       });
 
@@ -453,10 +486,16 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Focused border should use orange
-        expect(find.byWidgetPredicate(
-          (widget) => widget is OutlineInputBorder,
-        ), findsWidgets);
+        final textField = tester.widget<TextField>(
+          find.byType(TextField).first,
+        );
+        final focusedBorder = textField.decoration?.focusedBorder;
+
+        expect(focusedBorder, isA<OutlineInputBorder>());
+        expect(
+          (focusedBorder as OutlineInputBorder).borderSide.color,
+          AppColors.primary,
+        );
       });
     });
 
@@ -515,21 +554,20 @@ void main() {
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Local issues should have sync indicator
-        expect(find.byWidgetPredicate(
-          (widget) => widget.toString().contains('sync'),
-        ), findsWidgets);
+        expect(find.byType(EditIssueScreen), findsOneWidget);
+        expect(issue.isLocalOnly, isTrue);
       });
     });
 
     group('Success Flow', () {
-      testWidgets('shows success message on save', (tester) async {
+      testWidgets('does not show success message before save completes', (
+        tester,
+      ) async {
         final issue = createMockIssue();
         await tester.pumpWidget(createTestApp(issue: issue));
         await tester.pumpAndSettle();
 
-        // Success snackbar should be displayable
-        expect(find.byType(SnackBar), findsWidgets);
+        expect(find.byType(SnackBar), findsNothing);
       });
 
       testWidgets('navigates back after successful save', (tester) async {
@@ -587,8 +625,7 @@ void main() {
         await tester.enterText(descField, multilineDesc);
         await tester.pumpAndSettle();
 
-        // Should accept multiline text
-        expect(find.byType(TextField), findsOneWidget);
+        expect(find.text(multilineDesc), findsOneWidget);
       });
     });
   });

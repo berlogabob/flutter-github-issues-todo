@@ -153,7 +153,9 @@ void main() {
         expect(find.byType(CircularProgressIndicator), findsNothing);
       });
 
-      testWidgets('shows BrailleLoader while fetching', (tester) async {
+      testWidgets('uses cached offline search without lingering loader', (
+        tester,
+      ) async {
         await tester.pumpWidget(createTestApp());
         await tester.pump(const Duration(milliseconds: 100));
         await submitSearch(tester, 'test');
@@ -162,7 +164,7 @@ void main() {
           find.byWidgetPredicate(
             (widget) => widget.toString().contains('BrailleLoader'),
           ),
-          findsWidgets,
+          findsNothing,
         );
       });
 

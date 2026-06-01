@@ -95,24 +95,42 @@ class ErrorLoggingService {
 
     try {
       final appDir = await getApplicationDocumentsDirectory();
-      _logFile = File('${appDir.path}/errors.log');
-
-      // Create file if it doesn't exist
-      if (!await _logFile!.exists()) {
-        await _logFile!.create();
-      }
-
-      // Rotate log if too large
-      await _rotateLogIfNeeded();
-
-      _isInitialized = true;
-      debugPrint(
-        'ErrorLoggingService: Initialized with log file at ${_logFile!.path}',
-      );
+      await _initializeInDirectory(appDir);
     } catch (e, stackTrace) {
       debugPrint('ErrorLoggingService: Initialization failed: $e');
       debugPrint('Stack: $stackTrace');
     }
+  }
+
+  Future<void> _initializeInDirectory(Directory appDir) async {
+    _logFile = File('${appDir.path}/errors.log');
+
+    // Create file if it doesn't exist
+    if (!await _logFile!.exists()) {
+      await _logFile!.create(recursive: true);
+    }
+
+    // Rotate log if too large
+    await _rotateLogIfNeeded();
+
+    _isInitialized = true;
+    debugPrint(
+      'ErrorLoggingService: Initialized with log file at ${_logFile!.path}',
+    );
+  }
+
+  /// Reset singleton state between tests.
+  @visibleForTesting
+  Future<void> resetForTesting() async {
+    _logFile = null;
+    _isInitialized = false;
+  }
+
+  /// Initialize with an explicit directory in tests.
+  @visibleForTesting
+  Future<void> initForTesting(Directory appDir) async {
+    await resetForTesting();
+    await _initializeInDirectory(appDir);
   }
 
   /// Rotate log file if it exceeds max size

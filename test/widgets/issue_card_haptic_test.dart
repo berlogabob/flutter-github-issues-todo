@@ -27,21 +27,18 @@ void main() {
       // Mock haptic feedback
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, (message) async {
-        if (message.method == 'HapticFeedback.vibrate') {
-          // Haptic was triggered
-        }
-        return null;
-      });
+            if (message.method == 'HapticFeedback.vibrate') {
+              // Haptic was triggered
+            }
+            return null;
+          });
 
       await tester.pumpWidget(
         ScreenUtilInit(
           designSize: const Size(360, 690),
           builder: (context, child) => MaterialApp(
             home: Scaffold(
-              body: IssueCard(
-                issue: testIssue,
-                onTap: (issue) {},
-              ),
+              body: IssueCard(issue: testIssue, onTap: (issue) {}),
             ),
           ),
         ),
@@ -55,7 +52,11 @@ void main() {
 
       // Haptic feedback should be triggered
       // Note: Actual haptic testing is limited in test environment
-      expect(true, isTrue, reason: 'HapticFeedback.lightImpact() is called in IssueCard onTap');
+      expect(
+        true,
+        isTrue,
+        reason: 'HapticFeedback.lightImpact() is called in IssueCard onTap',
+      );
     });
 
     testWidgets('IssueCard triggers haptic on swipe', (tester) async {
@@ -81,24 +82,32 @@ void main() {
       await tester.pump();
 
       // Haptic feedback should be triggered
-      expect(true, isTrue, reason: 'HapticFeedback.lightImpact() is called in IssueCard confirmDismiss');
+      expect(
+        true,
+        isTrue,
+        reason:
+            'HapticFeedback.lightImpact() is called in IssueCard confirmDismiss',
+      );
     });
 
     test('HapticFeedback is imported in issue_card.dart', () {
       // Verify the import exists
-      expect(true, isTrue, reason: 'import flutter/services.dart exists in issue_card.dart');
+      expect(
+        true,
+        isTrue,
+        reason: 'import flutter/services.dart exists in issue_card.dart',
+      );
     });
 
-    testWidgets('IssueCard displays correctly with haptic enabled', (tester) async {
+    testWidgets('IssueCard displays correctly with haptic enabled', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ScreenUtilInit(
           designSize: const Size(360, 690),
           builder: (context, child) => MaterialApp(
             home: Scaffold(
-              body: IssueCard(
-                issue: testIssue,
-                onTap: (issue) {},
-              ),
+              body: IssueCard(issue: testIssue, onTap: (issue) {}),
             ),
           ),
         ),
@@ -106,8 +115,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Card should display issue title
-      expect(find.text('Test Issue'), findsOneWidget);
+      // Card should display issue number and title for synced issues.
+      expect(find.text('#1 Test Issue'), findsOneWidget);
 
       // Card should display labels
       expect(find.text('bug'), findsOneWidget);
@@ -119,10 +128,7 @@ void main() {
           designSize: const Size(360, 690),
           builder: (context, child) => MaterialApp(
             home: Scaffold(
-              body: IssueCard(
-                issue: testIssue,
-                onTap: (issue) {},
-              ),
+              body: IssueCard(issue: testIssue, onTap: (issue) {}),
             ),
           ),
         ),

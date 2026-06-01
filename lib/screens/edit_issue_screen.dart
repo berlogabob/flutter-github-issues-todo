@@ -414,8 +414,9 @@ class _EditIssueScreenState extends ConsumerState<EditIssueScreen> {
     }
 
     final body = _bodyController.text.trim();
-    final repoFullName = widget.repo;
-    if (repoFullName == null) {
+    final ownerName = widget.owner;
+    final repoName = widget.repo;
+    if (ownerName == null || repoName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No repository selected'),
@@ -425,19 +426,8 @@ class _EditIssueScreenState extends ConsumerState<EditIssueScreen> {
       return;
     }
 
-    final parts = repoFullName.split('/');
-    if (parts.length != 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid repository name'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
-    final owner = parts[0];
-    final repo = parts[1];
+    final owner = ownerName;
+    final repo = repoName;
 
     setState(() => _isSaving = true);
 

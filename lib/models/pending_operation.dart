@@ -8,6 +8,8 @@ enum OperationType {
   deleteComment,
   updateLabels,
   updateAssignee,
+  addProjectItem,
+  setProjectItemStatus,
 }
 
 /// Operation status for tracking sync progress
@@ -181,6 +183,45 @@ class PendingOperation {
       owner: owner,
       repo: repo,
       data: {'assignee': assignee},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory PendingOperation.addProjectItem({
+    required String id,
+    required String projectId,
+    required String contentId,
+  }) {
+    return PendingOperation(
+      id: id,
+      type: OperationType.addProjectItem,
+      data: {'projectId': projectId, 'contentId': contentId},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory PendingOperation.setProjectItemStatus({
+    required String projectId,
+    required String itemId,
+    required String fieldId,
+    required String? optionId,
+    required String? optionName,
+    required String? previousOptionId,
+    required String? previousOptionName,
+  }) {
+    return PendingOperation(
+      // One pending destination per item; a later offline move replaces it.
+      id: 'project_status_${projectId}_$itemId',
+      type: OperationType.setProjectItemStatus,
+      data: {
+        'projectId': projectId,
+        'itemId': itemId,
+        'fieldId': fieldId,
+        'optionId': optionId,
+        'optionName': optionName,
+        'previousOptionId': previousOptionId,
+        'previousOptionName': previousOptionName,
+      },
       createdAt: DateTime.now(),
     );
   }

@@ -1,178 +1,206 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:reorderables/reorderables.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../constants/app_colors.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
-import '../services/github_api_service.dart';
-import '../utils/responsive_utils.dart';
+import '../models/project_item.dart';
+import '../models/repo_item.dart';
+import '../providers/repositories_provider.dart';
+import '../services/local_storage_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/braille_loader.dart';
+import 'create_issue_screen.dart';
 import 'issue_detail_screen.dart';
 
-/// ProjectBoardScreen - Kanban-style project board with real GitHub data
-/// Implements brief section 7, screen 4
+/// Local-first kanban for a real GitHub Projects V2 project.
 class ProjectBoardScreen extends ConsumerStatefulWidget {
-  const ProjectBoardScreen({super.key});
+  final ProjectV2? project;
+  final ProjectV2Board? initialBoard;
+
+  const ProjectBoardScreen({super.key, this.project, this.initialBoard});
 
   @override
   ConsumerState<ProjectBoardScreen> createState() => _ProjectBoardScreenState();
 }
 
 class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
-  final GitHubApiService _githubApi = GitHubApiService();
+  final SyncService _sync = SyncService();
+  final LocalStorageService _storage = LocalStorageService();
 
-  // Standard columns for Status field
-  final List<String> _columns = ['Todo', 'In Progress', 'Review', 'Done'];
-
-  // Project data
-  String? _projectId;
-  String? _statusFieldId;
-  final Map<String, String> _columnOptionIds = {}; // columnName -> optionId
-
-  // Issues grouped by column
-  Map<String, List<IssueItem>> _columnItems = {};
-
-  bool _isLoading = true;
-  bool _isMoving = false;
+  List<ProjectV2> _projects = const [];
+  ProjectV2? _selectedProject;
+  ProjectV2Board? _board;
+  String _query = '';
+  String? _repoFilter;
   String? _error;
+  bool _loading = true;
+  bool _refreshing = false;
+  VoidCallback? _syncListener;
 
   @override
   void initState() {
     super.initState();
-    _loadProjectData();
+    if (widget.initialBoard != null) {
+      _board = widget.initialBoard;
+      _selectedProject = widget.initialBoard!.project;
+      _projects = [widget.initialBoard!.project];
+      _loading = false;
+      return;
+    }
+    unawaited(_load());
   }
 
-  /// Load project and its items from GitHub
-  Future<void> _loadProjectData() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      // Fetch user's projects
-      final projects = await _githubApi.fetchProjects();
-
-      if (projects.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _error = 'No projects found. Create a project on GitHub first.';
-        });
-        return;
+  Future<void> _load() async {
+    await _sync.init();
+    _syncListener = () {
+      if (_selectedProject != null &&
+          (_sync.syncPhase == SyncPhase.success ||
+              _sync.syncPhase == SyncPhase.partial)) {
+        unawaited(_reloadCachedBoard());
       }
+    };
+    _sync.addListener(_syncListener!);
 
-      // Use the first open project
-      final project = projects.firstWhere(
-        (p) => !(p['closed'] as bool),
-        orElse: () => projects.first,
-      );
+    var projects = await _sync.loadProjectsFromCache();
+    if (widget.project != null &&
+        projects.every((project) => project.id != widget.project!.id)) {
+      projects = [widget.project!, ...projects];
+    }
 
-      _projectId = project['id'] as String;
-      final projectTitle = project['title'] as String;
-
-      debugPrint('Using project: $projectTitle ($_projectId)');
-
-      // Fetch project fields to find Status field
-      final fields = await _githubApi.getProjectFields(_projectId!);
-
-      if (fields == null || fields.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _error = 'Could not load project fields';
-        });
-        return;
+    ProjectV2? selected = widget.project;
+    final savedDefault = await _storage.getDefaultProject();
+    if (selected == null && savedDefault != null) {
+      selected = _findProject(projects, savedDefault);
+      if (selected != null && savedDefault != selected.id) {
+        await _storage.saveDefaultProject(selected.id);
       }
+    }
+    if (selected == null && projects.length == 1) {
+      selected = projects.single;
+    }
 
-      // Find the Status field (single select)
-      String? statusFieldName;
-      for (final field in fields) {
-        if (field['__typename'] == 'ProjectV2SingleSelectField') {
-          _statusFieldId = field['id'] as String;
-          statusFieldName = field['name'] as String;
-
-          // Get column option IDs
-          final options = field['options'] as List? ?? [];
-          for (final option in options) {
-            final optionName = option['name'] as String;
-            final optionId = option['id'] as String;
-            _columnOptionIds[optionName] = optionId;
-          }
-
-          debugPrint('Found status field: $statusFieldName ($_statusFieldId)');
-          debugPrint('Column options: ${_columnOptionIds.keys.toList()}');
-          break;
-        }
-      }
-
-      if (_statusFieldId == null) {
-        setState(() {
-          _isLoading = false;
-          _error = 'Project has no Status field (single select)';
-        });
-        return;
-      }
-
-      // Fetch project items (issues)
-      final itemsByColumn = await _githubApi.getProjectItems(
-        projectId: _projectId!,
-        statusFieldId: _statusFieldId!,
-      );
-
-      // Convert to IssueItem objects
-      final columnItems = <String, List<IssueItem>>{};
-
-      for (final entry in itemsByColumn.entries) {
-        final columnName = entry.key;
-        final issues = entry.value;
-
-        columnItems[columnName] = issues.map((issue) {
-          return IssueItem(
-            id: issue['id'] as String,
-            title: issue['title'] as String,
-            number: issue['number'] as int,
-            bodyMarkdown: issue['body'] as String?,
-            status: (issue['state'] as String) == 'open'
-                ? ItemStatus.open
-                : ItemStatus.closed,
-            updatedAt: issue['updatedAt'] != null
-                ? DateTime.parse(issue['updatedAt'] as String)
-                : null,
-            assigneeLogin: issue['assignee']?['login'] as String?,
-            labels:
-                (issue['labels']?['nodes'] as List?)
-                    ?.map((l) => l['name'] as String)
-                    .toList() ??
-                [],
-            isLocalOnly: false,
-            projectColumnName: columnName,
-          );
-        }).toList();
-      }
-
-      // Ensure all standard columns exist (even if empty)
-      for (final column in _columns) {
-        if (!columnItems.containsKey(column)) {
-          columnItems[column] = [];
-        }
-      }
-
+    if (mounted) {
       setState(() {
-        _columnItems = columnItems;
-        _isLoading = false;
-      });
-
-      debugPrint(
-        'Loaded ${itemsByColumn.values.fold<int>(0, (sum, list) => sum + list.length)} issues across ${columnItems.length} columns',
-      );
-    } catch (e, stackTrace) {
-      debugPrint('Error loading project data: $e');
-      debugPrint('Stack: $stackTrace');
-      setState(() {
-        _isLoading = false;
-        _error = 'Failed to load project: ${e.toString()}';
+        _projects = projects;
+        _selectedProject = selected;
+        _loading = selected != null;
       });
     }
+
+    if (selected != null) {
+      await _loadBoard(selected);
+    } else if (_sync.isNetworkAvailable) {
+      await _refreshProjects();
+    } else if (mounted) {
+      setState(() => _loading = false);
+    }
+  }
+
+  ProjectV2? _findProject(List<ProjectV2> projects, String idOrTitle) {
+    for (final project in projects) {
+      if (project.id == idOrTitle || project.title == idOrTitle) return project;
+    }
+    return null;
+  }
+
+  Future<void> _refreshProjects() async {
+    if (mounted) setState(() => _refreshing = true);
+    try {
+      await _sync.syncProjects(forceRefresh: true);
+      final projects = await _sync.loadProjectsFromCache();
+      if (mounted) {
+        setState(() {
+          _projects = projects;
+          _loading = false;
+          _refreshing = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error.toString();
+          _loading = false;
+          _refreshing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectProject(ProjectV2 project) async {
+    await _storage.saveDefaultProject(project.id);
+    if (!mounted) return;
+    setState(() {
+      _selectedProject = project;
+      _board = null;
+      _error = null;
+      _loading = true;
+      _repoFilter = null;
+    });
+    await _loadBoard(project);
+  }
+
+  Future<void> _loadBoard(ProjectV2 project) async {
+    final cached = await _sync.loadProjectBoardFromCache(project.id);
+    if (mounted) {
+      setState(() {
+        _board = cached;
+        _loading = cached == null;
+      });
+    }
+    if (_sync.isNetworkAvailable) {
+      await _refreshBoard();
+    } else if (cached == null && mounted) {
+      setState(() {
+        _loading = false;
+        _error = 'No cached board yet. Connect once to download this project.';
+      });
+    }
+  }
+
+  Future<void> _refreshBoard() async {
+    final project = _selectedProject;
+    if (project == null || _refreshing) return;
+    if (mounted) setState(() => _refreshing = true);
+    try {
+      final board = await _sync.syncProjectBoard(project);
+      if (mounted) {
+        setState(() {
+          _board = board;
+          _selectedProject = board.project;
+          _error = null;
+          _loading = false;
+          _refreshing = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error.toString();
+          _loading = false;
+          _refreshing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _reloadCachedBoard() async {
+    final project = _selectedProject;
+    if (project == null) return;
+    final board = await _sync.loadProjectBoardFromCache(project.id);
+    if (mounted && board != null) setState(() => _board = board);
+  }
+
+  @override
+  void dispose() {
+    final listener = _syncListener;
+    if (listener != null) _sync.removeListener(listener);
+    _sync.dispose();
+    super.dispose();
   }
 
   @override
@@ -181,554 +209,454 @@ class _ProjectBoardScreenState extends ConsumerState<ProjectBoardScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text(
-          'Project Board',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        title: Text(
+          _selectedProject?.displayName ?? 'Project Board',
+          overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          if (_projects.isNotEmpty)
+            PopupMenuButton<ProjectV2>(
+              tooltip: 'Choose project',
+              icon: const Icon(Icons.view_kanban),
+              onSelected: _selectProject,
+              itemBuilder: (context) => _projects
+                  .map(
+                    (project) => PopupMenuItem(
+                      value: project,
+                      child: Text(
+                        project.displayName,
+                        style: TextStyle(
+                          color: project.closed ? Colors.white54 : Colors.white,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          if (_selectedProject != null)
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'New issue in this project',
+              onPressed: _selectedProject!.viewerCanUpdate
+                  ? _addNewIssue
+                  : null,
+            ),
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.white),
-            onPressed: _addNewIssue,
-            tooltip: 'New Issue',
+            icon: _refreshing
+                ? const BrailleLoader(size: 20)
+                : const Icon(Icons.refresh),
+            tooltip: 'Sync projects',
+            onPressed: _refreshing
+                ? null
+                : (_selectedProject == null ? _refreshProjects : _refreshBoard),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadProjectData,
-        color: AppColors.primary,
-        backgroundColor: AppColors.card,
-        child: _buildBody(),
-      ),
+      body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
+    if (_selectedProject == null) return _buildProjectPicker();
+    if (_loading && _board == null) {
       return const Center(child: BrailleLoader(size: 32));
     }
-
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: AppColors.error, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              _error!,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadProjectData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
+    if (_board == null) return _buildError();
+    if (_board!.statusFieldId == null) {
+      return _message(
+        Icons.view_column_outlined,
+        'This project has no Status field. Add one on GitHub to use kanban.',
       );
     }
 
-    if (_columnItems.isEmpty ||
-        _columnItems.values.every((list) => list.isEmpty)) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.view_kanban,
-              color: Colors.white.withValues(alpha: 0.3),
-              size: 80,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No issues in this project',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap + to create an issue',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.3),
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return _buildBoard();
-  }
-
-  Widget _buildBoard() {
-    final columnWidth = AppResponsive.isDesktop(context) ? 360.w : 300.w;
-    final padding = AppResponsive.isDesktop(context) ? 24.w : 16.w;
-
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.all(padding),
-      itemCount: _columns.length,
-      itemBuilder: (context, index) {
-        final column = _columns[index];
-        return _buildColumn(column, columnWidth);
-      },
+    return Column(
+      children: [
+        _buildToolbar(),
+        if (_error != null)
+          MaterialBanner(
+            content: Text('Showing offline data. $_error'),
+            actions: [
+              TextButton(onPressed: _refreshBoard, child: const Text('RETRY')),
+            ],
+          ),
+        Expanded(child: _buildBoard()),
+      ],
     );
   }
 
-  Widget _buildColumn(String columnName, double columnWidth) {
-    final items = _columnItems[columnName] ?? [];
+  Widget _buildProjectPicker() {
+    if (_loading || _refreshing) {
+      return const Center(child: BrailleLoader(size: 32));
+    }
+    if (_projects.isEmpty) {
+      return _message(
+        Icons.view_kanban_outlined,
+        _error ?? 'No cached projects. Connect and tap refresh.',
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text(
+          'Choose a project',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        for (final project in _projects)
+          Card(
+            color: AppColors.card,
+            child: ListTile(
+              leading: Icon(
+                project.ownerType == ProjectOwnerType.organization
+                    ? Icons.business
+                    : Icons.person,
+                color: AppColors.primary,
+              ),
+              title: Text(project.title),
+              subtitle: Text(project.ownerLogin),
+              trailing: project.closed
+                  ? const Text('Closed')
+                  : const Icon(Icons.chevron_right),
+              onTap: () => _selectProject(project),
+            ),
+          ),
+      ],
+    );
+  }
 
-    return Container(
-      width: columnWidth,
-      margin: EdgeInsets.only(right: 16.w),
+  Widget _buildError() {
+    return _message(Icons.error_outline, _error ?? 'Project board unavailable');
+  }
+
+  Widget _message(IconData icon, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.error, size: 56),
+            const SizedBox(height: 16),
+            Text(message, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    final repos =
+        _board!.items
+            .map((item) => item.repoFullName)
+            .whereType<String>()
+            .toSet()
+            .toList()
+          ..sort();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Column Header
-          Padding(
-            padding: EdgeInsets.only(bottom: 12.h),
-            child: Row(
-              children: [
-                Container(
-                  width: 4,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: _getColumnColor(columnName),
-                    borderRadius: BorderRadius.circular(2),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Search title, number, or repository',
+                    prefixIcon: Icon(Icons.search),
+                    isDense: true,
                   ),
+                  onChanged: (value) => setState(() => _query = value),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  columnName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+              ),
+              SizedBox(width: 12.w),
+              DropdownButton<String?>(
+                value: repos.contains(_repoFilter) ? _repoFilter : null,
+                hint: const Text('All repos'),
+                dropdownColor: AppColors.card,
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('All repos')),
+                  ...repos.map(
+                    (repo) => DropdownMenuItem(value: repo, child: Text(repo)),
                   ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${items.length}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
+                ],
+                onChanged: (value) => setState(() => _repoFilter = value),
+              ),
+            ],
           ),
-          // Cards
-          Expanded(child: _buildCardList(columnName, items)),
+          SizedBox(height: 4.h),
+          Text(
+            'Last synced ${_formatAge(_board!.fetchedAt)}',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
         ],
       ),
     );
   }
 
-  Color _getColumnColor(String columnName) {
-    switch (columnName) {
-      case 'Todo':
-        return Colors.grey;
-      case 'In Progress':
-        return AppColors.primary;
-      case 'Review':
-        return AppColors.link;
-      case 'Done':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
+  String _formatAge(DateTime date) {
+    final difference = DateTime.now().difference(date);
+    if (difference.inDays > 0) return '${difference.inDays}d ago';
+    if (difference.inHours > 0) return '${difference.inHours}h ago';
+    if (difference.inMinutes > 0) return '${difference.inMinutes}m ago';
+    return 'just now';
   }
 
-  Widget _buildCardList(String columnName, List<IssueItem> items) {
-    if (items.isEmpty) {
-      return DragTarget<IssueItem>(
-        onWillAcceptWithDetails: (details) => true,
-        onAcceptWithDetails: (details) async {
-          await _moveItemToColumn(details.data, columnName);
-        },
-        builder: (context, candidateData, rejectedData) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: candidateData.isNotEmpty
-                  ? AppColors.primary.withValues(alpha: 0.1)
-                  : AppColors.card.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: candidateData.isNotEmpty
-                    ? AppColors.primary
-                    : AppColors.card.withValues(alpha: 0.5),
-                width: 2,
-              ),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'No issues',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (candidateData.isNotEmpty) ...[
-                    SizedBox(height: 8),
-                    Text(
-                      'Drop here',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    }
+  List<ProjectV2BoardItem> get _visibleItems {
+    final query = _query.trim().toLowerCase();
+    return _board!.items.where((item) {
+      if (_repoFilter != null && item.repoFullName != _repoFilter) return false;
+      if (query.isEmpty) return true;
+      return item.title.toLowerCase().contains(query) ||
+          item.number?.toString().contains(query) == true ||
+          item.repoFullName?.toLowerCase().contains(query) == true;
+    }).toList();
+  }
 
-    return DragTarget<IssueItem>(
-      onWillAcceptWithDetails: (details) => true,
-      onAcceptWithDetails: (details) async {
-        await _moveItemToColumn(details.data, columnName);
-      },
-      builder: (context, candidateData, rejectedData) {
-        return ReorderableColumn(
-          onReorder: (oldIndex, newIndex) async {
-            if (oldIndex == newIndex) return;
-
-            final item = items.removeAt(oldIndex);
-            items.insert(newIndex, item);
-
-            setState(() {
-              _columnItems[columnName] = items;
-              _isMoving = true;
-            });
-
-            // Update project item status via GraphQL
-            await _moveItemToColumn(item, columnName);
-
-            setState(() {
-              _isMoving = false;
-            });
-          },
-          children: items
-              .map((item) => _buildDraggableCard(item, columnName))
-              .toList(),
-        );
-      },
+  Widget _buildBoard() {
+    final width = MediaQuery.sizeOf(context).width >= 900 ? 360.w : 300.w;
+    return ListView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.all(16.w),
+      children: [
+        for (final column in _board!.columns) _buildColumn(column, width),
+      ],
     );
   }
 
-  /// Build a draggable card that can be moved between columns
-  Widget _buildDraggableCard(IssueItem item, String columnName) {
-    return LongPressDraggable<IssueItem>(
+  Widget _buildColumn(ProjectV2Column column, double width) {
+    final items = _visibleItems
+        .where((item) => item.statusOptionId == column.optionId)
+        .toList();
+    final canMove = _board!.project.viewerCanUpdate;
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: EdgeInsets.only(right: 16.w),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 20,
+                  color: _columnColor(column.color),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    column.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Text('${items.length}'),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            Expanded(
+              child: DragTarget<ProjectV2BoardItem>(
+                onWillAcceptWithDetails: (details) =>
+                    canMove &&
+                    !details.data.projectItemId.startsWith('pending_') &&
+                    details.data.statusOptionId != column.optionId,
+                onAcceptWithDetails: (details) => _move(details.data, column),
+                builder: (context, candidates, rejected) => Container(
+                  decoration: BoxDecoration(
+                    color: candidates.isEmpty
+                        ? Colors.transparent
+                        : AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: candidates.isEmpty
+                        ? null
+                        : Border.all(color: AppColors.primary),
+                  ),
+                  child: ListView(
+                    children: [
+                      for (final item in items) _buildDraggable(item, canMove),
+                      if (items.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: Text('No items')),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDraggable(ProjectV2BoardItem item, bool canMove) {
+    final card = _buildCard(item);
+    if (!canMove || item.projectItemId.startsWith('pending_')) return card;
+    return LongPressDraggable<ProjectV2BoardItem>(
       data: item,
       feedback: Material(
         elevation: 8,
         borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          width: 280,
-          child: Opacity(opacity: 0.9, child: _buildCardContent(item)),
-        ),
+        child: SizedBox(width: 280, child: _buildCard(item)),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _buildCard(item, columnName),
-      ),
-      child: _buildCard(item, columnName),
+      childWhenDragging: Opacity(opacity: 0.3, child: card),
+      child: card,
     );
   }
 
-  /// Card content (without the Card wrapper - for reuse in drag feedback)
-  Widget _buildCardContent(IssueItem item) {
-    return Card(
-      color: AppColors.card,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '#${item.number} ${item.title}',
-              style: TextStyle(color: Colors.white, fontSize: 14.sp),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (item.labels.isNotEmpty) ...[
-              SizedBox(height: 4.h),
-              Wrap(
-                spacing: 4.w,
-                children: item.labels.take(2).map((label) {
-                  return Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 6.w,
-                      vertical: 2.h,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4.r),
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 10.sp,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Move item to different column using GraphQL mutation
-  Future<void> _moveItemToColumn(IssueItem item, String newColumnName) async {
-    // Find current column of this item
-    String? oldColumn;
-    for (final entry in _columnItems.entries) {
-      if (entry.value.any((i) => i.id == item.id)) {
-        oldColumn = entry.key;
-        break;
-      }
-    }
-
-    // If moving within same column, just return
-    if (oldColumn == newColumnName) {
-      return;
-    }
-
-    // Remove from old column, add to new column in local state
-    if (oldColumn != null) {
-      final oldList = List<IssueItem>.from(_columnItems[oldColumn] ?? []);
-      oldList.removeWhere((i) => i.id == item.id);
-      _columnItems[oldColumn] = oldList;
-    }
-
-    final newList = List<IssueItem>.from(_columnItems[newColumnName] ?? []);
-    newList.add(item);
-    _columnItems[newColumnName] = newList;
-
-    setState(() {});
-
-    if (_projectId == null || _statusFieldId == null) {
-      debugPrint('Project not initialized, local update only');
-      return;
-    }
-
-    final optionId = _columnOptionIds[newColumnName];
-    if (optionId == null) {
-      debugPrint('No option ID for column: $newColumnName');
-      return;
-    }
-
-    debugPrint('Moving issue #${item.number} to column: $newColumnName');
-
-    try {
-      final success = await _githubApi.moveProjectItem(
-        projectId: _projectId!,
-        itemId: item.id,
-        fieldId: _statusFieldId!,
-        optionId: optionId,
-      );
-
-      if (success) {
-        debugPrint(
-          '✓ Successfully moved issue #${item.number} to $newColumnName',
-        );
-
-        // Show success feedback
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                  const SizedBox(width: 8),
-                  Text('Issue #${item.number} moved to $newColumnName'),
-                ],
-              ),
-              backgroundColor: AppColors.primary,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        debugPrint('✗ Failed to move issue #${item.number}');
-        _showMoveError(item, newColumnName);
-      }
-    } catch (e) {
-      debugPrint('✗ Error moving issue: $e');
-      _showMoveError(item, newColumnName);
-    }
-  }
-
-  void _showMoveError(IssueItem item, String columnName) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text('Failed to move issue #${item.number}')),
-          ],
-        ),
-        backgroundColor: AppColors.error,
-        duration: const Duration(seconds: 3),
-        action: SnackBarAction(
-          label: 'RETRY',
-          textColor: Colors.white,
-          onPressed: () => _moveItemToColumn(item, columnName),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCard(IssueItem item, String columnName) {
+  Widget _buildCard(ProjectV2BoardItem item) {
     return Card(
       color: AppColors.card,
       margin: EdgeInsets.only(bottom: 8.h),
-      child: Opacity(
-        opacity: _isMoving ? 0.5 : 1.0,
-        child: ListTile(
-          title: Text(
-            '#${item.number} ${item.title}',
-            style: TextStyle(color: Colors.white, fontSize: 14.sp),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (item.labels.isNotEmpty) ...[
-                SizedBox(height: 4.h),
-                Wrap(
-                  spacing: 4.w,
-                  children: item.labels.take(2).map((label) {
-                    return Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 6.w,
-                        vertical: 2.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4.r),
-                      ),
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 10.sp,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-              if (item.assigneeLogin != null) ...[
-                SizedBox(height: 4.h),
-                Row(
-                  children: [
-                    Icon(Icons.person, size: 12.w, color: AppColors.link),
-                    SizedBox(width: 4.w),
-                    Text(
-                      item.assigneeLogin!,
-                      style: TextStyle(color: AppColors.link, fontSize: 11.sp),
-                    ),
-                  ],
-                ),
-              ],
-              SizedBox(height: 4.h),
-              Row(
-                children: [
-                  Icon(Icons.access_time, size: 12.w, color: AppColors.error),
-                  SizedBox(width: 4.w),
-                  Text(
-                    _formatRelativeTime(item.updatedAt),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 10.sp,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          trailing: _isMoving
-              ? BrailleLoader(size: 20)
-              : Icon(Icons.drag_handle, color: AppColors.error, size: 20.w),
-          onTap: () => _openIssueDetail(item),
+      child: ListTile(
+        leading: Icon(_contentIcon(item.contentType), color: AppColors.link),
+        title: Text(
+          '${item.number == null ? '' : '#${item.number} '}${item.title}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-      ),
-    );
-  }
-
-  String _formatRelativeTime(DateTime? dateTime) {
-    if (dateTime == null) return 'Unknown';
-    final diff = DateTime.now().difference(dateTime);
-    if (diff.inDays > 0) return '${diff.inDays}d';
-    if (diff.inHours > 0) return '${diff.inHours}h';
-    if (diff.inMinutes > 0) return '${diff.inMinutes}m';
-    return 'now';
-  }
-
-  void _addNewIssue() {
-    // Navigate back to dashboard to create issue
-    // This is a temporary solution - in production, we'd have a dedicated create flow
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline, color: Colors.white),
-            const SizedBox(width: 8),
-            const Text('Create issues from the Dashboard'),
+            if (item.repoFullName != null) Text(item.repoFullName!),
+            if (item.labels.isNotEmpty)
+              Wrap(
+                spacing: 4,
+                children: item.labels
+                    .take(2)
+                    .map((label) => Chip(label: Text(label)))
+                    .toList(),
+              ),
           ],
         ),
-        backgroundColor: AppColors.primary,
-        duration: const Duration(seconds: 2),
-        action: SnackBarAction(
-          label: 'OK',
-          textColor: Colors.black,
-          onPressed: () => Navigator.pop(context),
-        ),
+        trailing: switch (item.syncState) {
+          ProjectItemSyncState.pending => const Icon(
+            Icons.cloud_upload_outlined,
+            color: AppColors.warning,
+          ),
+          ProjectItemSyncState.failed => const Icon(
+            Icons.sync_problem,
+            color: AppColors.error,
+          ),
+          ProjectItemSyncState.synced => null,
+        },
+        onTap: () => _openItem(item),
       ),
     );
   }
 
-  void _openIssueDetail(IssueItem issue) {
-    Navigator.of(context).push(
+  Future<void> _move(ProjectV2BoardItem item, ProjectV2Column column) async {
+    final board = _board;
+    if (board == null) return;
+    final updated = await _sync.queueProjectItemStatus(
+      board: board,
+      item: item,
+      column: column,
+    );
+    if (mounted) setState(() => _board = updated);
+  }
+
+  Future<void> _addNewIssue() async {
+    final project = _selectedProject;
+    if (project == null) return;
+    final repos = ref
+        .read(repositoriesProvider)
+        .where((repo) => repo.id != 'vault')
+        .toList();
+    final savedRepo = await _storage.getDefaultRepo();
+    RepoItem? repo;
+    for (final candidate in repos) {
+      if (candidate.fullName == savedRepo) {
+        repo = candidate;
+        break;
+      }
+    }
+    repo ??= repos.isEmpty ? null : repos.first;
+    if (repo == null || !mounted) return;
+    final selectedRepo = repo;
+    final parts = selectedRepo.fullName.split('/');
+    final result = await Navigator.of(context).push<CreateIssueResult>(
       MaterialPageRoute(
-        builder: (context) => IssueDetailScreen(
-          issue: issue,
-          // owner/repo would need to be fetched or passed separately
+        builder: (context) => CreateIssueScreen(
+          owner: parts.first,
+          repo: parts.last,
+          expandedRepoFullName: selectedRepo.fullName,
+          defaultProjectId: project.id,
+          projects: _projects,
+          availableRepos: repos,
         ),
       ),
     );
+    if (result?.issue != null && _board != null) {
+      final issue = result!.issue!;
+      final pendingItem = ProjectV2BoardItem(
+        projectItemId: 'pending_${issue.id}',
+        contentId: issue.id,
+        contentType: ProjectContentType.issue,
+        title: issue.title,
+        number: issue.number,
+        body: issue.bodyMarkdown,
+        state: issue.status == ItemStatus.open ? 'open' : 'closed',
+        repoFullName: issue.repoFullName,
+        updatedAt: issue.updatedAt,
+        assigneeLogin: issue.assigneeLogin,
+        labels: issue.labels,
+        syncState: ProjectItemSyncState.pending,
+      );
+      final updated = _board!.copyWith(items: [..._board!.items, pendingItem]);
+      await _sync.saveProjectBoardSnapshot(updated);
+      if (mounted) setState(() => _board = updated);
+    }
   }
+
+  Future<void> _openItem(ProjectV2BoardItem item) async {
+    if (item.contentType == ProjectContentType.issue &&
+        item.repoFullName != null &&
+        item.number != null) {
+      final parts = item.repoFullName!.split('/');
+      if (parts.length != 2 || !mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => IssueDetailScreen(
+            issue: IssueItem(
+              id: item.contentId ?? item.projectItemId,
+              title: item.title,
+              number: item.number,
+              bodyMarkdown: item.body,
+              repoFullName: item.repoFullName,
+              status: item.state == 'closed'
+                  ? ItemStatus.closed
+                  : ItemStatus.open,
+              updatedAt: item.updatedAt,
+              assigneeLogin: item.assigneeLogin,
+              labels: item.labels,
+            ),
+            owner: parts.first,
+            repo: parts.last,
+          ),
+        ),
+      );
+      return;
+    }
+    final url = item.url;
+    if (url != null) await launchUrl(Uri.parse(url));
+  }
+
+  IconData _contentIcon(ProjectContentType type) => switch (type) {
+    ProjectContentType.issue => Icons.adjust,
+    ProjectContentType.pullRequest => Icons.call_merge,
+    ProjectContentType.draftIssue => Icons.edit_note,
+    ProjectContentType.redacted => Icons.visibility_off,
+  };
+
+  Color _columnColor(String color) => switch (color.toUpperCase()) {
+    'BLUE' => Colors.blue,
+    'GREEN' => Colors.green,
+    'YELLOW' => Colors.yellow,
+    'ORANGE' => Colors.orange,
+    'RED' => Colors.red,
+    'PINK' => Colors.pink,
+    'PURPLE' => Colors.purple,
+    _ => Colors.grey,
+  };
 }

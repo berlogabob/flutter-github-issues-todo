@@ -168,10 +168,18 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
         return 'Add Comment';
       case OperationType.deleteComment:
         return 'Delete Comment';
+      case OperationType.addProjectItem:
+        return 'Add to Project';
+      case OperationType.setProjectItemStatus:
+        return 'Move Project Item';
     }
   }
 
   String _getOperationSubtitle(PendingOperation operation) {
+    if (operation.type == OperationType.addProjectItem ||
+        operation.type == OperationType.setProjectItemStatus) {
+      return 'Project ${operation.data['projectId'] ?? 'unknown'}';
+    }
     final repo = operation.owner != null && operation.repo != null
         ? '${operation.owner}/${operation.repo}'
         : 'Unknown repo';
@@ -186,20 +194,32 @@ class _PendingOperationsListState extends State<PendingOperationsList> {
       return SizedBox.shrink();
     }
 
-    return IconButton(
-      icon: const Icon(Icons.refresh, size: 20),
-      color: AppColors.primary,
-      onPressed: () async {
-        // Reset status to pending for retry
-        operation.status = OperationStatus.pending;
-        operation.isSyncing = false;
-        operation.errorMessage = null;
-        await widget.pendingOps.init();
-        // Update in storage
-        await widget.pendingOps.addOperation(operation);
-        widget.onRefresh?.call();
-      },
-      tooltip: 'Retry',
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.refresh, size: 20),
+          color: AppColors.primary,
+          onPressed: () async {
+            operation.status = OperationStatus.pending;
+            operation.isSyncing = false;
+            operation.errorMessage = null;
+            await widget.pendingOps.addOperation(operation);
+            widget.onRefresh?.call();
+          },
+          tooltip: 'Retry',
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline, size: 20),
+          color: AppColors.error,
+          onPressed: () async {
+            await widget.pendingOps.removeOperation(operation.id);
+            if (mounted) setState(() {});
+            widget.onRefresh?.call();
+          },
+          tooltip: 'Discard',
+        ),
+      ],
     );
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
@@ -6,8 +8,10 @@ import '../services/pending_operations_service.dart';
 import '../services/network_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/secure_storage_service.dart';
+import '../services/sync_service.dart';
 import '../models/issue_item.dart';
 import '../models/repo_item.dart';
+import '../models/project_item.dart';
 import '../models/pending_operation.dart';
 import '../widgets/braille_loader.dart';
 
@@ -62,8 +66,11 @@ class CreateIssueScreen extends StatefulWidget {
   /// Default project name for assignment.
   final String? defaultProject;
 
+  /// Stable Projects V2 node ID used for assignment.
+  final String? defaultProjectId;
+
   /// List of available projects for assignment.
-  final List<Map<String, dynamic>>? projects;
+  final List<ProjectV2>? projects;
 
   /// List of available repositories for selection.
   final List<RepoItem>? availableRepos;
@@ -80,6 +87,7 @@ class CreateIssueScreen extends StatefulWidget {
     this.repo,
     this.expandedRepoFullName,
     this.defaultProject,
+    this.defaultProjectId,
     this.projects,
     this.availableRepos,
   });
@@ -100,6 +108,7 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
   final PendingOperationsService _pendingOps = PendingOperationsService();
   final NetworkService _networkService = NetworkService();
   final LocalStorageService _localStorage = LocalStorageService();
+  final SyncService _syncService = SyncService();
 
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
@@ -129,7 +138,15 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     // Use expandedRepoFullName if available (from expanded repo on main screen),
     // otherwise fall back to repo parameter
     _selectedRepoFullName = widget.expandedRepoFullName ?? _defaultRepoFullName;
-    _selectedProject = widget.defaultProject;
+    final requestedProject = widget.defaultProjectId ?? widget.defaultProject;
+    _selectedProject = widget.projects
+        ?.where(
+          (project) =>
+              project.id == requestedProject ||
+              project.title == requestedProject,
+        )
+        .firstOrNull
+        ?.id;
 
     // Load repo data after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -812,20 +829,15 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
   }
 
   bool get _hasProjects {
-    return widget.defaultProject != null ||
+    return widget.defaultProjectId != null ||
+        widget.defaultProject != null ||
         (widget.projects != null && widget.projects!.isNotEmpty);
   }
 
   Widget _buildProjectSection() {
-    final projectTitles = <String>[
-      if (widget.defaultProject != null) widget.defaultProject!,
-      ...?widget.projects?.map(
-        (project) =>
-            (project['title'] ?? project['name'] ?? project['id']).toString(),
-      ),
-    ].where((title) => title.isNotEmpty).toSet().toList();
-
-    final selectedProject = projectTitles.contains(_selectedProject)
+    final projects = widget.projects ?? const <ProjectV2>[];
+    final selectedProject =
+        projects.any((project) => project.id == _selectedProject)
         ? _selectedProject
         : null;
 
@@ -865,15 +877,17 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
                   style: TextStyle(color: Colors.white38),
                 ),
               ),
-              ...projectTitles.map(
-                (project) => DropdownMenuItem(
-                  value: project,
-                  child: Text(
-                    project,
-                    style: const TextStyle(color: Colors.white),
+              ...projects
+                  .where((project) => !project.closed)
+                  .map(
+                    (project) => DropdownMenuItem(
+                      value: project.id,
+                      child: Text(
+                        project.displayName,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
                   ),
-                ),
-              ),
             ],
             onChanged: (value) {
               setState(() {
@@ -894,15 +908,12 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
   /// - Proper offline queue handling
   /// - State management fixes
   Future<void> _createIssue() async {
-    // Validate title
     final title = _titleController.text.trim();
     final titleError = _validateTitle(title);
     if (titleError != null) {
       _showValidationError(titleError);
       return;
     }
-
-    // Validate body
     final body = _bodyController.text.trim();
     final bodyError = _validateBody(body);
     if (bodyError != null) {
@@ -911,191 +922,47 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
     }
 
     setState(() => _isSaving = true);
-
     final repoFullName = _selectedRepoFullName ?? widget.repo;
-    final hasToken = await SecureStorageService.hasToken();
+    final localIssue = await _saveAsLocalIssue(
+      title,
+      body,
+      repoFullName: repoFullName,
+    );
+    if (localIssue == null || !mounted) return;
 
-    if (!hasToken) {
-      final localIssue = await _saveAsLocalIssue(
-        title,
-        body,
-        repoFullName: repoFullName,
-      );
-      if (mounted && localIssue != null) {
-        Navigator.pop(
-          context,
-          CreateIssueResult(
-            issue: localIssue,
-            successMessage: 'Saved as local TODO issue (offline-first).',
-          ),
-        );
-      }
-      return;
-    }
-
-    if (repoFullName == null) {
-      final localIssue = await _saveAsLocalIssue(title, body);
-      if (mounted && localIssue != null) {
-        Navigator.pop(
-          context,
-          CreateIssueResult(
-            issue: localIssue,
-            successMessage: 'Saved as local TODO issue (offline-first).',
-          ),
-        );
-      }
-      return;
-    }
-
-    final parts = repoFullName.split('/');
-    if (parts.length != 2) {
-      final localIssue = await _saveAsLocalIssue(title, body);
-      if (mounted && localIssue != null) {
-        Navigator.pop(
-          context,
-          CreateIssueResult(
-            issue: localIssue,
-            successMessage: 'Saved as local TODO issue (offline-first).',
-          ),
-        );
-      }
-      return;
-    }
-
-    final owner = parts[0];
-    final repo = parts[1];
-
-    // CHECK NETWORK
-    final isOnline = await _networkService.checkConnectivity();
-
-    if (!isOnline) {
-      // OFFLINE: Save a visible local copy and queue operation
-      try {
-        final localIssue = await _saveAsLocalIssue(
-          title,
-          body,
-          repoFullName: repoFullName,
-        );
-        if (localIssue == null) {
-          return;
-        }
-
-        final operationId = 'create_${DateTime.now().millisecondsSinceEpoch}';
-        final operation = PendingOperation.createIssue(
-          id: operationId,
-          owner: owner,
-          repo: repo,
+    final parts = repoFullName?.split('/') ?? const <String>[];
+    if (parts.length == 2 && await SecureStorageService.hasToken()) {
+      await _pendingOps.addOperation(
+        PendingOperation.createIssue(
+          id: 'create_${localIssue.id}',
+          owner: parts.first,
+          repo: parts.last,
           issueId: localIssue.id,
           data: {
             'title': title,
-            'body': body.isNotEmpty ? body : null,
-            'labels': _labels.isNotEmpty ? _labels : null,
+            'body': body.isEmpty ? null : body,
+            'labels': _labels.isEmpty ? null : _labels,
             'assignee': _assignee,
+            'projectId': _selectedProject,
           },
-        );
-
-        await _pendingOps.addOperation(operation);
-
-        if (mounted) {
-          Navigator.pop(
-            context,
-            CreateIssueResult(
-              issue: localIssue,
-              successMessage: 'Issue saved locally and queued for sync',
-            ),
-          );
-        }
-      } catch (e, stackTrace) {
-        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-        if (mounted) {
-          setState(() => _isSaving = false);
-          _showErrorMessage('Failed to queue issue: ${e.toString()}');
-        }
+        ),
+      );
+      await _syncService.init();
+      if (_syncService.isNetworkAvailable) {
+        unawaited(_syncService.replayPendingOperations());
       }
-    } else {
-      // ONLINE: Create immediately
-      try {
-        final createdIssue = await _githubApi.createIssue(
-          owner,
-          repo,
-          title: title,
-          body: body.isNotEmpty ? body : null,
-          labels: _labels.isNotEmpty ? _labels : null,
-          assignee: _assignee,
-        );
+    }
 
-        if (mounted) {
-          Navigator.pop(
-            context,
-            CreateIssueResult(
-              issue: createdIssue,
-              successMessage:
-                  'Issue #${createdIssue.number} created successfully',
-            ),
-          );
-        }
-      } catch (e, stackTrace) {
-        AppErrorHandler.handle(e, stackTrace: stackTrace, context: context);
-        if (mounted) {
-          setState(() => _isSaving = false);
-        }
-
-        // Provide specific error messages based on error type
-        final errorMessage = e.toString();
-        if (errorMessage.contains('422')) {
-          _showErrorMessage(
-            'Invalid issue data. Please check your input and try again.',
-          );
-        } else if (errorMessage.contains('401') ||
-            errorMessage.contains('unauthorized')) {
-          final localIssue = await _saveAsLocalIssue(
-            title,
-            body,
-            repoFullName: repoFullName,
-          );
-          if (mounted && localIssue != null) {
-            Navigator.pop(
-              context,
-              CreateIssueResult(
-                issue: localIssue,
-                successMessage: 'Saved as local TODO issue (offline-first).',
-              ),
-            );
-          }
-        } else if (errorMessage.contains('403') ||
-            errorMessage.contains('forbidden')) {
-          _showErrorMessage(
-            'You do not have permission to create issues in this repository.',
-          );
-        } else if (errorMessage.contains('Network') ||
-            errorMessage.contains('SocketException')) {
-          // Network error during online attempt - queue and persist locally
-          final localIssue = await _saveAsLocalIssue(
-            title,
-            body,
-            repoFullName: repoFullName,
-          );
-          await _queueIssueForLater(
-            owner,
-            repo,
-            title,
-            body,
-            localIssueId: localIssue?.id,
-          );
-          if (mounted && localIssue != null) {
-            Navigator.pop(
-              context,
-              CreateIssueResult(
-                issue: localIssue,
-                successMessage:
-                    'Network error. Issue saved as local TODO and queued for sync.',
-              ),
-            );
-          }
-        } else {
-          _showErrorMessage('Failed to create issue: ${e.toString()}');
-        }
-      }
+    if (mounted) {
+      Navigator.pop(
+        context,
+        CreateIssueResult(
+          issue: localIssue,
+          successMessage: parts.length == 2
+              ? 'Saved locally. Sync will publish it to GitHub.'
+              : 'Saved as a local TODO.',
+        ),
+      );
     }
   }
 
@@ -1122,36 +989,6 @@ class _CreateIssueScreenState extends State<CreateIssueScreen> {
         _showErrorMessage('Failed to save local TODO issue: $e');
       }
       return null;
-    }
-  }
-
-  /// Queue issue for later sync when network fails during online attempt.
-  Future<void> _queueIssueForLater(
-    String owner,
-    String repo,
-    String title,
-    String body, {
-    String? localIssueId,
-  }) async {
-    try {
-      final operationId = 'create_${DateTime.now().millisecondsSinceEpoch}';
-      final operation = PendingOperation.createIssue(
-        id: operationId,
-        owner: owner,
-        repo: repo,
-        issueId: localIssueId,
-        data: {
-          'title': title,
-          'body': body.isNotEmpty ? body : null,
-          'labels': _labels.isNotEmpty ? _labels : null,
-          'assignee': _assignee,
-        },
-      );
-
-      await _pendingOps.addOperation(operation);
-      debugPrint('Issue queued for later sync: $operationId');
-    } catch (e) {
-      debugPrint('Failed to queue issue: $e');
     }
   }
 }

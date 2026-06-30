@@ -14,7 +14,7 @@ VERSION_BUILD := $(word 2, $(subst +, ,$(CURRENT_VERSION)))
 NEXT_BUILD := $(shell echo $$(($(VERSION_BUILD) + 1)))
 NEW_VERSION := $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)+$(NEXT_BUILD)
 
-RELEASE_TAG ?= v$(RELEASE_VERSION)
+RELEASE_TAG ?= v$(RELEASE_VERSION)-build-$(NEXT_BUILD)
 BASE_HREF ?= /flutter-github-issues-todo/
 RELEASE_NOTES ?= RELEASE_NOTES_v1.0.0.md
 
@@ -30,7 +30,7 @@ help:
 	@echo "  make tag-release        Create annotated RELEASE_TAG on current commit"
 	@echo "  make push-release       Push current branch and RELEASE_TAG"
 	@echo "  make gh-release         Create GitHub Release for RELEASE_TAG"
-	@echo "  make release            Build artifacts and create GitHub Release"
+	@echo "  make release            Increment, build, tag, push, and publish"
 	@echo "  make version-increment  Increment pubspec.yaml build number only"
 	@echo "  make clean              Remove generated build/ output"
 	@echo "  make run-with-env       Run app with variables from .env"
@@ -97,8 +97,8 @@ release-artifacts: build-android build-web
 	@echo "Release artifacts built for $(RELEASE_TAG)"
 
 tag-release:
-	@if [ -n "$$(git status --porcelain)" ]; then \
-		echo "Error: working tree must be clean before tagging."; \
+	@if [ -n "$$(git status --porcelain --untracked-files=no)" ]; then \
+		echo "Error: tracked changes remain before tagging."; \
 		exit 1; \
 	fi
 	@if git rev-parse "$(RELEASE_TAG)" >/dev/null 2>&1; then \
@@ -135,13 +135,41 @@ gh-release:
 		exit 1; \
 	fi
 	@gh release create "$(RELEASE_TAG)" \
+		--verify-tag \
 		--title "GitDoIt $(RELEASE_TAG)" \
 		--notes-file "$(RELEASE_NOTES)" \
 		build/app/outputs/flutter-apk/app-release.apk \
 		build/app/outputs/bundle/release/app-release.aab
 	@echo "Created GitHub Release $(RELEASE_TAG)"
 
-release: release-artifacts gh-release
+release:
+	@clear 2>/dev/null || true
+	@echo "Preparing $(RELEASE_TAG) from $(CURRENT_VERSION)"
+	@if ! command -v gh >/dev/null 2>&1 || ! gh auth status >/dev/null 2>&1; then \
+		echo "Error: authenticate GitHub CLI with 'gh auth login'."; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(RELEASE_NOTES)" ]; then \
+		echo "Error: release notes file $(RELEASE_NOTES) is missing."; \
+		exit 1; \
+	fi
+	@if git ls-files --error-unmatch .env >/dev/null 2>&1; then \
+		echo "Error: .env must not be tracked."; \
+		exit 1; \
+	fi
+	@if git rev-parse "$(RELEASE_TAG)" >/dev/null 2>&1 || \
+		git ls-remote --exit-code --tags origin "refs/tags/$(RELEASE_TAG)" >/dev/null 2>&1 || \
+		gh release view "$(RELEASE_TAG)" >/dev/null 2>&1; then \
+		echo "Error: tag or release $(RELEASE_TAG) already exists."; \
+		exit 1; \
+	fi
+	@$(MAKE) version-increment
+	@$(MAKE) release-artifacts RELEASE_TAG="$(RELEASE_TAG)"
+	@git add -A -- . ':(exclude)graphify-out'
+	@git commit -m "release: $(RELEASE_TAG)"
+	@$(MAKE) tag-release RELEASE_TAG="$(RELEASE_TAG)"
+	@$(MAKE) push-release RELEASE_TAG="$(RELEASE_TAG)"
+	@$(MAKE) gh-release RELEASE_TAG="$(RELEASE_TAG)"
 	@echo "Release complete for $(RELEASE_TAG)"
 
 clean:

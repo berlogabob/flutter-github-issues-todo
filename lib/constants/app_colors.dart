@@ -194,7 +194,6 @@ class AppConfig {
   static const List<String> requiredScopes = [
     'repo',
     'read:org',
-    'write:org',
     'project',
   ];
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
+import '../models/project_item.dart';
 import 'github_api_service.dart';
 import 'local_storage_service.dart';
 import 'sync_service.dart';
@@ -43,7 +44,7 @@ class DashboardDataService {
 
     // Fetch projects
     try {
-      data.projects = await _githubApi.fetchProjects();
+      data.projects = await _syncService.loadProjectsFromCache();
     } catch (e) {
       debugPrint('Error fetching projects: $e');
     }
@@ -156,7 +157,7 @@ class DashboardDataService {
 class DashboardData {
   List<RepoItem> repositories = [];
   List<IssueItem> localIssues = [];
-  List<Map<String, dynamic>> projects = [];
+  List<ProjectV2> projects = [];
   bool repositoriesLoaded = false;
   String? errorMessage;
 }

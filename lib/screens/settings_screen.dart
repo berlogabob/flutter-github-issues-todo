@@ -9,12 +9,14 @@ import '../app_router.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
+import '../models/project_item.dart';
 import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/cache_service.dart';
 import '../services/pending_operations_service.dart';
 import '../services/error_logging_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/pending_operations_list.dart';
 import 'debug_screen.dart';
@@ -51,6 +53,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
+  final SyncService _syncService = SyncService();
   bool _autoSyncWifi = true;
   bool _autoSyncAny = false;
   bool _isLoadingUser = true;
@@ -61,9 +64,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.initState();
     _loadUserData();
     _loadDefaultRepo();
-    _loadDefaultProject();
+    _loadProjectDefaults();
     _loadAutoSyncSettings();
     _loadAppVersion();
+  }
+
+  Future<void> _loadProjectDefaults() async {
+    await _loadDefaultProject();
+    if (mounted) await _loadProjects();
+  }
+
+  @override
+  void dispose() {
+    _syncService.dispose();
+    super.dispose();
   }
 
   /// Load app version from package info
@@ -108,8 +122,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   };
 
   String _defaultRepo = 'user/gitdoit';
-  String _defaultProject = 'Mobile Development';
-  List<Map<String, dynamic>> _projects = [];
+  String _defaultProject = '';
+  List<ProjectV2> _projects = [];
   bool _isLoadingProjects = false;
   List<RepoItem> _userRepos = [];
 
@@ -137,7 +151,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _isLoadingProjects = true);
 
     try {
-      final projects = await _githubApi.fetchProjects();
+      await _syncService.init();
+      var projects = await _syncService.loadProjectsFromCache();
+      if (_syncService.isNetworkAvailable) {
+        await _syncService.syncProjects();
+        projects = await _syncService.loadProjectsFromCache();
+      }
+      final migrated = _findProject(_defaultProject, projects);
+      if (migrated != null && migrated.id != _defaultProject) {
+        _defaultProject = migrated.id;
+        await _localStorage.saveDefaultProject(migrated.id);
+      }
       if (mounted) {
         setState(() {
           _projects = projects;
@@ -151,6 +175,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         setState(() => _isLoadingProjects = false);
       }
     }
+  }
+
+  ProjectV2? _findProject(String idOrTitle, List<ProjectV2> projects) {
+    for (final project in projects) {
+      if (project.id == idOrTitle || project.title == idOrTitle) return project;
+    }
+    return null;
   }
 
   Future<void> _loadUserData() async {
@@ -427,7 +458,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           style: TextStyle(color: Colors.white),
         ),
         subtitle: Text(
-          _defaultProject,
+          _findProject(_defaultProject, _projects)?.displayName ??
+              (_defaultProject.isEmpty ? 'None' : _defaultProject),
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.5),
             fontSize: 12,
@@ -1276,9 +1308,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               .where(
                                 (project) =>
                                     // Filter: show open projects or matching search
-                                    !(project['closed'] as bool? ?? false) &&
+                                    !project.closed &&
                                     (searchQuery.isEmpty ||
-                                        (project['title'] as String? ?? '')
+                                        project.displayName
                                             .toLowerCase()
                                             .contains(searchQuery)),
                               )
@@ -1287,16 +1319,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             final filteredProjects = _projects
                                 .where(
                                   (project) =>
-                                      !(project['closed'] as bool? ?? false) &&
+                                      !project.closed &&
                                       (searchQuery.isEmpty ||
-                                          (project['title'] as String? ?? '')
+                                          project.displayName
                                               .toLowerCase()
                                               .contains(searchQuery)),
                                 )
                                 .toList();
                             final project = filteredProjects[index];
-                            final title = project['title'] as String? ?? '';
-                            final isSelected = _defaultProject == title;
+                            final title = project.displayName;
+                            final isSelected = _defaultProject == project.id;
 
                             return ListTile(
                               leading: const Icon(
@@ -1329,9 +1361,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   '[Settings] Default project selected: $title',
                                 );
                                 setState(() {
-                                  _defaultProject = title;
+                                  _defaultProject = project.id;
                                 });
-                                _localStorage.saveDefaultProject(title);
+                                _localStorage.saveDefaultProject(project.id);
                                 Navigator.pop(context);
 
                                 ScaffoldMessenger.of(context).showSnackBar(

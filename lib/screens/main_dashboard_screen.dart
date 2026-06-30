@@ -10,6 +10,7 @@ import '../utils/auth_error_handler.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
+import '../models/project_item.dart';
 import '../services/dashboard_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sync_service.dart';
@@ -72,7 +73,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   List<RepoItem> _repositories = [];
   String? _expandedRepoId;
-  List<Map<String, dynamic>> _projects = [];
+  List<ProjectV2> _projects = [];
   // Cloud icon now updates via SyncService listener only (no timer)
   VoidCallback? _syncListener;
   bool _isConflictDialogVisible = false;
@@ -84,7 +85,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   Future<void> _initialize() async {
-    _syncService.init();
+    await _syncService.init();
     await _checkOfflineMode();
     _loadHideUsernameSetting();
     _loadDefaultRepoSetting();
@@ -460,7 +461,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         }
 
         // Load cached projects
-        final cachedProjects = await _localStorage.getSyncedProjects();
+        final cachedProjects = await _syncService.loadProjectsFromCache();
 
         if (mounted) {
           setState(() {
@@ -996,9 +997,14 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     if (_isFetchingProjects) return;
 
     try {
-      debugPrint('Fetching projects...');
-      final projects = await _dashboardService.fetchProjects();
-      debugPrint('Fetched ${projects.length} projects');
+      if (mounted) setState(() => _isFetchingProjects = true);
+      var projects = await _syncService.loadProjectsFromCache();
+      if (mounted) setState(() => _projects = projects);
+
+      if (!_isOfflineMode && _syncService.isNetworkAvailable) {
+        await _syncService.syncProjects();
+        projects = await _syncService.loadProjectsFromCache();
+      }
 
       if (mounted) {
         setState(() {
@@ -1537,6 +1543,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     if (mounted) {
       // Filter out vault repo from available repos for selection
       final availableRepos = allRepos.where((r) => r.id != 'vault').toList();
+      final defaultProjectId = await _localStorage.getDefaultProject();
 
       Navigator.push(
         context,
@@ -1545,9 +1552,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             owner: owner,
             repo: repo,
             expandedRepoFullName: selectedRepo, // ISSUE #22: Visual indicator
-            defaultProject: _projects.isNotEmpty
-                ? _projects.first['title'] as String?
-                : null,
+            defaultProjectId: defaultProjectId,
             projects: _projects,
             availableRepos: availableRepos,
           ),

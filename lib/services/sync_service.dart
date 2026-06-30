@@ -8,12 +8,14 @@ import 'github_api_service.dart';
 import 'pending_operations_service.dart';
 import 'conflict_detection_service.dart';
 import 'secure_storage_service.dart';
+import 'cache_service.dart';
 import '../utils/app_error_handler.dart';
 import '../utils/retry_helper.dart';
 import '../models/issue_item.dart';
 import '../models/pending_operation.dart';
 import '../models/sync_history_entry.dart';
 import '../models/cached_dashboard_data.dart';
+import '../models/project_item.dart';
 
 enum SyncPhase {
   idle,
@@ -85,6 +87,11 @@ class SyncService {
   final LocalStorageService _localStorage = LocalStorageService();
   final PendingOperationsService _pendingOps = PendingOperationsService();
   final ConflictDetectionService _conflictDetector = ConflictDetectionService();
+  final CacheService _cache = CacheService();
+
+  static const String _projectsV2CacheKey = 'projects_v2';
+  static String _projectBoardCacheKey(String projectId) =>
+      'project_v2_board_$projectId';
 
   // Sync status
   bool _isSyncing = false;
@@ -97,6 +104,7 @@ class SyncService {
   String? _syncErrorMessage;
   int _syncedIssuesCount = 0;
   int _syncedProjectsCount = 0;
+  bool _isInitialized = false;
 
   // OFFLINE-FIRST (Critical Fix): Cached data for instant startup
   CachedDashboardData? _cachedData;
@@ -139,6 +147,107 @@ class SyncService {
   int get syncedIssuesCount => _syncedIssuesCount;
   int get syncedProjectsCount => _syncedProjectsCount;
 
+  Future<List<ProjectV2>> loadProjectsFromCache() async {
+    final cached = await _cache.getAsync<List>(_projectsV2CacheKey);
+    return (cached ?? const [])
+        .map(
+          (project) =>
+              ProjectV2.fromJson(Map<String, dynamic>.from(project as Map)),
+        )
+        .toList();
+  }
+
+  Future<ProjectV2Board?> loadProjectBoardFromCache(String projectId) async {
+    final cached = await _cache.getAsync<Map>(_projectBoardCacheKey(projectId));
+    if (cached == null) return null;
+    return ProjectV2Board.fromJson(Map<String, dynamic>.from(cached));
+  }
+
+  Future<void> saveProjectBoardSnapshot(ProjectV2Board board) async {
+    await _cache.setPersistent(
+      _projectBoardCacheKey(board.project.id),
+      board.toJson(),
+    );
+  }
+
+  Future<ProjectV2Board> syncProjectBoard(ProjectV2 project) async {
+    final board = await _githubApi.fetchProjectBoardFromGitHub(project);
+    await saveProjectBoardSnapshot(board);
+    return board;
+  }
+
+  /// Persist a board move before attempting any network work.
+  Future<ProjectV2Board> queueProjectItemStatus({
+    required ProjectV2Board board,
+    required ProjectV2BoardItem item,
+    required ProjectV2Column column,
+  }) async {
+    final fieldId = board.statusFieldId;
+    if (fieldId == null || !board.project.viewerCanUpdate) return board;
+
+    final updatedItem = item.copyWith(
+      statusOptionId: column.optionId,
+      clearStatus: column.optionId == null,
+      statusName: column.name,
+      syncState: ProjectItemSyncState.pending,
+    );
+    final updatedBoard = board.copyWith(
+      items: [
+        for (final current in board.items)
+          if (current.projectItemId == item.projectItemId)
+            updatedItem
+          else
+            current,
+      ],
+    );
+
+    await _pendingOps.init();
+    final operation = PendingOperation.setProjectItemStatus(
+      projectId: board.project.id,
+      itemId: item.projectItemId,
+      fieldId: fieldId,
+      optionId: column.optionId,
+      optionName: column.name,
+      previousOptionId: item.statusOptionId,
+      previousOptionName: item.statusName,
+    );
+    final existing = _pendingOps
+        .getAllOperations()
+        .where((pending) => pending.id == operation.id)
+        .firstOrNull;
+    if (existing != null) {
+      operation.data['previousOptionId'] = existing.data['previousOptionId'];
+      operation.data['previousOptionName'] =
+          existing.data['previousOptionName'];
+    }
+
+    await saveProjectBoardSnapshot(updatedBoard);
+    await _pendingOps.addOperation(operation);
+
+    if (_isNetworkAvailable && !_isOfflineAuthMode) {
+      unawaited(replayPendingOperations());
+    }
+    return updatedBoard;
+  }
+
+  /// Replay only the local command queue; online mode uses this same path.
+  Future<PendingReplayResult> replayPendingOperations() async {
+    if (_isSyncing || !_isNetworkAvailable || !await _canSyncWithGitHub()) {
+      return const PendingReplayResult();
+    }
+    _isSyncing = true;
+    _transitionTo(SyncPhase.syncingPendingOperations);
+    try {
+      final result = await _processPendingOperations();
+      _transitionTo(
+        result.failedOperations == 0 ? SyncPhase.success : SyncPhase.partial,
+      );
+      return result;
+    } finally {
+      _isSyncing = false;
+    }
+  }
+
   /// Add a listener for sync state changes
   void addListener(VoidCallback listener) {
     _listeners.add(listener);
@@ -151,6 +260,7 @@ class SyncService {
 
   /// Initialize sync service
   Future<void> init() async {
+    if (_isInitialized) return;
     debugPrint('SyncService: Initializing...');
     await _loadCachedData(); // OFFLINE-FIRST: Load cached data immediately
     await _loadAuthSyncMode();
@@ -159,6 +269,7 @@ class SyncService {
     await _loadLastSyncTimes();
     await _initHistory();
     _transitionTo(SyncPhase.idle);
+    _isInitialized = true;
   }
 
   Future<void> _loadAuthSyncMode() async {
@@ -725,11 +836,13 @@ class SyncService {
         }
       }
 
-      final projects = await _githubApi.fetchProjects(first: 30);
+      final projects = await _githubApi.fetchProjectsFromGitHub();
       debugPrint('SyncService: Fetched ${projects.length} projects');
 
-      // Save projects to local storage
-      await _localStorage.saveSyncedProjects(projects);
+      final serialized = projects.map((project) => project.toJson()).toList();
+      await _cache.setPersistent(_projectsV2CacheKey, serialized);
+      // Keep the existing dashboard snapshot compatible during migration.
+      await _localStorage.saveSyncedProjects(serialized);
       _lastProjectsSyncTime = DateTime.now();
 
       _syncedProjectsCount = projects.length;
@@ -1018,6 +1131,9 @@ class SyncService {
         succeeded++;
       } catch (e) {
         await _pendingOps.markAsFailed(operation.id, e.toString());
+        if (operation.type == OperationType.setProjectItemStatus) {
+          await _restoreFailedProjectStatus(operation);
+        }
         debugPrint(
           'SyncService: Failed operation ${operation.id} after retries: ${_safeError(e)}',
         );
@@ -1070,6 +1186,12 @@ class SyncService {
       case OperationType.deleteComment:
         await _executeDeleteComment(operation);
         break;
+      case OperationType.addProjectItem:
+        await _executeAddProjectItem(operation);
+        break;
+      case OperationType.setProjectItemStatus:
+        await _executeSetProjectItemStatus(operation);
+        break;
     }
   }
 
@@ -1084,6 +1206,25 @@ class SyncService {
       labels: _stringListFromData(operation.data['labels']),
       assignee: operation.data['assignee'] as String?,
     );
+
+    final projectId = operation.data['projectId'] as String?;
+    if (projectId != null && projectId.isNotEmpty) {
+      final addOperation = PendingOperation.addProjectItem(
+        id: 'project_add_${projectId}_${createdIssue.id}',
+        projectId: projectId,
+        contentId: createdIssue.id,
+      );
+      await _pendingOps.addOperation(addOperation);
+      try {
+        await _pendingOps.markAsSyncing(addOperation.id);
+        await _executeAddProjectItem(addOperation);
+        await _pendingOps.markAsCompleted(addOperation.id);
+        await _pendingOps.removeOperation(addOperation.id);
+      } catch (error) {
+        // Issue creation succeeded. Keep only the dependent project assignment.
+        await _pendingOps.markAsFailed(addOperation.id, error.toString());
+      }
+    }
 
     if (operation.issueId != null && operation.issueId!.isNotEmpty) {
       await _localStorage.removeLocalIssue(operation.issueId!);
@@ -1212,6 +1353,95 @@ class SyncService {
 
     debugPrint(
       'SyncService: Deleted comment #$commentId from queued operation',
+    );
+  }
+
+  Future<void> _executeAddProjectItem(PendingOperation operation) async {
+    final projectId = operation.data['projectId'] as String?;
+    final contentId = operation.data['contentId'] as String?;
+    if (projectId == null || contentId == null) {
+      throw StateError('Missing projectId/contentId for ${operation.id}');
+    }
+    await _githubApi.addProjectV2Item(
+      projectId: projectId,
+      contentId: contentId,
+    );
+
+    final cached = await loadProjectBoardFromCache(projectId);
+    if (cached != null) {
+      try {
+        await syncProjectBoard(cached.project);
+      } catch (_) {
+        // The mutation succeeded; the next normal refresh will reconcile the board.
+      }
+    }
+  }
+
+  Future<void> _executeSetProjectItemStatus(PendingOperation operation) async {
+    final projectId = operation.data['projectId'] as String?;
+    final itemId = operation.data['itemId'] as String?;
+    final fieldId = operation.data['fieldId'] as String?;
+    if (projectId == null || itemId == null || fieldId == null) {
+      throw StateError(
+        'Missing project status mutation data for ${operation.id}',
+      );
+    }
+    await _githubApi.setProjectItemStatus(
+      projectId: projectId,
+      itemId: itemId,
+      fieldId: fieldId,
+      optionId: operation.data['optionId'] as String?,
+    );
+    await _setCachedProjectItemSyncState(
+      projectId,
+      itemId,
+      ProjectItemSyncState.synced,
+    );
+  }
+
+  Future<void> _restoreFailedProjectStatus(PendingOperation operation) async {
+    final projectId = operation.data['projectId'] as String?;
+    final itemId = operation.data['itemId'] as String?;
+    if (projectId == null || itemId == null) return;
+    final board = await loadProjectBoardFromCache(projectId);
+    if (board == null) return;
+    final previousOptionId = operation.data['previousOptionId'] as String?;
+    final previousOptionName = operation.data['previousOptionName'] as String?;
+    await saveProjectBoardSnapshot(
+      board.copyWith(
+        items: [
+          for (final item in board.items)
+            if (item.projectItemId == itemId)
+              item.copyWith(
+                statusOptionId: previousOptionId,
+                clearStatus: previousOptionId == null,
+                statusName: previousOptionName,
+                syncState: ProjectItemSyncState.failed,
+              )
+            else
+              item,
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setCachedProjectItemSyncState(
+    String projectId,
+    String itemId,
+    ProjectItemSyncState syncState,
+  ) async {
+    final board = await loadProjectBoardFromCache(projectId);
+    if (board == null) return;
+    await saveProjectBoardSnapshot(
+      board.copyWith(
+        items: [
+          for (final item in board.items)
+            if (item.projectItemId == itemId)
+              item.copyWith(syncState: syncState)
+            else
+              item,
+        ],
+      ),
     );
   }
 

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gitdoit/constants/app_colors.dart';
+import 'package:gitdoit/models/project_item.dart';
 import 'package:gitdoit/screens/project_board_screen.dart';
-import 'package:gitdoit/widgets/braille_loader.dart';
 
 import '../support/test_harness.dart';
 import '../support/widget_pump_helpers.dart';
@@ -10,91 +9,134 @@ import '../support/widget_pump_helpers.dart';
 void main() {
   final harness = TestHarness.shared;
 
-  setUpAll(() async {
-    await harness.install();
-  });
+  const writableProject = ProjectV2(
+    id: 'project-1',
+    number: 1,
+    title: 'Roadmap',
+    ownerLogin: 'octo-org',
+    ownerType: ProjectOwnerType.organization,
+    url: 'https://github.com/orgs/octo-org/projects/1',
+    viewerCanUpdate: true,
+  );
 
-  setUp(() async {
-    await harness.reset();
-  });
+  setUpAll(harness.install);
+  setUp(harness.reset);
+  tearDownAll(harness.dispose);
 
-  tearDownAll(() async {
-    await harness.dispose();
-  });
+  ProjectV2Board boardFor(ProjectV2 project, {bool withStatus = true}) {
+    return ProjectV2Board(
+      project: project,
+      statusFieldId: withStatus ? 'status-field' : null,
+      columns: withStatus
+          ? const [
+              ProjectV2Column(
+                fieldId: 'status-field',
+                optionId: null,
+                name: 'No status',
+                color: 'GRAY',
+              ),
+              ProjectV2Column(
+                fieldId: 'status-field',
+                optionId: 'todo',
+                name: 'Todo',
+                color: 'BLUE',
+              ),
+              ProjectV2Column(
+                fieldId: 'status-field',
+                optionId: 'doing',
+                name: 'Doing',
+                color: 'YELLOW',
+              ),
+            ]
+          : const [],
+      items: const [
+        ProjectV2BoardItem(
+          projectItemId: 'project-item-1',
+          contentId: 'issue-node-1',
+          contentType: ProjectContentType.issue,
+          title: 'Ship offline kanban',
+          number: 42,
+          repoFullName: 'octo-org/mobile',
+          state: 'open',
+          statusOptionId: 'todo',
+          statusName: 'Todo',
+          labels: ['feature'],
+        ),
+      ],
+      fetchedAt: DateTime.now(),
+    );
+  }
 
-  Future<void> pumpProjectBoard(
-    WidgetTester tester, {
-    Size designSize = defaultTestDesignSize,
+  Future<void> pumpBoard(
+    WidgetTester tester,
+    ProjectV2 project, {
+    bool withStatus = true,
   }) async {
     await tester.pumpTestApp(
-      const ProjectBoardScreen(),
-      designSize: designSize,
+      ProjectBoardScreen(
+        project: project,
+        initialBoard: boardFor(project, withStatus: withStatus),
+      ),
     );
     await tester.pump();
   }
 
-  group('ProjectBoardScreen', () {
-    testWidgets('renders screen chrome immediately', (tester) async {
-      await pumpProjectBoard(tester);
+  testWidgets('renders the cached dynamic board before network work', (
+    tester,
+  ) async {
+    await pumpBoard(tester, writableProject);
 
-      expect(find.byType(ProjectBoardScreen), findsOneWidget);
-      expect(find.text('Project Board'), findsOneWidget);
-      expect(find.byIcon(Icons.add), findsOneWidget);
-      expect(find.byIcon(Icons.refresh), findsNothing);
-      expect(find.byType(RefreshIndicator), findsOneWidget);
-
-      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-      expect(scaffold.backgroundColor, AppColors.background);
-
-      final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.backgroundColor, AppColors.background);
-      expect(appBar.actions, isNotNull);
-    });
-
-    testWidgets(
-      'uses BrailleLoader instead of CircularProgressIndicator while loading',
-      (tester) async {
-        await pumpProjectBoard(tester);
-
-        expect(find.byType(BrailleLoader), findsOneWidget);
-        expect(find.byType(CircularProgressIndicator), findsNothing);
-      },
+    expect(find.text('octo-org / Roadmap'), findsOneWidget);
+    expect(find.text('No status'), findsOneWidget);
+    expect(find.textContaining('Ship offline kanban'), findsOneWidget);
+    expect(find.byType(LongPressDraggable<ProjectV2BoardItem>), findsOneWidget);
+    final horizontalBoard = find.byWidgetPredicate(
+      (widget) =>
+          widget is ListView && widget.scrollDirection == Axis.horizontal,
     );
+    await tester.drag(horizontalBoard, const Offset(-650, 0));
+    await tester.pump();
+    expect(find.text('Doing'), findsOneWidget);
+    expect(find.text('Last synced just now'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
 
-    testWidgets(
-      'keeps loading state bounded without requiring settled animations',
-      (tester) async {
-        await pumpProjectBoard(tester);
-        await tester.pump(const Duration(milliseconds: 250));
+  testWidgets('filters cached cards locally', (tester) async {
+    await pumpBoard(tester, writableProject);
 
-        expect(find.byType(ProjectBoardScreen), findsOneWidget);
-        expect(find.byType(BrailleLoader), findsOneWidget);
-        expect(find.byType(CircularProgressIndicator), findsNothing);
-      },
+    await tester.enterText(find.byType(TextField), 'not present');
+    await tester.pump();
+
+    expect(find.textContaining('Ship offline kanban'), findsNothing);
+  });
+
+  testWidgets('keeps read-only projects browsable without drag actions', (
+    tester,
+  ) async {
+    const readOnlyProject = ProjectV2(
+      id: 'project-read-only',
+      number: 2,
+      title: 'Public Roadmap',
+      ownerLogin: 'octo-org',
+      ownerType: ProjectOwnerType.organization,
+      url: '',
     );
+    await pumpBoard(tester, readOnlyProject);
 
-    testWidgets('add button shows current create-issue guidance', (
-      tester,
-    ) async {
-      await pumpProjectBoard(tester);
+    expect(find.textContaining('Ship offline kanban'), findsOneWidget);
+    expect(find.byType(LongPressDraggable<ProjectV2BoardItem>), findsNothing);
+    final addButton = tester.widget<IconButton>(
+      find.widgetWithIcon(IconButton, Icons.add),
+    );
+    expect(addButton.onPressed, isNull);
+  });
 
-      await tester.tap(find.byIcon(Icons.add));
-      await tester.pump();
+  testWidgets('explains projects without a Status field', (tester) async {
+    await pumpBoard(tester, writableProject, withStatus: false);
 
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(find.byIcon(Icons.info_outline), findsOneWidget);
-      expect(find.text('Create issues from the Dashboard'), findsOneWidget);
-      expect(find.text('OK'), findsOneWidget);
-    });
-
-    testWidgets('mounts at tablet design size without settling animations', (
-      tester,
-    ) async {
-      await pumpProjectBoard(tester, designSize: const Size(768, 1024));
-      await tester.pump(const Duration(milliseconds: 250));
-
-      expect(find.byType(ProjectBoardScreen), findsOneWidget);
-      expect(find.text('Project Board'), findsOneWidget);
-    });
+    expect(
+      find.textContaining('This project has no Status field'),
+      findsOneWidget,
+    );
   });
 }

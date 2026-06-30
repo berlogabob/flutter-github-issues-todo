@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gitdoit/screens/create_issue_screen.dart';
 import 'package:gitdoit/constants/app_colors.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gitdoit/models/project_item.dart';
 
 void main() {
   group('CreateIssueScreen Widget Tests', () {
@@ -10,7 +11,7 @@ void main() {
       String? owner,
       String? repo,
       String? defaultProject,
-      List<Map<String, dynamic>>? projects,
+      List<ProjectV2>? projects,
     }) {
       return ScreenUtilInit(
         designSize: const Size(360, 690),
@@ -456,8 +457,15 @@ void main() {
       testWidgets('displays Project section when projects provided', (
         tester,
       ) async {
-        final projects = [
-          {'id': '1', 'title': 'Test Project'},
+        const projects = [
+          ProjectV2(
+            id: '1',
+            number: 1,
+            title: 'Test Project',
+            ownerLogin: 'test',
+            ownerType: ProjectOwnerType.user,
+            url: '',
+          ),
         ];
         await tester.pumpWidget(
           createTestApp(owner: 'test', repo: 'repo', projects: projects),
@@ -469,8 +477,15 @@ void main() {
       });
 
       testWidgets('allows selecting project', (tester) async {
-        final projects = [
-          {'id': '1', 'title': 'Test Project'},
+        const projects = [
+          ProjectV2(
+            id: '1',
+            number: 1,
+            title: 'Test Project',
+            ownerLogin: 'test',
+            ownerType: ProjectOwnerType.user,
+            url: '',
+          ),
         ];
         await tester.pumpWidget(
           createTestApp(owner: 'test', repo: 'repo', projects: projects),
@@ -482,7 +497,7 @@ void main() {
         await tester.tap(projectDropdown);
         await tester.pumpAndSettle();
 
-        expect(find.text('Test Project'), findsOneWidget);
+        expect(find.text('test / Test Project'), findsOneWidget);
       });
 
       testWidgets('shows default project', (tester) async {
@@ -491,6 +506,16 @@ void main() {
             owner: 'test',
             repo: 'repo',
             defaultProject: 'Mobile Development',
+            projects: const [
+              ProjectV2(
+                id: 'project-id',
+                number: 1,
+                title: 'Mobile Development',
+                ownerLogin: 'test',
+                ownerType: ProjectOwnerType.user,
+                url: '',
+              ),
+            ],
           ),
         );
         await tester.pumpAndSettle();

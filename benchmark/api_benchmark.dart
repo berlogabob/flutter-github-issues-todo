@@ -103,7 +103,7 @@ void main() {
       final stopwatch = Stopwatch()..start();
 
       try {
-        final projects = await api.fetchProjects();
+        final projects = await api.fetchProjectsFromGitHub();
         stopwatch.stop();
 
         debugPrint('=== API LATENCY BENCHMARK: Fetch Projects ===');
@@ -159,7 +159,7 @@ void main() {
       final futures = [
         api.getCurrentUser(),
         api.fetchMyRepositories(perPage: 10),
-        api.fetchProjects(),
+        api.fetchProjectsFromGitHub(),
       ];
 
       try {

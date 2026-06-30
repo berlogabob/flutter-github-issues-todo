@@ -6,10 +6,13 @@ import '../constants/app_colors.dart';
 import '../services/github_api_service.dart';
 import '../services/secure_storage_service.dart';
 import '../models/repo_item.dart';
+import '../models/project_item.dart';
+import '../services/sync_service.dart';
 import '../widgets/braille_loader.dart';
 import '../providers/pinned_repos_provider.dart';
 import '../providers/repositories_provider.dart';
 import 'repo_detail_screen.dart';
+import 'project_board_screen.dart';
 
 /// RepoProjectLibraryScreen - Manage repositories and projects
 /// RIVERPOD MIGRATION: Fully migrated to Riverpod 3
@@ -24,9 +27,12 @@ class RepoProjectLibraryScreen extends ConsumerStatefulWidget {
 class _RepoProjectLibraryScreenState
     extends ConsumerState<RepoProjectLibraryScreen> {
   final GitHubApiService _githubApi = GitHubApiService();
+  final SyncService _syncService = SyncService();
   bool _isLoading = false;
+  bool _isLoadingProjects = false;
   String _filter = 'all'; // all, repos, projects
   bool _isOfflineMode = false;
+  List<ProjectV2> _projects = const [];
 
   @override
   void initState() {
@@ -34,6 +40,28 @@ class _RepoProjectLibraryScreenState
     _checkOfflineMode();
     _loadMainRepo();
     _fetchRepositories();
+    _fetchProjects();
+  }
+
+  Future<void> _fetchProjects() async {
+    if (mounted) setState(() => _isLoadingProjects = true);
+    await _syncService.init();
+    var projects = await _syncService.loadProjectsFromCache();
+    if (mounted) setState(() => _projects = projects);
+    if (!_isOfflineMode && _syncService.isNetworkAvailable) {
+      try {
+        await _syncService.syncProjects();
+        projects = await _syncService.loadProjectsFromCache();
+      } catch (_) {
+        // Cached projects remain available.
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _projects = projects;
+        _isLoadingProjects = false;
+      });
+    }
   }
 
   Future<void> _checkOfflineMode() async {
@@ -275,23 +303,53 @@ class _RepoProjectLibraryScreenState
           ),
           // Content
           Expanded(
-            child: _isLoading
+            child: _isLoading || _isLoadingProjects
                 ? const Center(child: BrailleLoader(size: 32))
-                : repos.isEmpty
-                ? const Center(child: Text('No repositories'))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: repos.length,
-                    itemBuilder: (context, index) {
-                      final repo = repos[index];
-                      final isPinned = pinned.contains(repo.fullName);
-                      final isMain = repo.fullName == mainRepo;
-
-                      return _buildRepoItem(repo, isPinned, isMain);
-                    },
-                  ),
+                : _buildLibrary(repos, pinned, mainRepo),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLibrary(
+    List<RepoItem> repos,
+    List<String> pinned,
+    String? mainRepo,
+  ) {
+    final children = <Widget>[
+      if (_filter != 'projects')
+        for (final repo in repos)
+          _buildRepoItem(
+            repo,
+            pinned.contains(repo.fullName),
+            repo.fullName == mainRepo,
+          ),
+      if (_filter != 'repos')
+        for (final project in _projects) _buildProjectItem(project),
+    ];
+    if (children.isEmpty) {
+      return const Center(child: Text('No repositories or projects cached'));
+    }
+    return ListView(padding: const EdgeInsets.all(12), children: children);
+  }
+
+  Widget _buildProjectItem(ProjectV2 project) {
+    return Card(
+      color: AppColors.card,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: const Icon(Icons.view_kanban, color: AppColors.link),
+        title: Text(project.title),
+        subtitle: Text(project.ownerLogin),
+        trailing: project.closed
+            ? const Text('Closed')
+            : const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ProjectBoardScreen(project: project),
+          ),
+        ),
       ),
     );
   }

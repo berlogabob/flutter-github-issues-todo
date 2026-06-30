@@ -12,6 +12,7 @@ import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
+import '../models/project_item.dart';
 
 /// GitHub REST API Service
 class GitHubApiService {
@@ -1343,467 +1344,430 @@ class GitHubApiService {
     }
   }
 
-  /// Fetches current user's Projects V2 using GraphQL.
-  ///
-  /// Returns a list of project objects containing:
-  /// - `id`: Project node ID (for GraphQL operations)
-  /// - `title`: Project title
-  /// - `shortDescription`: Project description
-  /// - `url`: GitHub URL for the project
-  /// - `closed`: Whether the project is closed
-  /// - `createdAt`: Project creation timestamp
-  /// - `updatedAt`: Last update timestamp
-  ///
-  /// Uses GitHub GraphQL API with query:
-  /// ```graphql
-  /// query GetUserProjects($first: Int!) {
-  ///   viewer {
-  ///     projectsV2(first: $first) {
-  ///       nodes { id, title, shortDescription, url, closed, ... }
-  ///     }
-  ///   }
-  /// }
-  /// ```
-  ///
-  /// Results are cached for 5 minutes using [CacheService].
-  ///
-  /// Example:
-  /// ```dart
-  /// final projects = await githubApi.fetchProjects(first: 30);
-  /// for (final project in projects) {
-  ///   print('${project['title']}: ${project['url']}');
-  /// }
-  /// ```
-  ///
-  /// Returns an empty list if the request fails or GraphQL errors occur.
-  /// Errors are logged and handled by [AppErrorHandler].
-  ///
-  /// [first] Maximum number of projects to fetch (default: 30).
-  /// Returns a list of project maps.
-  Future<List<Map<String, dynamic>>> fetchProjects({int first = 30}) async {
-    try {
-      // Check cache first
-      final cacheKey = 'projects_$first';
-      final cachedProjects = await _cache.getAsync<List>(cacheKey);
-      if (cachedProjects != null) {
-        debugPrint('Cache hit for projects');
-        return cachedProjects.cast<Map<String, dynamic>>();
+  Future<Map<String, dynamic>> _graphQl(
+    String document, [
+    Map<String, dynamic> variables = const {},
+  ]) async {
+    final response = await http
+        .post(
+          Uri.parse('https://api.github.com/graphql'),
+          headers: await _headers,
+          body: json.encode({'query': document, 'variables': variables}),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'GitHub GraphQL request failed: HTTP ${response.statusCode}',
+      );
+    }
+
+    final decoded = json.decode(response.body) as Map<String, dynamic>;
+    final errors = decoded['errors'] as List?;
+    if (errors != null && errors.isNotEmpty) {
+      final message = errors
+          .map(
+            (error) => (error as Map)['message']?.toString() ?? 'Unknown error',
+          )
+          .join('; ');
+      throw Exception('GitHub GraphQL error: $message');
+    }
+
+    return Map<String, dynamic>.from(decoded['data'] as Map? ?? const {});
+  }
+
+  /// Fetch all visible personal and organization Projects V2.
+  Future<List<ProjectV2>> fetchProjectsFromGitHub() async {
+    const personalQuery = r'''
+      query Projects($after: String) {
+        viewer {
+          login
+          projectsV2(first: 100, after: $after) {
+            nodes {
+              id number title shortDescription url closed updatedAt
+              viewerCanUpdate
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
       }
+    ''';
+    const organizationsQuery = r'''
+      query Organizations($after: String) {
+        viewer {
+          organizations(first: 100, after: $after) {
+            nodes { login }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+    ''';
+    const organizationProjectsQuery = r'''
+      query OrganizationProjects($login: String!, $after: String) {
+        organization(login: $login) {
+          projectsV2(first: 100, after: $after, minPermissionLevel: READ) {
+            nodes {
+              id number title shortDescription url closed updatedAt
+              viewerCanUpdate
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+    ''';
 
-      debugPrint('Fetching Projects v2...');
-      final headers = await _headers;
+    final projects = <ProjectV2>[];
+    String? cursor;
+    String viewerLogin = 'me';
+    do {
+      final data = await _graphQl(personalQuery, {'after': cursor});
+      final viewer = Map<String, dynamic>.from(data['viewer'] as Map);
+      viewerLogin = viewer['login'] as String? ?? viewerLogin;
+      final connection = Map<String, dynamic>.from(
+        viewer['projectsV2'] as Map? ?? const {},
+      );
+      projects.addAll(
+        _parseProjects(
+          connection['nodes'] as List? ?? const [],
+          viewerLogin,
+          ProjectOwnerType.user,
+        ),
+      );
+      cursor = _nextCursor(connection);
+    } while (cursor != null);
 
-      // Use GraphQL to fetch Projects v2
-      const query = r'''
-        query GetUserProjects($first: Int!) {
-          viewer {
-            projectsV2(first: $first) {
-              totalCount
+    final organizations = <String>[];
+    cursor = null;
+    do {
+      final data = await _graphQl(organizationsQuery, {'after': cursor});
+      final viewer = Map<String, dynamic>.from(data['viewer'] as Map);
+      final connection = Map<String, dynamic>.from(
+        viewer['organizations'] as Map? ?? const {},
+      );
+      organizations.addAll(
+        (connection['nodes'] as List? ?? const []).map(
+          (node) => (node as Map)['login'] as String,
+        ),
+      );
+      cursor = _nextCursor(connection);
+    } while (cursor != null);
+
+    for (final organization in organizations) {
+      cursor = null;
+      do {
+        final data = await _graphQl(organizationProjectsQuery, {
+          'login': organization,
+          'after': cursor,
+        });
+        final owner = data['organization'] as Map?;
+        if (owner == null) break;
+        final connection = Map<String, dynamic>.from(
+          owner['projectsV2'] as Map? ?? const {},
+        );
+        projects.addAll(
+          _parseProjects(
+            connection['nodes'] as List? ?? const [],
+            organization,
+            ProjectOwnerType.organization,
+          ),
+        );
+        cursor = _nextCursor(connection);
+      } while (cursor != null);
+    }
+
+    final byId = <String, ProjectV2>{
+      for (final project in projects) project.id: project,
+    };
+    final result = byId.values.toList()
+      ..sort((a, b) {
+        if (a.closed != b.closed) return a.closed ? 1 : -1;
+        return a.displayName.toLowerCase().compareTo(
+          b.displayName.toLowerCase(),
+        );
+      });
+    return result;
+  }
+
+  List<ProjectV2> _parseProjects(
+    List<dynamic> nodes,
+    String ownerLogin,
+    ProjectOwnerType ownerType,
+  ) {
+    return nodes.map((raw) {
+      final node = Map<String, dynamic>.from(raw as Map);
+      return ProjectV2(
+        id: node['id'] as String,
+        number: node['number'] as int? ?? 0,
+        title: node['title'] as String? ?? 'Untitled project',
+        ownerLogin: ownerLogin,
+        ownerType: ownerType,
+        url: node['url'] as String? ?? '',
+        shortDescription: node['shortDescription'] as String?,
+        closed: node['closed'] as bool? ?? false,
+        viewerCanUpdate: node['viewerCanUpdate'] as bool? ?? false,
+        updatedAt: DateTime.tryParse(node['updatedAt'] as String? ?? ''),
+      );
+    }).toList();
+  }
+
+  String? _nextCursor(Map<String, dynamic> connection) {
+    final pageInfo = connection['pageInfo'] as Map?;
+    if (pageInfo?['hasNextPage'] != true) return null;
+    return pageInfo?['endCursor'] as String?;
+  }
+
+  /// Fetch a complete board snapshot, following every item page.
+  Future<ProjectV2Board> fetchProjectBoardFromGitHub(ProjectV2 project) async {
+    const query = r'''
+      query ProjectBoard($projectId: ID!, $after: String) {
+        node(id: $projectId) {
+          ... on ProjectV2 {
+            title shortDescription url closed updatedAt viewerCanUpdate
+            fields(first: 100) {
               nodes {
-                id
-                title
-                shortDescription
-                url
-                closed
-                createdAt
-                updatedAt
+                __typename
+                ... on ProjectV2SingleSelectField {
+                  id name dataType
+                  options { id name color }
+                }
               }
+            }
+            items(first: 100, after: $after) {
+              nodes {
+                id type updatedAt
+                fieldValues(first: 100) {
+                  nodes {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      optionId name
+                      field { ... on ProjectV2FieldCommon { id name } }
+                    }
+                  }
+                }
+                content {
+                  __typename
+                  ... on Issue {
+                    id number title body state url updatedAt
+                    repository { nameWithOwner }
+                    assignees(first: 1) { nodes { login avatarUrl } }
+                    labels(first: 10) { nodes { name } }
+                  }
+                  ... on PullRequest {
+                    id number title body state url updatedAt
+                    repository { nameWithOwner }
+                    assignees(first: 1) { nodes { login avatarUrl } }
+                    labels(first: 10) { nodes { name } }
+                  }
+                  ... on DraftIssue {
+                    id title body updatedAt
+                    assignees(first: 1) { nodes { login avatarUrl } }
+                  }
+                }
+              }
+              pageInfo { hasNextPage endCursor }
             }
           }
         }
-      ''';
-
-      final response = await http
-          .post(
-            Uri.parse('https://api.github.com/graphql'),
-            headers: headers,
-            body: json.encode({
-              'query': query,
-              'variables': {'first': first},
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      debugPrint('Projects GraphQL response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['errors'] != null) {
-          debugPrint('GraphQL errors: ${data['errors']}');
-          return [];
-        }
-
-        final projects =
-            data['data']?['viewer']?['projectsV2']?['nodes'] as List? ?? [];
-        debugPrint('Fetched ${projects.length} projects');
-
-        // Cache the result for 5 minutes
-        await _cache.set(cacheKey, projects, ttl: const Duration(minutes: 5));
-
-        return projects.cast<Map<String, dynamic>>();
-      } else {
-        debugPrint('Failed to fetch projects: ${response.statusCode}');
-        return [];
       }
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace);
-      return [];
-    }
+    ''';
+
+    final items = <ProjectV2BoardItem>[];
+    List<ProjectV2Column> columns = const [];
+    String? statusFieldId;
+    ProjectV2 currentProject = project;
+    String? cursor;
+
+    do {
+      final data = await _graphQl(query, {
+        'projectId': project.id,
+        'after': cursor,
+      });
+      final node = data['node'] as Map?;
+      if (node == null) {
+        throw Exception('Project not found or no longer accessible');
+      }
+      final projectNode = Map<String, dynamic>.from(node);
+      currentProject = ProjectV2(
+        id: project.id,
+        number: project.number,
+        title: projectNode['title'] as String? ?? project.title,
+        ownerLogin: project.ownerLogin,
+        ownerType: project.ownerType,
+        url: projectNode['url'] as String? ?? project.url,
+        shortDescription: projectNode['shortDescription'] as String?,
+        closed: projectNode['closed'] as bool? ?? project.closed,
+        viewerCanUpdate:
+            projectNode['viewerCanUpdate'] as bool? ?? project.viewerCanUpdate,
+        updatedAt: DateTime.tryParse(projectNode['updatedAt'] as String? ?? ''),
+      );
+
+      if (statusFieldId == null) {
+        final fields =
+            (projectNode['fields'] as Map?)?['nodes'] as List? ?? const [];
+        for (final rawField in fields) {
+          final field = Map<String, dynamic>.from(rawField as Map);
+          if (field['__typename'] != 'ProjectV2SingleSelectField' ||
+              (field['name'] as String?)?.toLowerCase() != 'status') {
+            continue;
+          }
+          statusFieldId = field['id'] as String;
+          columns = [
+            ProjectV2Column(
+              fieldId: statusFieldId,
+              optionId: null,
+              name: 'No status',
+              color: 'GRAY',
+            ),
+            ...(field['options'] as List? ?? const []).map((rawOption) {
+              final option = Map<String, dynamic>.from(rawOption as Map);
+              return ProjectV2Column(
+                fieldId: statusFieldId!,
+                optionId: option['id'] as String,
+                name: option['name'] as String,
+                color: option['color'] as String? ?? 'GRAY',
+              );
+            }),
+          ];
+          break;
+        }
+      }
+
+      final connection = Map<String, dynamic>.from(
+        projectNode['items'] as Map? ?? const {},
+      );
+      items.addAll(
+        (connection['nodes'] as List? ?? const []).map(
+          (rawItem) => _parseProjectBoardItem(
+            Map<String, dynamic>.from(rawItem as Map),
+            statusFieldId,
+          ),
+        ),
+      );
+      cursor = _nextCursor(connection);
+    } while (cursor != null);
+
+    return ProjectV2Board(
+      project: currentProject,
+      statusFieldId: statusFieldId,
+      columns: columns,
+      items: items,
+      fetchedAt: DateTime.now(),
+    );
   }
 
-  /// Move project item between columns (drag-and-drop)
-  /// Returns true if successful
-  Future<bool> moveProjectItem({
+  ProjectV2BoardItem _parseProjectBoardItem(
+    Map<String, dynamic> item,
+    String? statusFieldId,
+  ) {
+    final content = item['content'] as Map?;
+    final typeName = content?['__typename'] as String?;
+    final contentType = switch (typeName) {
+      'Issue' => ProjectContentType.issue,
+      'PullRequest' => ProjectContentType.pullRequest,
+      'DraftIssue' => ProjectContentType.draftIssue,
+      _ => ProjectContentType.redacted,
+    };
+
+    String? statusOptionId;
+    String? statusName;
+    final values = (item['fieldValues'] as Map?)?['nodes'] as List? ?? const [];
+    for (final rawValue in values) {
+      final value = rawValue as Map;
+      if (value['field']?['id'] == statusFieldId) {
+        statusOptionId = value['optionId'] as String?;
+        statusName = value['name'] as String?;
+        break;
+      }
+    }
+
+    final assignees =
+        (content?['assignees'] as Map?)?['nodes'] as List? ?? const [];
+    final assignee = assignees.isEmpty ? null : assignees.first as Map;
+    final labels = (content?['labels'] as Map?)?['nodes'] as List? ?? const [];
+
+    return ProjectV2BoardItem(
+      projectItemId: item['id'] as String,
+      contentId: content?['id'] as String?,
+      contentType: contentType,
+      title: content?['title'] as String? ?? 'Unavailable item',
+      number: content?['number'] as int?,
+      body: content?['body'] as String?,
+      state: (content?['state'] as String?)?.toLowerCase(),
+      url: content?['url'] as String?,
+      repoFullName:
+          (content?['repository'] as Map?)?['nameWithOwner'] as String?,
+      updatedAt: DateTime.tryParse(
+        content?['updatedAt'] as String? ?? item['updatedAt'] as String? ?? '',
+      ),
+      assigneeLogin: assignee?['login'] as String?,
+      assigneeAvatarUrl: assignee?['avatarUrl'] as String?,
+      labels: labels.map((label) => (label as Map)['name'] as String).toList(),
+      statusOptionId: statusOptionId,
+      statusName: statusName,
+    );
+  }
+
+  Future<void> setProjectItemStatus({
     required String projectId,
     required String itemId,
     required String fieldId,
-    required String optionId,
+    required String? optionId,
   }) async {
-    try {
-      debugPrint('Moving project item: $itemId to column $optionId');
-      final headers = await _headers;
-
+    if (optionId == null) {
       const mutation = r'''
-        mutation UpdateProjectV2ItemFieldValue(
-          $projectId: ID!
-          $itemId: ID!
-          $fieldId: ID!
-          $optionId: String!
-        ) {
-          updateProjectV2ItemFieldValue(
-            input: {
-              projectId: $projectId
-              itemId: $itemId
-              fieldId: $fieldId
-              value: { singleSelectOptionId: $optionId }
-            }
-          ) {
-            projectV2Item {
-              id
-              updatedAt
-            }
-          }
+        mutation ClearStatus($projectId: ID!, $itemId: ID!, $fieldId: ID!) {
+          clearProjectV2ItemFieldValue(input: {
+            projectId: $projectId itemId: $itemId fieldId: $fieldId
+          }) { projectV2Item { id } }
         }
       ''';
-
-      final response = await http
-          .post(
-            Uri.parse('https://api.github.com/graphql'),
-            headers: headers,
-            body: json.encode({
-              'query': mutation,
-              'variables': {
-                'projectId': projectId,
-                'itemId': itemId,
-                'fieldId': fieldId,
-                'optionId': optionId,
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      debugPrint('Move item GraphQL response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        // Check for errors
-        if (data['errors'] != null) {
-          debugPrint('GraphQL errors: ${data['errors']}');
-          throw Exception(
-            'Failed to move item: ${data['errors'][0]['message']}',
-          );
-        }
-
-        // Check if mutation succeeded
-        final result = data['data']?['updateProjectV2ItemFieldValue'];
-        if (result != null) {
-          debugPrint('✓ Item moved successfully');
-          return true;
-        } else {
-          throw Exception('Mutation returned null');
-        }
-      } else {
-        throw Exception('Failed to move item: HTTP ${response.statusCode}');
-      }
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace);
-      return false;
+      await _graphQl(mutation, {
+        'projectId': projectId,
+        'itemId': itemId,
+        'fieldId': fieldId,
+      });
+      return;
     }
+
+    const mutation = r'''
+      mutation SetStatus(
+        $projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!
+      ) {
+        updateProjectV2ItemFieldValue(input: {
+          projectId: $projectId itemId: $itemId fieldId: $fieldId
+          value: { singleSelectOptionId: $optionId }
+        }) { projectV2Item { id } }
+      }
+    ''';
+    await _graphQl(mutation, {
+      'projectId': projectId,
+      'itemId': itemId,
+      'fieldId': fieldId,
+      'optionId': optionId,
+    });
   }
 
-  /// Get project fields (including Status field with columns)
-  /// Returns list of field maps, or null on error
-  Future<List?> getProjectFields(String projectId) async {
-    try {
-      debugPrint('Fetching project fields for: $projectId');
-      final headers = await _headers;
-
-      const query = r'''
-        query GetProjectFields($projectId: ID!) {
-          node(id: $projectId) {
-            ... on ProjectV2 {
-              fields(first: 10) {
-                nodes {
-                  ... on ProjectV2Field {
-                    id
-                    name
-                    dataType
-                  }
-                  ... on ProjectV2SingleSelectField {
-                    id
-                    name
-                    dataType
-                    options {
-                      id
-                      name
-                      color
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      ''';
-
-      final response = await http
-          .post(
-            Uri.parse('https://api.github.com/graphql'),
-            headers: headers,
-            body: json.encode({
-              'query': query,
-              'variables': {'projectId': projectId},
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['errors'] != null) {
-          debugPrint('GraphQL errors: ${data['errors']}');
-          return null;
-        }
-
-        final fields = data['data']?['node']?['fields']?['nodes'];
-        debugPrint('Fetched ${fields?.length ?? 0} project fields');
-        return fields;
-      } else {
-        return null;
-      }
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace);
-      return null;
-    }
-  }
-
-  /// Add an issue to a project using GraphQL mutation
-  /// Returns the project item ID if successful, null otherwise
-  Future<String?> addProjectItem({
+  Future<String> addProjectV2Item({
     required String projectId,
-    required String issueNodeId,
+    required String contentId,
   }) async {
-    try {
-      debugPrint('Adding issue $issueNodeId to project $projectId');
-      final headers = await _headers;
-
-      const mutation = r'''
-        mutation AddProjectV2ItemById(
-          $projectId: ID!
-          $contentId: ID!
-        ) {
-          addProjectV2ItemById(
-            input: {
-              projectId: $projectId
-              contentId: $contentId
-            }
-          ) {
-            item {
-              id
-              content {
-                ... on Issue {
-                  id
-                  number
-                  title
-                }
-              }
-            }
-          }
-        }
-      ''';
-
-      final response = await http
-          .post(
-            Uri.parse('https://api.github.com/graphql'),
-            headers: headers,
-            body: json.encode({
-              'query': mutation,
-              'variables': {'projectId': projectId, 'contentId': issueNodeId},
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      debugPrint(
-        'Add project item GraphQL response status: ${response.statusCode}',
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        // Check for errors
-        if (data['errors'] != null) {
-          debugPrint('GraphQL errors: ${data['errors']}');
-          return null;
-        }
-
-        // Get the item ID
-        final result = data['data']?['addProjectV2ItemById']?['item'];
-        if (result != null) {
-          final itemId = result['id'] as String?;
-          debugPrint('✓ Item added to project with ID: $itemId');
-          return itemId;
-        } else {
-          debugPrint('✗ Mutation returned null');
-          return null;
-        }
-      } else {
-        debugPrint('✗ Failed to add item: HTTP ${response.statusCode}');
-        return null;
+    const mutation = r'''
+      mutation AddItem($projectId: ID!, $contentId: ID!) {
+        addProjectV2ItemById(input: {
+          projectId: $projectId contentId: $contentId
+        }) { item { id } }
       }
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace);
-      return null;
+    ''';
+    final data = await _graphQl(mutation, {
+      'projectId': projectId,
+      'contentId': contentId,
+    });
+    final payload = data['addProjectV2ItemById'] as Map?;
+    final item = payload?['item'] as Map?;
+    final itemId = item?['id'] as String?;
+    if (itemId == null) {
+      throw Exception('GitHub did not return a project item ID');
     }
-  }
-
-  /// Get project items (issues) with their status field values
-  /// Returns a map of column name -> list of issues
-  Future<Map<String, List<Map<String, dynamic>>>> getProjectItems({
-    required String projectId,
-    required String statusFieldId,
-    int first = 100,
-  }) async {
-    try {
-      debugPrint('Fetching project items for project $projectId');
-      final headers = await _headers;
-
-      const query = r'''
-        query GetProjectItems($projectId: ID!, $first: Int!, $statusFieldId: ID!) {
-          node(id: $projectId) {
-            ... on ProjectV2 {
-              items(first: $first) {
-                nodes {
-                  id
-                  createdAt
-                  updatedAt
-                  content {
-                    ... on Issue {
-                      id
-                      number
-                      title
-                      body
-                      state
-                      createdAt
-                      updatedAt
-                      url
-                      assignee {
-                        login
-                        avatarUrl
-                      }
-                      labels(first: 10) {
-                        nodes {
-                          id
-                          name
-                          color
-                        }
-                      }
-                    }
-                  }
-                  fieldValues(first: 10) {
-                    nodes {
-                      ... on ProjectV2ItemFieldSingleSelectValue {
-                        field {
-                          id
-                        }
-                        optionId
-                        name
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      ''';
-
-      final response = await http
-          .post(
-            Uri.parse('https://api.github.com/graphql'),
-            headers: headers,
-            body: json.encode({
-              'query': query,
-              'variables': {
-                'projectId': projectId,
-                'first': first,
-                'statusFieldId': statusFieldId,
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      debugPrint(
-        'Get project items GraphQL response status: ${response.statusCode}',
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        // Check for errors
-        if (data['errors'] != null) {
-          debugPrint('GraphQL errors: ${data['errors']}');
-          return {};
-        }
-
-        final items = data['data']?['node']?['items']?['nodes'] as List? ?? [];
-        debugPrint('Fetched ${items.length} project items');
-
-        // Group items by status column
-        final columnItems = <String, List<Map<String, dynamic>>>{};
-
-        for (final item in items) {
-          // Get the content (issue)
-          final content = item['content'] as Map<String, dynamic>?;
-          if (content == null) continue;
-
-          // Find the status field value
-          String columnName = 'Todo'; // Default column
-          final fieldValues = item['fieldValues']?['nodes'] as List? ?? [];
-          for (final fv in fieldValues) {
-            if (fv['field']?['id'] == statusFieldId) {
-              columnName = fv['name'] as String? ?? 'Todo';
-              break;
-            }
-          }
-
-          // Add to the appropriate column
-          if (!columnItems.containsKey(columnName)) {
-            columnItems[columnName] = [];
-          }
-          columnItems[columnName]!.add(content);
-        }
-
-        return columnItems;
-      } else {
-        debugPrint(
-          '✗ Failed to get project items: HTTP ${response.statusCode}',
-        );
-        return {};
-      }
-    } catch (e, stackTrace) {
-      AppErrorHandler.handle(e, stackTrace: stackTrace);
-      return {};
-    }
+    return itemId;
   }
 
   /// Parse repository JSON

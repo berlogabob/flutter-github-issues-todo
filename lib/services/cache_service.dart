@@ -164,12 +164,13 @@ class CacheService {
       }
 
       final decoded = jsonDecode(data) as Map<String, dynamic>;
-      final expiry = DateTime.parse(decoded['expiry'] as String);
+      final expiryValue = decoded['expiry'] as String?;
 
       // Check if expired
-      if (DateTime.now().isAfter(expiry)) {
+      if (expiryValue != null &&
+          DateTime.now().isAfter(DateTime.parse(expiryValue))) {
         debugPrint(
-          'CacheService: Cache EXPIRED for key: $key (expired at $expiry)',
+          'CacheService: Cache EXPIRED for key: $key (expired at $expiryValue)',
         );
         _cache.delete(key); // Clean up expired entry
         return null;
@@ -225,6 +226,16 @@ class CacheService {
       debugPrint('Stack: $stackTrace');
       rethrow;
     }
+  }
+
+  /// Store durable offline-first data until explicitly replaced or cleared.
+  Future<void> setPersistent<T>(String key, T value) async {
+    if (!_isInitialized) {
+      await init();
+    }
+
+    final data = {'value': jsonEncode(value), 'expiry': null};
+    await _cache.put(key, jsonEncode(data));
   }
 
   /// Remove cached value.

@@ -196,7 +196,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Required scopes:\n• repo (Full control of private repositories)\n• read:user (Read user profile data)\n• user:email (Access user email addresses)\n• project (Read and write projects)',
+              'Required scopes:\n• repo (Repository issues)\n• read:org (Organization projects)\n• project (Read and write projects)',
               style: TextStyle(color: Colors.white54, fontSize: 11),
             ),
           ],

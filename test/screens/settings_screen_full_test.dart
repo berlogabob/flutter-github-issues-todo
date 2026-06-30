@@ -163,8 +163,8 @@ void main() {
       testWidgets('shows current default project', (tester) async {
         await pumpSettings(tester);
 
-        // Default project should be displayed
-        expect(find.textContaining('Mobile Development'), findsWidgets);
+        // No fake project is selected before a real ProjectV2 is cached.
+        expect(find.text('None'), findsWidgets);
       });
 
       testWidgets('Default Repository has folder icon', (tester) async {

@@ -4,6 +4,7 @@ import '../services/secure_storage_service.dart';
 import '../services/local_storage_service.dart';
 import '../models/repo_item.dart';
 import '../models/issue_item.dart';
+import '../models/project_item.dart';
 import 'repositories_provider.dart';
 import 'service_providers.dart';
 
@@ -98,7 +99,7 @@ class SettingsState {
   final String defaultProject;
   final String appVersion;
   final Map<String, dynamic> user;
-  final List<Map<String, dynamic>> projects;
+  final List<ProjectV2> projects;
   final bool isLoadingUser;
   final bool isLoadingProjects;
 
@@ -121,7 +122,7 @@ class SettingsState {
     String? defaultProject,
     String? appVersion,
     Map<String, dynamic>? user,
-    List<Map<String, dynamic>>? projects,
+    List<ProjectV2>? projects,
     bool? isLoadingUser,
     bool? isLoadingProjects,
   }) {
@@ -219,8 +220,13 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> loadProjects() async {
     state = state.copyWith(isLoadingProjects: true);
     try {
-      final githubApi = ref.read(githubApiServiceProvider);
-      final projects = await githubApi.fetchProjects();
+      final sync = ref.read(syncServiceProvider);
+      await sync.init();
+      var projects = await sync.loadProjectsFromCache();
+      if (sync.isNetworkAvailable) {
+        await sync.syncProjects();
+        projects = await sync.loadProjectsFromCache();
+      }
       state = state.copyWith(projects: projects, isLoadingProjects: false);
     } catch (e) {
       state = state.copyWith(isLoadingProjects: false);
@@ -239,7 +245,7 @@ class DashboardState {
   final bool isLoadingComplete;
   final List<RepoItem> repositories;
   final String? expandedRepoId;
-  final List<Map<String, dynamic>> projects;
+  final List<ProjectV2> projects;
 
   DashboardState({
     this.filterStatus = 'open',
@@ -264,7 +270,7 @@ class DashboardState {
     bool? isLoadingComplete,
     List<RepoItem>? repositories,
     String? expandedRepoId,
-    List<Map<String, dynamic>>? projects,
+    List<ProjectV2>? projects,
   }) {
     return DashboardState(
       filterStatus: filterStatus ?? this.filterStatus,
@@ -323,7 +329,7 @@ class DashboardNotifier extends Notifier<DashboardState> {
   }
 
   /// Set projects
-  void setProjects(List<Map<String, dynamic>> projects) {
+  void setProjects(List<ProjectV2> projects) {
     state = state.copyWith(projects: projects, isFetchingProjects: false);
   }
 

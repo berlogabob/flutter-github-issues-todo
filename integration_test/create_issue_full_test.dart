@@ -82,10 +82,7 @@ void main() {
       expect(find.byType(SnackBar), findsWidgets);
 
       // Now enter title
-      await tester.enterText(
-        find.byType(TextField).first,
-        'Valid Title',
-      );
+      await tester.enterText(find.byType(TextField).first, 'Valid Title');
       await tester.pumpAndSettle();
 
       // Create should work now
@@ -105,10 +102,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter title
-      await tester.enterText(
-        find.byType(TextField).first,
-        'Issue with Labels',
-      );
+      await tester.enterText(find.byType(TextField).first, 'Issue with Labels');
       await tester.pumpAndSettle();
 
       // Add labels
@@ -168,10 +162,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter some data
-      await tester.enterText(
-        find.byType(TextField).first,
-        'Cancelled Issue',
-      );
+      await tester.enterText(find.byType(TextField).first, 'Cancelled Issue');
       await tester.pumpAndSettle();
 
       // Tap close button
@@ -208,10 +199,14 @@ void main() {
       await tester.pump();
 
       // Should show loading indicator
-      expect(find.byWidgetPredicate(
-        (widget) => widget.toString().contains('BrailleLoader') ||
-                    widget is CircularProgressIndicator,
-      ), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.toString().contains('BrailleLoader') ||
+              widget is CircularProgressIndicator,
+        ),
+        findsWidgets,
+      );
 
       await tester.pumpAndSettle();
     });
@@ -229,10 +224,7 @@ void main() {
 
       // Enter very long title
       final longTitle = 'A' * 200;
-      await tester.enterText(
-        find.byType(TextField).first,
-        longTitle,
-      );
+      await tester.enterText(find.byType(TextField).first, longTitle);
       await tester.pumpAndSettle();
 
       // Should accept long title
@@ -276,10 +268,7 @@ This is a paragraph with **bold** and _italic_ text.
 code block
 ```
 ''';
-      await tester.enterText(
-        find.byType(TextField).last,
-        multilineDesc,
-      );
+      await tester.enterText(find.byType(TextField).last, multilineDesc);
       await tester.pumpAndSettle();
 
       // Create issue

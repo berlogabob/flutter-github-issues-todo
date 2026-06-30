@@ -13,7 +13,9 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('Offline Issue Journey', () {
-    testWidgets('Create issue offline and verify local storage', (tester) async {
+    testWidgets('Create issue offline and verify local storage', (
+      tester,
+    ) async {
       // Start the app
       app.main();
       await tester.pumpAndSettle();
@@ -74,10 +76,7 @@ void main() {
       await tester.tap(find.text('New Issue'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-        find.byType(TextField).first,
-        'Detail View Test',
-      );
+      await tester.enterText(find.byType(TextField).first, 'Detail View Test');
       await tester.pumpAndSettle();
 
       await tester.enterText(
@@ -115,10 +114,7 @@ void main() {
       await tester.tap(find.text('New Issue'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-        find.byType(TextField).first,
-        'Edit Test Issue',
-      );
+      await tester.enterText(find.byType(TextField).first, 'Edit Test Issue');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Create'));
@@ -168,10 +164,7 @@ void main() {
       await tester.tap(find.text('New Issue'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-        find.byType(TextField).first,
-        'Delete Test Issue',
-      );
+      await tester.enterText(find.byType(TextField).first, 'Delete Test Issue');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Create'));
@@ -240,7 +233,9 @@ void main() {
       expect(find.textContaining('local'), findsWidgets);
     });
 
-    testWidgets('Sync status indicator shows pending operations', (tester) async {
+    testWidgets('Sync status indicator shows pending operations', (
+      tester,
+    ) async {
       app.main();
       await tester.pumpAndSettle();
 
@@ -253,10 +248,7 @@ void main() {
       await tester.tap(find.text('New Issue'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-        find.byType(TextField).first,
-        'Sync Test Issue',
-      );
+      await tester.enterText(find.byType(TextField).first, 'Sync Test Issue');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Create'));
@@ -264,9 +256,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify sync status indicator
-      expect(find.byWidgetPredicate(
-        (widget) => widget.toString().contains('Sync'),
-      ), findsWidgets);
+      expect(
+        find.byWidgetPredicate((widget) => widget.toString().contains('Sync')),
+        findsWidgets,
+      );
 
       // Verify pending count badge
       expect(find.byType(Container), findsWidgets);

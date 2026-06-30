@@ -4,13 +4,8 @@ import '../constants/app_colors.dart';
 
 /// Loading Skeleton widget with shimmer effect (Task 16.5)
 ///
-/// PERFORMANCE OPTIMIZATION:
-/// - Uses AnimatedOpacity for smooth fade animation
-/// - Matches list item dimensions for consistent layout
-/// - Uses AppColors.card and AppColors.background
-/// - Replaces BrailleLoader in list loading states
-/// - Provides visual feedback during data loading
-class LoadingSkeleton extends StatefulWidget {
+/// Matches list item dimensions while [Shimmer] provides loading feedback.
+class LoadingSkeleton extends StatelessWidget {
   /// Height of the skeleton item
   final double height;
 
@@ -36,50 +31,16 @@ class LoadingSkeleton extends StatefulWidget {
   });
 
   @override
-  State<LoadingSkeleton> createState() => _LoadingSkeletonState();
-}
-
-class _LoadingSkeletonState extends State<LoadingSkeleton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _opacityAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // PERFORMANCE: AnimatedOpacity for smooth fade animation (Task 16.5)
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-
-    _opacityAnimation = Tween<double>(
-      begin: 0.3,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-
-    _controller.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: _opacityAnimation.value,
-      duration: const Duration(milliseconds: 300),
+    return Opacity(
+      opacity: 0.3,
       child: ListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: widget.itemCount,
+        itemCount: itemCount,
         itemBuilder: (context, index) {
           return Padding(
-            padding: EdgeInsets.only(bottom: widget.spacing),
+            padding: EdgeInsets.only(bottom: spacing),
             child: _buildSkeletonItem(index),
           );
         },
@@ -89,7 +50,7 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
 
   /// Build a single skeleton item matching issue card dimensions
   Widget _buildSkeletonItem(int index) {
-    final isCompact = widget.height < 64;
+    final isCompact = height < 64;
     final contentPadding = isCompact ? 8.0 : 12.0;
     final indicatorSize = isCompact ? 10.0 : 12.0;
     final titleHeight = isCompact ? 10.0 : 14.0;
@@ -97,14 +58,14 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
 
     return Container(
       key: ValueKey('loading_skeleton_item_$index'),
-      height: widget.height,
-      width: widget.width,
+      height: height,
+      width: width,
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(widget.borderRadius),
+        borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
+        borderRadius: BorderRadius.circular(borderRadius),
         child: Shimmer.fromColors(
           baseColor: AppColors.card,
           highlightColor: AppColors.background.withValues(alpha: 0.5),

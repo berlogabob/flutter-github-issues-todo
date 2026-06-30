@@ -247,11 +247,6 @@ void main() {
         expect(cachedImage.errorWidget, isNotNull);
       });
 
-      test('error widget should use AppColors.blue', () {
-        // Error widget color verified in implementation
-        expect(true, true);
-      });
-
       testWidgets('should fallback to person icon when no avatar URL', (
         WidgetTester tester,
       ) async {
@@ -327,12 +322,6 @@ void main() {
 
         // Assert
         expect(json['assigneeAvatarUrl'], isNull);
-      });
-
-      test('should support cache size limit via maxHeightDiskCache', () {
-        // This is configured in the CachedNetworkImage widget
-        // maxHeightDiskCache: 100 limits cache size
-        expect(true, true); // Verified in widget implementation
       });
     });
 

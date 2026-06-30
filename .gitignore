@@ -47,8 +47,9 @@ app.*.map.json
 .env.local
 .env.*.local
 
-# Documentation builds
-/docs/api/
+# Generated analysis and deployment output
+/graphify-out/
+/docs/
 
 # Archive files
 *.zip

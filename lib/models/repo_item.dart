@@ -62,7 +62,8 @@ class RepoItem extends Item {
       description: json['description'] as String?,
       isPinned: json['isPinned'] as bool? ?? false,
       isMain: json['isMain'] as bool? ?? false,
-      openIssuesCount: json['openIssuesCount'] as int? ?? 0, // FIX (#33): Read from JSON
+      openIssuesCount:
+          json['openIssuesCount'] as int? ?? 0, // FIX (#33): Read from JSON
       status: ItemStatus.values.firstWhere(
         (e) => e.toString().split('.').last == json['status'],
         orElse: () => ItemStatus.open,

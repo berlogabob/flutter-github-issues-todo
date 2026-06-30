@@ -300,10 +300,14 @@ void main() {
       await tester.pump();
 
       // Should show loading indicator
-      expect(find.byWidgetPredicate(
-        (widget) => widget.toString().contains('BrailleLoader') ||
-                    widget is CircularProgressIndicator,
-      ), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.toString().contains('BrailleLoader') ||
+              widget is CircularProgressIndicator,
+        ),
+        findsWidgets,
+      );
 
       await tester.pumpAndSettle();
     });
@@ -321,10 +325,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter unique query that won't match
-      await tester.enterText(
-        find.byType(TextField),
-        'xyznonexistent123',
-      );
+      await tester.enterText(find.byType(TextField), 'xyznonexistent123');
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
@@ -379,9 +380,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Filter panel should be visible
-      expect(find.byWidgetPredicate(
-        (widget) => widget.toString().contains('Filter'),
-      ), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget.toString().contains('Filter'),
+        ),
+        findsWidgets,
+      );
     });
 
     testWidgets('Search shows issue metadata', (tester) async {
@@ -447,10 +451,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Status badges should be displayed
-      expect(find.byWidgetPredicate(
-        (widget) => widget.toString().contains('Badge') ||
-                    widget.toString().contains('Chip'),
-      ), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.toString().contains('Badge') ||
+              widget.toString().contains('Chip'),
+        ),
+        findsWidgets,
+      );
     });
 
     testWidgets('Search handles error gracefully', (tester) async {

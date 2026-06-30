@@ -4,7 +4,6 @@ import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../services/github_api_service.dart';
-import '../services/issue_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/network_service.dart';
 import '../services/pending_operations_service.dart';
@@ -54,7 +53,6 @@ class ExpandableRepo extends StatefulWidget {
 }
 
 class _ExpandableRepoState extends State<ExpandableRepo> {
-  final IssueService _issueService = IssueService();
   final LocalStorageService _localStorage = LocalStorageService();
   final NetworkService _networkService = NetworkService();
   final PendingOperationsService _pendingOps = PendingOperationsService();
@@ -230,12 +228,13 @@ class _ExpandableRepoState extends State<ExpandableRepo> {
           ),
         );
       } else {
-        // GitHub issue - use IssueService
+        // GitHub issue
         try {
-          final closedIssue = await _issueService.closeIssue(
-            issue,
+          final closedIssue = await widget.githubApi.updateIssue(
             owner,
             repo,
+            issue.number!,
+            state: 'closed',
           );
 
           if (!mounted) return;

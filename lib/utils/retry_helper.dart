@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 /// - Initial delay
 /// - Max delay
 /// - Backoff multiplier
-/// - Custom retry conditions
 class RetryHelper {
   final int maxRetries;
   final Duration initialDelay;
@@ -23,20 +22,9 @@ class RetryHelper {
   });
 
   /// Execute a function with retry logic
-  ///
-  /// Example:
-  /// ```dart
-  /// final retryHelper = RetryHelper(maxRetries: 3);
-  /// final result = await retryHelper.execute(
-  ///   () => githubApi.fetchIssues(owner, repo),
-  ///   shouldRetry: (e) => e is SocketException || e is TimeoutException,
-  /// );
-  /// ```
   Future<T> execute<T>(
     Future<T> Function() operation, {
     String? operationName,
-    bool Function(Object error)? shouldRetry,
-    void Function(int attempt, Object error, Duration delay)? onRetry,
   }) async {
     int attempt = 0;
     Duration currentDelay = initialDelay;
@@ -52,12 +40,8 @@ class RetryHelper {
       } catch (e) {
         debugPrint('RetryHelper: Error on attempt $attempt: $e');
 
-        // Check if we should retry
         final canRetry = attempt <= maxRetries;
-        final shouldRetryThisError =
-            shouldRetry?.call(e) ?? _isRetryableError(e);
-
-        if (!canRetry || !shouldRetryThisError) {
+        if (!canRetry || !_isRetryableError(e)) {
           debugPrint(
             'RetryHelper: Not retrying - max attempts reached or non-retryable error',
           );
@@ -72,10 +56,6 @@ class RetryHelper {
         final delay = Duration(milliseconds: clampedDelayMs);
         debugPrint('RetryHelper: Retrying in ${delay.inMilliseconds}ms...');
 
-        // Call onRetry callback if provided
-        onRetry?.call(attempt, e, delay);
-
-        // Wait before retrying
         await Future.delayed(delay);
 
         // Increase delay for next retry (exponential backoff)
@@ -128,113 +108,5 @@ class RetryHelper {
 
     debugPrint('RetryHelper: Not retryable - $error');
     return false;
-  }
-
-  /// Execute with simple retry (no custom conditions)
-  Future<T> simpleRetry<T>(Future<T> Function() operation) async {
-    return execute(operation);
-  }
-
-  /// Execute with custom delay
-  Future<T> executeWithDelay<T>(
-    Future<T> Function() operation, {
-    required Duration delay,
-    int retries = 3,
-  }) async {
-    int attempt = 0;
-
-    while (attempt <= retries) {
-      try {
-        attempt++;
-        return await operation();
-      } catch (e) {
-        if (attempt > retries) rethrow;
-
-        debugPrint('RetryHelper: Retrying in ${delay.inSeconds}s...');
-        await Future.delayed(delay);
-      }
-    }
-
-    throw Exception('Unexpected error in retry logic');
-  }
-}
-
-/// Extension on Future for easy retry
-extension RetryExtension<T> on Future<T> {
-  /// Retry the future with default settings
-  Future<T> withRetry({
-    int maxRetries = 3,
-    Duration initialDelay = const Duration(seconds: 1),
-  }) async {
-    final retryHelper = RetryHelper(
-      maxRetries: maxRetries,
-      initialDelay: initialDelay,
-    );
-    return retryHelper.execute(() => this);
-  }
-}
-
-/// API Call Tracker for monitoring retry statistics
-class ApiCallTracker {
-  static final ApiCallTracker _instance = ApiCallTracker._internal();
-  factory ApiCallTracker() => _instance;
-  ApiCallTracker._internal();
-
-  int _totalCalls = 0;
-  int _successfulCalls = 0;
-  int _failedCalls = 0;
-  int _retryAttempts = 0;
-  DateTime? _lastCallTime;
-  Duration _totalLatency = Duration.zero;
-
-  void recordCall({
-    required bool success,
-    required Duration latency,
-    int retryCount = 0,
-  }) {
-    _totalCalls++;
-    _lastCallTime = DateTime.now();
-    _totalLatency += latency;
-
-    if (success) {
-      _successfulCalls++;
-    } else {
-      _failedCalls++;
-    }
-
-    _retryAttempts += retryCount;
-  }
-
-  /// Get statistics
-  Map<String, dynamic> getStats() {
-    return {
-      'totalCalls': _totalCalls,
-      'successfulCalls': _successfulCalls,
-      'failedCalls': _failedCalls,
-      'retryAttempts': _retryAttempts,
-      'successRate': _totalCalls > 0
-          ? (_successfulCalls / _totalCalls * 100).toStringAsFixed(1)
-          : '0.0',
-      'averageLatency': _totalCalls > 0
-          ? Duration(milliseconds: _totalLatency.inMilliseconds ~/ _totalCalls)
-          : Duration.zero,
-      'lastCallTime': _lastCallTime,
-    };
-  }
-
-  /// Reset statistics
-  void reset() {
-    _totalCalls = 0;
-    _successfulCalls = 0;
-    _failedCalls = 0;
-    _retryAttempts = 0;
-    _totalLatency = Duration.zero;
-    _lastCallTime = null;
-  }
-
-  @override
-  String toString() {
-    final stats = getStats();
-    return 'ApiCallTracker(calls: $_totalCalls, success: ${stats['successRate']}%, retries: $_retryAttempts)';
   }
 }

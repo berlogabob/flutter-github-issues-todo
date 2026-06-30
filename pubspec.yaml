@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+136
+version: 1.0.0+138
 
 environment:
   sdk: ^3.12.0
@@ -34,9 +34,6 @@ dependencies:
   # State management - Modern Riverpod
   flutter_riverpod: ^3.3.1
 
-  # Navigation (NEW - GoRouter)
-  go_router: ^17.1.0
-
   # Local storage - using hive_ce (community edition, actively maintained)
   hive_ce: ^2.10.1
   hive_ce_flutter: ^2.2.0
@@ -44,10 +41,6 @@ dependencies:
 
   # Network - Upgraded to Dio for better error handling and offline support
   dio: ^5.7.0
-  http: ^1.2.0
-
-  # UI helpers (NEW)
-  gap: ^3.0.0
 
   # Secure storage
   flutter_secure_storage: ^10.0.0
@@ -66,16 +59,12 @@ dependencies:
 
   # Permission handler
   permission_handler: ^12.0.1
-  permission_handler_android: ^13.0.1
 
   # Screen utilities for responsive design
   flutter_screenutil: ^5.9.3
 
   # SVG support
   flutter_svg: ^2.0.17
-
-  # Icons
-  cupertino_icons: ^1.0.8
 
   # Package info for dynamic version reading
   package_info_plus: ^9.0.1
@@ -92,27 +81,17 @@ dependencies:
   # Share plugin for exporting error logs
   share_plus: ^12.0.1
 
-  # Environment variables (proper .env support)
-  flutter_dotenv: ^6.0.1
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # Code generation
-  build_runner: ^2.4.12
-
   # Linting
   lints: ^6.1.0
-
-  # Linting (upgraded)
-  very_good_analysis: ^10.2.0
 
   # Testing
   # (test, test_api, test_core, matcher provided by flutter_test SDK)
 
   # Build tools
-  build_config: ^1.1.0
   path_provider_platform_interface: ^2.1.2
   plugin_platform_interface: ^2.1.8
 
@@ -167,4 +146,3 @@ flutter:
   # Assets
   assets:
     - assets/
-    - .env.default

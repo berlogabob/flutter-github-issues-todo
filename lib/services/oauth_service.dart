@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/app_error_handler.dart';
 
 /// OAuth Device Flow Service
@@ -17,23 +16,24 @@ import '../utils/app_error_handler.dart';
 /// 4. Poll for access token
 /// 5. Store access token
 class OAuthService {
-  OAuthService();
+  OAuthService({Dio? dio, String? clientId})
+    : _dio = dio ?? Dio(),
+      _clientId = clientId ?? _configuredClientId;
 
+  final Dio _dio;
+  final String _clientId;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // GitHub OAuth credentials
-  // Loaded from .env file using flutter_dotenv
-  static String get _clientId => dotenv.env['GITHUB_CLIENT_ID'] ?? '';
-
-  // Flag to ensure validation only happens once
-  static bool _validated = false;
+  static const String _configuredClientId = String.fromEnvironment(
+    'GITHUB_CLIENT_ID',
+  );
 
   /// Check if client ID is configured (for UI feedback before attempting OAuth)
-  static bool get isClientIdConfigured => _clientId.isNotEmpty;
+  static bool get isClientIdConfigured => _configuredClientId.isNotEmpty;
 
   /// Validate client ID - throws if not configured
   /// Call this early to fail fast with a clear error
-  static void _validateClientId() {
+  void _validateClientId() {
     if (_clientId.isEmpty) {
       throw Exception(
         'GITHUB_CLIENT_ID is not configured.\n\n'
@@ -57,32 +57,46 @@ class OAuthService {
   Timer? _pollingTimer;
   bool _isPolling = false;
 
+  Future<({int statusCode, Map<String, dynamic> data})> _postForm(
+    Uri uri,
+    Map<String, String> data, {
+    required Duration timeout,
+  }) async {
+    final response = await _dio
+        .post<dynamic>(
+          uri.toString(),
+          data: data,
+          options: Options(
+            contentType: Headers.formUrlEncodedContentType,
+            headers: const {'Accept': 'application/json'},
+            responseType: ResponseType.json,
+            validateStatus: (_) => true,
+          ),
+        )
+        .timeout(timeout);
+    final body = response.data is String
+        ? json.decode(response.data as String) as Map<String, dynamic>
+        : Map<String, dynamic>.from(response.data as Map? ?? const {});
+    return (statusCode: response.statusCode ?? 0, data: body);
+  }
+
   /// Request device code from GitHub
   Future<DeviceCodeResponse?> requestDeviceCode() async {
-    // Validate client ID before proceeding
-    if (!_validated) {
-      _validateClientId();
-      _validated = true;
-    }
+    _validateClientId();
 
     try {
       debugPrint('OAuthService: Requesting device code...');
 
-      final response = await http
-          .post(
-            Uri.parse('https://github.com/login/device/code'),
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: {'client_id': _clientId, 'scope': 'repo user'},
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _postForm(
+        Uri.parse('https://github.com/login/device/code'),
+        {'client_id': _clientId, 'scope': 'repo user'},
+        timeout: const Duration(seconds: 15),
+      );
 
       debugPrint('Device code response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = response.data;
         _deviceCode = DeviceCodeResponse(
           deviceCode: data['device_code'] as String,
           userCode: data['user_code'] as String,
@@ -219,25 +233,20 @@ class OAuthService {
   /// Poll for access token
   Future<String?> _pollForToken() async {
     try {
-      final response = await http
-          .post(
-            Uri.parse('https://github.com/login/oauth/access_token'),
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: {
-              'client_id': _clientId,
-              'device_code': _deviceCode!.deviceCode,
-              'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await _postForm(
+        Uri.parse('https://github.com/login/oauth/access_token'),
+        {
+          'client_id': _clientId,
+          'device_code': _deviceCode!.deviceCode,
+          'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+        },
+        timeout: const Duration(seconds: 10),
+      );
 
       debugPrint('Poll response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = response.data;
 
         // Check for error
         final error = data['error'] as String?;

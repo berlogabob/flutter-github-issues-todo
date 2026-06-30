@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'secure_storage_service.dart';
 import 'cache_service.dart';
 import 'github_dio_client.dart';
@@ -17,7 +16,7 @@ import '../models/project_item.dart';
 /// GitHub REST API Service
 class GitHubApiService {
   String? _token;
-  final Dio _dio = GitHubDioClient.instance;
+  final Dio _dio;
   final CacheService _cache = CacheService();
   final LocalStorageService _localStorage = LocalStorageService();
 
@@ -25,12 +24,7 @@ class GitHubApiService {
   /// Called when API detects invalid/expired token
   static Function(BuildContext context, String message)? onAuthError;
 
-  GitHubApiService({GitHubApiService? githubApi}) {
-    // Allow passing instance for inheritance
-    if (githubApi != null) {
-      _token = githubApi._token;
-    }
-  }
+  GitHubApiService({Dio? dio}) : _dio = dio ?? GitHubDioClient.instance;
 
   /// Retry configuration
   static const int _maxRetries = 3;
@@ -144,6 +138,29 @@ class GitHubApiService {
       return json.decode(data);
     }
     return data;
+  }
+
+  Future<({int statusCode, String body})> _request(
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final response = await _dio
+        .request<String>(
+          uri.toString(),
+          data: body,
+          options: Options(
+            method: method,
+            headers: headers,
+            contentType: body is String ? Headers.jsonContentType : null,
+            responseType: ResponseType.plain,
+            validateStatus: (_) => true,
+          ),
+        )
+        .timeout(timeout);
+    return (statusCode: response.statusCode ?? 0, body: response.data ?? '');
   }
 
   /// Get authentication headers
@@ -390,9 +407,12 @@ class GitHubApiService {
       final headers = await _headers;
       final uri = Uri.parse('https://api.github.com/repos/$owner/$repo');
 
-      final response = await http
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 10));
+      final response = await _request(
+        'GET',
+        uri,
+        headers: headers,
+        timeout: const Duration(seconds: 10),
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -791,14 +811,13 @@ class GitHubApiService {
       );
       final headers = await _headers;
 
-      final response = await http
-          .get(
-            Uri.parse(
-              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/comments?page=$page&per_page=$perPage',
-            ),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _request(
+        'GET',
+        Uri.parse(
+          'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/comments?page=$page&per_page=$perPage',
+        ),
+        headers: headers,
+      );
 
       debugPrint('Fetch comments response status: ${response.statusCode}');
 
@@ -844,15 +863,14 @@ class GitHubApiService {
       debugPrint('Adding comment to issue #$issueNumber in $owner/$repo...');
       final headers = await _headers;
 
-      final response = await http
-          .post(
-            Uri.parse(
-              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/comments',
-            ),
-            headers: headers,
-            body: json.encode({'body': body}),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _request(
+        'POST',
+        Uri.parse(
+          'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/comments',
+        ),
+        headers: headers,
+        body: json.encode({'body': body}),
+      );
 
       debugPrint('Add comment response status: ${response.statusCode}');
 
@@ -894,14 +912,13 @@ class GitHubApiService {
       debugPrint('Deleting comment #$commentId in $owner/$repo...');
       final headers = await _headers;
 
-      final response = await http
-          .delete(
-            Uri.parse(
-              'https://api.github.com/repos/$owner/$repo/issues/comments/$commentId',
-            ),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _request(
+        'DELETE',
+        Uri.parse(
+          'https://api.github.com/repos/$owner/$repo/issues/comments/$commentId',
+        ),
+        headers: headers,
+      );
 
       debugPrint('Delete comment response status: ${response.statusCode}');
 
@@ -961,27 +978,25 @@ class GitHubApiService {
       // Encode label for URL
       final encodedLabel = Uri.encodeComponent(label);
 
-      final response = await http
-          .delete(
-            Uri.parse(
-              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/labels/$encodedLabel',
-            ),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _request(
+        'DELETE',
+        Uri.parse(
+          'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/labels/$encodedLabel',
+        ),
+        headers: headers,
+      );
 
       debugPrint('Remove label response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         // Fetch updated issue to get the new labels
-        final issueResponse = await http
-            .get(
-              Uri.parse(
-                'https://api.github.com/repos/$owner/$repo/issues/$issueNumber',
-              ),
-              headers: headers,
-            )
-            .timeout(const Duration(seconds: 15));
+        final issueResponse = await _request(
+          'GET',
+          Uri.parse(
+            'https://api.github.com/repos/$owner/$repo/issues/$issueNumber',
+          ),
+          headers: headers,
+        );
 
         if (issueResponse.statusCode == 200) {
           final updatedIssue = _parseIssue(json.decode(issueResponse.body));
@@ -1042,28 +1057,26 @@ class GitHubApiService {
       );
       final headers = await _headers;
 
-      final response = await http
-          .post(
-            Uri.parse(
-              'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/labels',
-            ),
-            headers: headers,
-            body: json.encode([label]),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _request(
+        'POST',
+        Uri.parse(
+          'https://api.github.com/repos/$owner/$repo/issues/$issueNumber/labels',
+        ),
+        headers: headers,
+        body: json.encode([label]),
+      );
 
       debugPrint('Add label response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         // Fetch updated issue to get the new labels
-        final issueResponse = await http
-            .get(
-              Uri.parse(
-                'https://api.github.com/repos/$owner/$repo/issues/$issueNumber',
-              ),
-              headers: headers,
-            )
-            .timeout(const Duration(seconds: 15));
+        final issueResponse = await _request(
+          'GET',
+          Uri.parse(
+            'https://api.github.com/repos/$owner/$repo/issues/$issueNumber',
+          ),
+          headers: headers,
+        );
 
         if (issueResponse.statusCode == 200) {
           final updatedIssue = _parseIssue(json.decode(issueResponse.body));
@@ -1132,12 +1145,11 @@ class GitHubApiService {
 
       final headers = await _headers;
 
-      final response = await http
-          .get(
-            Uri.parse('https://api.github.com/repos/$owner/$repo/labels'),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _request(
+        'GET',
+        Uri.parse('https://api.github.com/repos/$owner/$repo/labels'),
+        headers: headers,
+      );
 
       debugPrint('Fetch labels response status: ${response.statusCode}');
 
@@ -1155,8 +1167,8 @@ class GitHubApiService {
           'Failed to fetch labels: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
-    } on http.ClientException catch (e) {
-      debugPrint('HTTP ClientException fetching labels: $e');
+    } on DioException catch (e) {
+      debugPrint('DioException fetching labels: $e');
       throw Exception(
         'Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}',
       );
@@ -1231,14 +1243,11 @@ class GitHubApiService {
 
       final headers = await _headers;
 
-      final response = await http
-          .get(
-            Uri.parse(
-              'https://api.github.com/repos/$owner/$repo/collaborators',
-            ),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _request(
+        'GET',
+        Uri.parse('https://api.github.com/repos/$owner/$repo/collaborators'),
+        headers: headers,
+      );
 
       debugPrint('Fetch collaborators response status: ${response.statusCode}');
 
@@ -1260,8 +1269,8 @@ class GitHubApiService {
           'Failed to fetch collaborators: ${errorBody['message'] ?? 'HTTP ${response.statusCode}'}',
         );
       }
-    } on http.ClientException catch (e) {
-      debugPrint('HTTP ClientException fetching collaborators: $e');
+    } on DioException catch (e) {
+      debugPrint('DioException fetching collaborators: $e');
       throw Exception(
         'Network error: Cannot reach GitHub. Check your internet connection.\n\nDetails: ${e.message}',
       );
@@ -1315,9 +1324,12 @@ class GitHubApiService {
   Future<Map<String, dynamic>?> getCurrentUser() async {
     try {
       final headers = await _headers;
-      final response = await http
-          .get(Uri.parse('https://api.github.com/user'), headers: headers)
-          .timeout(const Duration(seconds: 10));
+      final response = await _request(
+        'GET',
+        Uri.parse('https://api.github.com/user'),
+        headers: headers,
+        timeout: const Duration(seconds: 10),
+      );
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;
@@ -1348,13 +1360,12 @@ class GitHubApiService {
     String document, [
     Map<String, dynamic> variables = const {},
   ]) async {
-    final response = await http
-        .post(
-          Uri.parse('https://api.github.com/graphql'),
-          headers: await _headers,
-          body: json.encode({'query': document, 'variables': variables}),
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await _request(
+      'POST',
+      Uri.parse('https://api.github.com/graphql'),
+      headers: await _headers,
+      body: json.encode({'query': document, 'variables': variables}),
+    );
 
     if (response.statusCode != 200) {
       throw Exception(

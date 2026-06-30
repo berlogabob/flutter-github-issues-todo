@@ -5,9 +5,10 @@ import '../services/local_storage_service.dart';
 import 'pinned_repos_provider.dart';
 
 /// Provider for all repositories (state holder)
-final repositoriesProvider = NotifierProvider<RepositoriesNotifier, List<RepoItem>>(() {
-  return RepositoriesNotifier();
-});
+final repositoriesProvider =
+    NotifierProvider<RepositoriesNotifier, List<RepoItem>>(() {
+      return RepositoriesNotifier();
+    });
 
 class RepositoriesNotifier extends Notifier<List<RepoItem>> {
   RepositoriesNotifier();
@@ -47,7 +48,9 @@ class RepositoriesNotifier extends Notifier<List<RepoItem>> {
   }
 
   void updateRepo(RepoItem updatedRepo) {
-    state = state.map((r) => r.fullName == updatedRepo.fullName ? updatedRepo : r).toList();
+    state = state
+        .map((r) => r.fullName == updatedRepo.fullName ? updatedRepo : r)
+        .toList();
     _cacheToLocalStorage(state);
   }
 
@@ -76,7 +79,9 @@ final displayedReposProvider = Provider<List<RepoItem>>((ref) {
 
   // Always show main repo first, then pinned repos
   final main = allRepos.where((r) => r.fullName == mainRepo).toList();
-  final pinnedRepos = allRepos.where((r) => pinned.contains(r.fullName) && r.fullName != mainRepo).toList();
-  
+  final pinnedRepos = allRepos
+      .where((r) => pinned.contains(r.fullName) && r.fullName != mainRepo)
+      .toList();
+
   return [...main, ...pinnedRepos];
 });

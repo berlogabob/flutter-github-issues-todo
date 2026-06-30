@@ -55,19 +55,19 @@ void main() {
     test('should remove value', () async {
       const key = 'test_remove';
       await cache.set(key, {'data': 'test'});
-      
+
       await cache.remove(key);
       final result = cache.get<Map>(key);
-      
+
       expect(result, isNull);
     });
 
     test('should clear all cache', () async {
       await cache.set('key1', {'data': 'test1'});
       await cache.set('key2', {'data': 'test2'});
-      
+
       await cache.clear();
-      
+
       expect(cache.get('key1'), isNull);
       expect(cache.get('key2'), isNull);
     });
@@ -75,7 +75,7 @@ void main() {
     test('should invalidate cache', () async {
       const key = 'test_invalidate';
       await cache.set(key, {'data': 'test'});
-      
+
       await cache.invalidate(key);
       expect(cache.get(key), isNull);
     });
@@ -83,9 +83,9 @@ void main() {
     test('should return stats', () async {
       await cache.set('key1', {'data': 'test1'});
       await cache.set('key2', {'data': 'test2'});
-      
+
       final stats = cache.getStats();
-      
+
       expect(stats['initialized'], isTrue);
       expect(stats['size'], equals(2));
       expect(stats['keys'], contains('key1'));
@@ -95,12 +95,9 @@ void main() {
     test('should refresh cache entry', () async {
       const key = 'test_refresh';
       await cache.set(key, {'data': 'old'});
-      
-      final refreshed = await cache.refresh(
-        key,
-        () async => {'data': 'new'},
-      );
-      
+
+      final refreshed = await cache.refresh(key, () async => {'data': 'new'});
+
       expect(refreshed['data'], equals('new'));
       final result = cache.get<Map>(key);
       expect(result?['data'], equals('new'));
@@ -108,13 +105,15 @@ void main() {
 
     test('hasValid should return false for expired cache', () async {
       const key = 'test_expired';
-      await cache.set(key, {'data': 'test'}, ttl: const Duration(milliseconds: 100));
-      
+      await cache.set(key, {
+        'data': 'test',
+      }, ttl: const Duration(milliseconds: 100));
+
       expect(cache.hasValid(key), isTrue);
-      
+
       // Wait for expiration
       await Future.delayed(const Duration(milliseconds: 150));
-      
+
       expect(cache.hasValid(key), isFalse);
     });
   });

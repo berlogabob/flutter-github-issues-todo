@@ -1,10 +1,9 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import '../constants/app_colors.dart';
+import '../services/github_api_service.dart';
 import '../widgets/braille_loader.dart';
 
 /// DebugScreen - Shows app diagnostics and helps identify issues
@@ -250,22 +249,8 @@ class _DebugScreenState extends State<DebugScreen> {
     }
 
     try {
-      final response = await http
-          .get(
-            Uri.parse('https://api.github.com/user'),
-            headers: {
-              'Authorization': 'token $token',
-              'Accept': 'application/vnd.github.v3+json',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return {'success': true, 'user': data['login']};
-      } else {
-        return {'success': false, 'error': 'HTTP ${response.statusCode}'};
-      }
+      final user = await GitHubApiService().getCurrentUser();
+      return {'success': user != null, 'user': user?['login']};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }

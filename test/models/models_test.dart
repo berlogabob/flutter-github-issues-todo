@@ -6,11 +6,7 @@ import 'package:gitdoit/models/repo_item.dart';
 void main() {
   group('IssueItem Model', () {
     test('should create IssueItem with required fields', () {
-      final issue = IssueItem(
-        id: 'issue-1',
-        title: 'Test Issue',
-        number: 1,
-      );
+      final issue = IssueItem(id: 'issue-1', title: 'Test Issue', number: 1);
 
       expect(issue.id, 'issue-1');
       expect(issue.title, 'Test Issue');
@@ -156,11 +152,7 @@ void main() {
     });
 
     test('should create RepoItem with children (issues)', () {
-      final issue = IssueItem(
-        id: 'issue-1',
-        title: 'Bug fix',
-        number: 1,
-      );
+      final issue = IssueItem(id: 'issue-1', title: 'Bug fix', number: 1);
 
       final repo = RepoItem(
         id: 'repo-1',
@@ -216,11 +208,7 @@ void main() {
         children: [], // Empty modifiable list
       );
 
-      final issue = IssueItem(
-        id: 'issue-1',
-        title: 'New issue',
-        number: 1,
-      );
+      final issue = IssueItem(id: 'issue-1', title: 'New issue', number: 1);
 
       repo.children.add(issue);
 
@@ -265,14 +253,25 @@ void main() {
       );
 
       expect(repo.children, hasLength(5));
-      expect(repo.children.where((i) => i.status == ItemStatus.open), hasLength(3));
-      expect(repo.children.where((i) => i.status == ItemStatus.closed), hasLength(2));
+      expect(
+        repo.children.where((i) => i.status == ItemStatus.open),
+        hasLength(3),
+      );
+      expect(
+        repo.children.where((i) => i.status == ItemStatus.closed),
+        hasLength(2),
+      );
     });
 
     test('should filter issues by status', () {
       final issues = [
         IssueItem(id: '1', title: 'Open 1', number: 1, status: ItemStatus.open),
-        IssueItem(id: '2', title: 'Closed 1', number: 2, status: ItemStatus.closed),
+        IssueItem(
+          id: '2',
+          title: 'Closed 1',
+          number: 2,
+          status: ItemStatus.closed,
+        ),
         IssueItem(id: '3', title: 'Open 2', number: 3, status: ItemStatus.open),
       ];
 

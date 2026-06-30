@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../app_router.dart';
 import '../constants/app_colors.dart';
 import '../models/repo_item.dart';
 import '../services/secure_storage_service.dart';
@@ -12,7 +10,7 @@ import '../services/local_storage_service.dart';
 import '../services/github_api_service.dart';
 import '../utils/responsive_utils.dart';
 import '../widgets/braille_loader.dart';
-import '../widgets/error_boundary.dart';
+import '../widgets/inline_error.dart';
 import '../widgets/loading_skeleton.dart';
 
 /// OnboardingScreen - First screen with authentication choice
@@ -358,7 +356,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
       if (mounted) {
         debugPrint('Navigating to dashboard in offline mode...');
-        context.go(AppRoutes.dashboard);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/dashboard', (route) => false);
       }
     } catch (e) {
       debugPrint('Offline mode failed (${e.runtimeType})');
@@ -496,7 +496,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         );
 
-        context.go(AppRoutes.dashboard);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/dashboard', (route) => false);
       }
     } else if (mounted) {
       // User cancelled - show error

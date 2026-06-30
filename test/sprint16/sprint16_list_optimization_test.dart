@@ -171,12 +171,6 @@ void main() {
         expect(find.byType(ListView), findsOneWidget);
       });
 
-      test('itemExtent should improve scroll performance', () {
-        // This is a performance characteristic verified manually
-        // itemExtent allows Flutter to skip layout calculations
-        expect(true, true);
-      });
-
       testWidgets('RepoList should render with consistent item heights', (
         WidgetTester tester,
       ) async {
@@ -282,12 +276,6 @@ void main() {
 
         // Assert - RepaintBoundary should isolate static content
         expect(find.byType(RepaintBoundary), findsWidgets);
-      });
-
-      test('RepaintBoundary should reduce unnecessary repaints', () {
-        // This is verified through DevTools performance profiling
-        // RepaintBoundary isolates widgets that don't change frequently
-        expect(true, true);
       });
     });
 
@@ -515,27 +503,6 @@ void main() {
 
         // Assert
         expect(find.byType(IssueCard), findsNWidgets(2));
-      });
-
-      testWidgets('should use const constructors where possible', (
-        WidgetTester tester,
-      ) async {
-        // Arrange - IssueCard has const constructor
-        late final issueCard = IssueCard(
-          issue: IssueItem(
-            id: 'issue1',
-            title: 'Test',
-            status: ItemStatus.open,
-          ),
-        );
-
-        await tester.pumpWidget(MaterialApp(home: Scaffold(body: issueCard)));
-
-        // Act
-        await tester.pump();
-
-        // Assert
-        expect(find.byType(IssueCard), findsOneWidget);
       });
 
       testWidgets('should cache list with cacheExtent', (

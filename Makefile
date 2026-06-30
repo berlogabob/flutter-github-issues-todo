@@ -3,7 +3,7 @@
 
 .PHONY: all help init version-increment validate-env run-with-env \
 	build-android build-web release-artifacts tag-release push-release \
-	gh-release release clean version generate
+	gh-release release clean version
 
 CURRENT_VERSION := $(shell awk '/^version:/ {gsub(/^[^:]*:[[:space:]]*/, ""); print}' pubspec.yaml)
 RELEASE_VERSION := $(word 1, $(subst +, ,$(CURRENT_VERSION)))
@@ -25,7 +25,7 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  make build-android      Build release APK and app bundle"
-	@echo "  make build-web          Build Web release and copy it to docs/"
+	@echo "  make build-web          Build Web release under build/web/"
 	@echo "  make release-artifacts  Build Android and Web artifacts"
 	@echo "  make tag-release        Create annotated RELEASE_TAG on current commit"
 	@echo "  make push-release       Push current branch and RELEASE_TAG"
@@ -73,25 +73,24 @@ validate-env:
 run-with-env: validate-env
 	@echo "Running app with environment variables..."
 	@export GITHUB_CLIENT_ID=$$(grep "^GITHUB_CLIENT_ID=" .env | cut -d'=' -f2) && \
-		echo "Client ID: $${GITHUB_CLIENT_ID:0:8}..." && \
 		flutter run --dart-define=GITHUB_CLIENT_ID=$${GITHUB_CLIENT_ID}
 
-build-android: init
+build-android: init validate-env
 	@echo "Building Android release artifacts..."
 	@flutter pub get
-	@flutter build apk --release
-	@flutter build appbundle --release
+	@GITHUB_CLIENT_ID=$$(grep "^GITHUB_CLIENT_ID=" .env | cut -d'=' -f2-) && \
+		flutter build apk --release --dart-define=GITHUB_CLIENT_ID=$${GITHUB_CLIENT_ID} && \
+		flutter build appbundle --release --dart-define=GITHUB_CLIENT_ID=$${GITHUB_CLIENT_ID}
 	@echo "Android APK: build/app/outputs/flutter-apk/app-release.apk"
 	@echo "Android app bundle: build/app/outputs/bundle/release/app-release.aab"
 
-build-web: init
+build-web: init validate-env
 	@echo "Building Web release for GitHub Pages..."
 	@flutter pub get
-	@flutter build web --release --base-href="$(BASE_HREF)"
-	@rm -rf docs
-	@mkdir -p docs
-	@cp -r build/web/* docs/
-	@echo "Web release copied to docs/"
+	@GITHUB_CLIENT_ID=$$(grep "^GITHUB_CLIENT_ID=" .env | cut -d'=' -f2-) && \
+		flutter build web --release --base-href="$(BASE_HREF)" \
+			--dart-define=GITHUB_CLIENT_ID=$${GITHUB_CLIENT_ID}
+	@echo "Web release built under build/web/"
 
 release-artifacts: build-android build-web
 	@echo "Release artifacts built for $(RELEASE_TAG)"
@@ -163,9 +162,10 @@ release:
 		echo "Error: tag or release $(RELEASE_TAG) already exists."; \
 		exit 1; \
 	fi
+	@$(MAKE) validate-env
 	@$(MAKE) version-increment
 	@$(MAKE) release-artifacts RELEASE_TAG="$(RELEASE_TAG)"
-	@git add -A -- . ':(exclude)graphify-out'
+	@git add -A -- .
 	@git commit -m "release: $(RELEASE_TAG)"
 	@$(MAKE) tag-release RELEASE_TAG="$(RELEASE_TAG)"
 	@$(MAKE) push-release RELEASE_TAG="$(RELEASE_TAG)"
@@ -181,8 +181,3 @@ version:
 	@echo "Current version: $(CURRENT_VERSION)"
 	@echo "Next build number: $(NEXT_BUILD)"
 	@echo "Release tag: $(RELEASE_TAG)"
-
-generate:
-	@echo "Running build_runner..."
-	@dart run build_runner build --delete-conflicting-outputs
-	@echo "Code generation complete"

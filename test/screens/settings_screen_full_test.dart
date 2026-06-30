@@ -405,6 +405,32 @@ void main() {
     });
 
     group('Dialog Interactions', () {
+      testWidgets('Logout clears the back stack to onboarding', (tester) async {
+        await tester.pumpWidget(
+          ScreenUtilInit(
+            designSize: const Size(360, 690),
+            builder: (context, child) => MaterialApp(
+              routes: {
+                '/': (_) => const SettingsScreen(),
+                '/onboarding': (_) =>
+                    const Scaffold(body: Text('Onboarding route')),
+              },
+            ),
+          ),
+        );
+        await pumpFrames(tester);
+
+        await tester.tap(find.text('Logout'));
+        await pumpFrames(tester);
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Logout'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Onboarding route'), findsOneWidget);
+        expect(find.byType(SettingsScreen), findsNothing);
+        final context = tester.element(find.text('Onboarding route'));
+        expect(Navigator.of(context).canPop(), isFalse);
+      });
+
       testWidgets('Logout shows confirmation dialog', (tester) async {
         await pumpSettings(tester);
 

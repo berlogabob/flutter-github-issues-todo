@@ -13,7 +13,7 @@ import '../services/network_service.dart';
 import '../services/secure_storage_service.dart';
 import '../widgets/braille_loader.dart';
 import '../widgets/empty_state_illustrations.dart';
-import '../widgets/error_boundary.dart';
+import '../widgets/inline_error.dart';
 import '../widgets/search_filters_panel.dart';
 import '../widgets/search_result_item.dart';
 import 'issue_detail_screen.dart';

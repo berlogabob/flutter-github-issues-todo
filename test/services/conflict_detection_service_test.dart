@@ -25,7 +25,7 @@ void main() {
         localIssues: [],
         remoteIssues: [],
       );
-      
+
       expect(conflicts, isEmpty);
       expect(service.getConflictCount(), equals(0));
     });
@@ -47,7 +47,7 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
+
       expect(conflicts, isEmpty);
     });
 
@@ -71,7 +71,7 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
+
       expect(conflicts, isEmpty);
     });
 
@@ -98,7 +98,7 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
+
       expect(conflicts, isNotEmpty);
       expect(conflicts.first.issueNumber, equals(1));
       expect(service.getConflictCount(), equals(1));
@@ -126,7 +126,7 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
+
       expect(conflicts, isNotEmpty);
       expect(conflicts.first.hasTitleConflict, isTrue);
     });
@@ -155,7 +155,7 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
+
       expect(conflicts, isNotEmpty);
       expect(conflicts.first.hasLabelsConflict, isTrue);
     });
@@ -184,7 +184,7 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
+
       expect(conflicts, isNotEmpty);
       expect(conflicts.first.hasStatusConflict, isTrue);
     });
@@ -215,7 +215,7 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
+
       expect(conflicts, isNotEmpty);
       expect(conflicts.first.hasTitleConflict, isTrue);
       expect(conflicts.first.hasStatusConflict, isTrue);
@@ -241,11 +241,11 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
+
       expect(service.getConflictCount(), greaterThan(0));
-      
+
       service.clearConflicts();
-      
+
       expect(service.getConflictCount(), equals(0));
       expect(service.hasConflicts(), isFalse);
     });
@@ -269,15 +269,20 @@ void main() {
         localIssues: [localIssue],
         remoteIssues: [remoteIssue],
       );
-      
-      expect(() => conflicts.add(IssueConflict(
-        issueId: 'test',
-        issueNumber: 999,
-        localIssue: localIssue,
-        remoteIssue: remoteIssue,
-        conflictingFields: [],
-        detectedAt: DateTime.now(),
-      )), throwsUnsupportedError);
+
+      expect(
+        () => conflicts.add(
+          IssueConflict(
+            issueId: 'test',
+            issueNumber: 999,
+            localIssue: localIssue,
+            remoteIssue: remoteIssue,
+            conflictingFields: [],
+            detectedAt: DateTime.now(),
+          ),
+        ),
+        throwsUnsupportedError,
+      );
     });
   });
 }

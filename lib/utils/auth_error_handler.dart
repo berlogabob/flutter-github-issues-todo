@@ -44,9 +44,7 @@ class AuthErrorHandler {
     final now = DateTime.now();
     if (_lastAuthError != null &&
         now.difference(_lastAuthError!) < _debounceDuration) {
-      debugPrint(
-        'AuthErrorHandler: Debouncing auth error (too recent)',
-      );
+      debugPrint('AuthErrorHandler: Debouncing auth error (too recent)');
       return;
     }
 
@@ -77,9 +75,7 @@ class AuthErrorHandler {
       barrierDismissible: false,
       builder: (BuildContext dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         icon: const Icon(
           Icons.error_outline,
           color: Color(0xFFFF3B30),
@@ -142,10 +138,7 @@ class AuthErrorHandler {
 
       // Navigate to onboarding (replace all routes)
       if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/',
-          (route) => false,
-        );
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
       }
 
       debugPrint('AuthErrorHandler: Logout completed');

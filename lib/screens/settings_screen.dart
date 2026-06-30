@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../app_router.dart';
 import '../constants/app_colors.dart';
 import '../utils/app_error_handler.dart';
 import '../models/repo_item.dart';
@@ -927,7 +925,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _githubApi.clearCachedToken();
 
       if (mounted) {
-        context.go(AppRoutes.onboarding);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/onboarding', (route) => false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Token reset. Please login again.'),
@@ -1028,7 +1028,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await _localStorage.clearAllData();
 
       if (mounted) {
-        context.go(AppRoutes.onboarding);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/onboarding', (route) => false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Logged out successfully'),

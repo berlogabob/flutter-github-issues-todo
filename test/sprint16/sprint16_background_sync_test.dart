@@ -7,15 +7,6 @@ import 'package:gitdoit/models/pending_operation.dart';
 void main() {
   group('Task 16.3 - Background Sync Tests', () {
     group('Background task registered', () {
-      test('should initialize sync service', () {
-        // Arrange & Act
-        final syncService = SyncService();
-        syncService.init();
-
-        // Assert - init should not throw
-        expect(syncService, isNotNull);
-      });
-
       test('should have sync status tracking', () {
         // Arrange
         final syncService = SyncService();
@@ -34,46 +25,9 @@ void main() {
         // Assert - lastSyncTime may be null initially
         expect(syncService.lastSyncTime, isNull);
       });
-
-      test('should support listener registration', () {
-        // Arrange
-        final syncService = SyncService();
-        var listenerCalled = false;
-
-        // Act
-        syncService.addListener(() {
-          listenerCalled = true;
-        });
-
-        // Assert
-        expect(listenerCalled, false); // Not called yet
-      });
-
-      test('should dispose listeners', () {
-        // Arrange
-        final syncService = SyncService();
-        syncService.init();
-        void listener() {}
-        syncService.addListener(listener);
-
-        // Act
-        syncService.removeListener(listener);
-
-        // Assert - should not throw
-        expect(syncService, isNotNull);
-      });
     });
 
     group('Sync runs every 15 min on WiFi', () {
-      test('SyncService has network availability check', () {
-        // Arrange
-        final syncService = SyncService();
-        syncService.init();
-
-        // Assert - property exists
-        expect(syncService.isNetworkAvailable, isNotNull);
-      });
-
       test('should track sync statistics', () {
         // Arrange
         final syncService = SyncService();
@@ -83,24 +37,7 @@ void main() {
         final stats = syncService.getSyncStatistics();
 
         // Assert
-        expect(stats, isNotNull);
         expect(stats.totalSyncs, 0); // Initially 0
-      });
-
-      test('SyncStatistics has required fields', () {
-        // Arrange
-        final syncService = SyncService();
-        syncService.init();
-
-        // Act
-        final stats = syncService.getSyncStatistics();
-
-        // Assert - verify fields exist
-        expect(stats.totalSyncs, isNotNull);
-        expect(stats.successfulSyncs, isNotNull);
-        expect(stats.failedSyncs, isNotNull);
-        expect(stats.totalIssuesSynced, isNotNull);
-        expect(stats.totalOperationsProcessed, isNotNull);
       });
 
       test('should get sync history', () {
@@ -112,23 +49,11 @@ void main() {
         final history = syncService.getSyncHistory();
 
         // Assert
-        expect(history, isNotNull);
         expect(history.length, 0); // Initially empty
       });
     });
 
     group('Respects auto-sync settings', () {
-      test('LocalStorageService has auto-sync methods', () async {
-        // Arrange
-        final localStorage = LocalStorageService();
-
-        // Assert - methods exist
-        expect(localStorage.saveAutoSyncWifi, isNotNull);
-        expect(localStorage.getAutoSyncWifi, isNotNull);
-        expect(localStorage.saveAutoSyncAny, isNotNull);
-        expect(localStorage.getAutoSyncAny, isNotNull);
-      });
-
       test('should save and retrieve auto-sync WiFi setting', () async {
         // Arrange
         final localStorage = LocalStorageService();
@@ -178,20 +103,6 @@ void main() {
     });
 
     group('Only syncs if pending operations', () {
-      test('PendingOperationsService has required methods', () async {
-        // Arrange
-        final pendingOps = PendingOperationsService();
-        await pendingOps.init();
-
-        // Assert - methods exist
-        expect(pendingOps.getAllOperations, isNotNull);
-        expect(pendingOps.addOperation, isNotNull);
-        expect(pendingOps.removeOperation, isNotNull);
-        expect(pendingOps.markAsSyncing, isNotNull);
-        expect(pendingOps.markAsCompleted, isNotNull);
-        expect(pendingOps.markAsFailed, isNotNull);
-      });
-
       test('should check for pending operations', () async {
         // Arrange
         final pendingOps = PendingOperationsService();
@@ -310,62 +221,7 @@ void main() {
       });
     });
 
-    group('Does not drain battery (manual)', () {
-      test('should have sync status idle when not syncing', () {
-        // Arrange
-        final syncService = SyncService();
-        syncService.init();
-
-        // Assert
-        expect(syncService.syncStatus, 'idle');
-        expect(syncService.isSyncing, false);
-      });
-
-      test('should track syncing state', () {
-        // Arrange
-        final syncService = SyncService();
-        syncService.init();
-
-        // Assert - initial state
-        expect(syncService.isSyncing, false);
-      });
-
-      test('should have network availability check', () {
-        // Arrange
-        final syncService = SyncService();
-        syncService.init();
-
-        // Assert
-        expect(syncService.isNetworkAvailable, isNotNull);
-      });
-
-      test('SyncService dispose cleans up', () {
-        // Arrange
-        final syncService = SyncService();
-        syncService.init();
-
-        // Act
-        syncService.dispose();
-
-        // Assert - should not throw
-        expect(syncService, isNotNull);
-      });
-    });
-
     group('Integration Tests', () {
-      test('SyncService complete flow', () async {
-        // Arrange
-        final syncService = SyncService();
-        syncService.init();
-
-        // Assert - initial state
-        expect(syncService.syncStatus, 'idle');
-        expect(syncService.isSyncing, false);
-
-        // Cleanup
-        syncService.dispose();
-      });
-
       test('PendingOperationsService complete flow', () async {
         // Arrange
         final pendingOps = PendingOperationsService();

@@ -10,7 +10,9 @@ import 'package:gitdoit/widgets/issue_card.dart';
 
 void main() {
   group('ExpandableRepo issue state callback', () {
-    testWidgets('swipe close notifies parent with closed issue', (tester) async {
+    testWidgets('swipe close notifies parent with closed issue', (
+      tester,
+    ) async {
       final issue = IssueItem(
         id: 'local-issue-1',
         title: 'Swipe me',

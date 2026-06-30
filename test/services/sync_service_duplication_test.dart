@@ -8,7 +8,6 @@ import 'package:gitdoit/models/item.dart';
 /// duplicated when syncing with GitHub.
 void main() {
   group('Issue #34 - Offline Issue Duplication Prevention', () {
-
     test('local issue should be filtered by title match with remote issue', () {
       // Create a local-only issue (created offline)
       final localIssue = IssueItem(
@@ -40,8 +39,11 @@ void main() {
       // Check if local issue would be filtered out
       final isDuplicate = remoteIssuesByTitle.containsKey(titleKey);
 
-      expect(isDuplicate, isTrue,
-        reason: 'Local issue should be detected as duplicate by title match');
+      expect(
+        isDuplicate,
+        isTrue,
+        reason: 'Local issue should be detected as duplicate by title match',
+      );
     });
 
     test('local issue with different title should NOT be filtered', () {
@@ -75,8 +77,11 @@ void main() {
       // Check if local issue would be filtered out
       final isDuplicate = remoteIssuesByTitle.containsKey(titleKey);
 
-      expect(isDuplicate, isFalse,
-        reason: 'Local issue with unique title should NOT be filtered');
+      expect(
+        isDuplicate,
+        isFalse,
+        reason: 'Local issue with unique title should NOT be filtered',
+      );
     });
 
     test('local issue title matching should be case-insensitive', () {
@@ -110,42 +115,54 @@ void main() {
       // Check if local issue would be filtered out
       final isDuplicate = remoteIssuesByTitle.containsKey(titleKey);
 
-      expect(isDuplicate, isTrue,
-        reason: 'Title matching should be case-insensitive');
+      expect(
+        isDuplicate,
+        isTrue,
+        reason: 'Title matching should be case-insensitive',
+      );
     });
 
-    test('synced issue IDs should be tracked to prevent multi-repo duplication', () {
-      // Simulate tracking synced issue IDs across multiple repos
-      final syncedLocalIssueIds = <String>{};
+    test(
+      'synced issue IDs should be tracked to prevent multi-repo duplication',
+      () {
+        // Simulate tracking synced issue IDs across multiple repos
+        final syncedLocalIssueIds = <String>{};
 
-      final localIssue1 = IssueItem(
-        id: 'local_111',
-        title: 'Issue 1',
-        status: ItemStatus.open,
-        isLocalOnly: true,
-        number: null,
-      );
+        final localIssue1 = IssueItem(
+          id: 'local_111',
+          title: 'Issue 1',
+          status: ItemStatus.open,
+          isLocalOnly: true,
+          number: null,
+        );
 
-      final localIssue2 = IssueItem(
-        id: 'local_222',
-        title: 'Issue 2',
-        status: ItemStatus.open,
-        isLocalOnly: true,
-        number: null,
-      );
+        final localIssue2 = IssueItem(
+          id: 'local_222',
+          title: 'Issue 2',
+          status: ItemStatus.open,
+          isLocalOnly: true,
+          number: null,
+        );
 
-      // Simulate syncing first issue
-      syncedLocalIssueIds.add(localIssue1.id);
+        // Simulate syncing first issue
+        syncedLocalIssueIds.add(localIssue1.id);
 
-      // Check if issue 1 would be filtered in next repo iteration
-      final shouldSyncIssue1 = !syncedLocalIssueIds.contains(localIssue1.id);
-      final shouldSyncIssue2 = !syncedLocalIssueIds.contains(localIssue2.id);
+        // Check if issue 1 would be filtered in next repo iteration
+        final shouldSyncIssue1 = !syncedLocalIssueIds.contains(localIssue1.id);
+        final shouldSyncIssue2 = !syncedLocalIssueIds.contains(localIssue2.id);
 
-      expect(shouldSyncIssue1, isFalse,
-        reason: 'Already synced issue should be filtered out');
-      expect(shouldSyncIssue2, isTrue,
-        reason: 'Unsynced issue should still be processed');
-    });
+        expect(
+          shouldSyncIssue1,
+          isFalse,
+          reason: 'Already synced issue should be filtered out',
+        );
+        expect(
+          shouldSyncIssue2,
+          isTrue,
+          reason: 'Unsynced issue should still be processed',
+        );
+      },
+    );
 
     test('IssueItem JSON serialization preserves isLocalOnly flag', () {
       final issue = IssueItem(
@@ -197,22 +214,24 @@ void main() {
       // Simulate the enhanced duplicate detection with body check
       final titleKey = localIssue.title.toLowerCase().trim();
       final remoteIssuesByTitle = <String, IssueItem>{};
-      remoteIssuesByTitle[remoteIssueDifferentBody.title.toLowerCase().trim()] = remoteIssueDifferentBody;
-      remoteIssuesByTitle[remoteIssueSameBody.title.toLowerCase().trim()] = remoteIssueSameBody;
+      remoteIssuesByTitle[remoteIssueDifferentBody.title.toLowerCase().trim()] =
+          remoteIssueDifferentBody;
+      remoteIssuesByTitle[remoteIssueSameBody.title.toLowerCase().trim()] =
+          remoteIssueSameBody;
 
       // Check title match
       final titleMatch = remoteIssuesByTitle.containsKey(titleKey);
-      expect(titleMatch, isTrue,
-        reason: 'Title should match');
+      expect(titleMatch, isTrue, reason: 'Title should match');
 
       // Check body match for the same body issue
       final matchingRemote = remoteIssuesByTitle[titleKey];
-      final bodyMatches = localIssue.bodyMarkdown == null || 
-                          matchingRemote?.bodyMarkdown == null ||
-                          localIssue.bodyMarkdown!.trim() == matchingRemote!.bodyMarkdown!.trim();
-      
-      expect(bodyMatches, isTrue,
-        reason: 'Body should match for same content');
+      final bodyMatches =
+          localIssue.bodyMarkdown == null ||
+          matchingRemote?.bodyMarkdown == null ||
+          localIssue.bodyMarkdown!.trim() ==
+              matchingRemote!.bodyMarkdown!.trim();
+
+      expect(bodyMatches, isTrue, reason: 'Body should match for same content');
     });
 
     test('null body should not prevent duplicate detection', () {
@@ -243,17 +262,21 @@ void main() {
 
       // Check if duplicate is detected
       final isDuplicate = remoteIssuesByTitle.containsKey(titleKey);
-      expect(isDuplicate, isTrue,
-        reason: 'Should detect duplicate even with null body');
+      expect(
+        isDuplicate,
+        isTrue,
+        reason: 'Should detect duplicate even with null body',
+      );
 
       // Body match check should pass with null body
       final matchingRemote = remoteIssuesByTitle[titleKey];
-      final bodyMatches = localIssue.bodyMarkdown == null || 
-                          matchingRemote?.bodyMarkdown == null ||
-                          localIssue.bodyMarkdown!.trim() == matchingRemote!.bodyMarkdown!.trim();
-      
-      expect(bodyMatches, isTrue,
-        reason: 'Null body should match anything');
+      final bodyMatches =
+          localIssue.bodyMarkdown == null ||
+          matchingRemote?.bodyMarkdown == null ||
+          localIssue.bodyMarkdown!.trim() ==
+              matchingRemote!.bodyMarkdown!.trim();
+
+      expect(bodyMatches, isTrue, reason: 'Null body should match anything');
     });
   });
 }

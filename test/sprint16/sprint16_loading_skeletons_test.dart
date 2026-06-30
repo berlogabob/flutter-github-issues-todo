@@ -126,81 +126,6 @@ void main() {
         expect(find.byType(LoadingSkeleton), findsNothing);
         expect(find.text('Item 0'), findsOneWidget);
       });
-
-      testWidgets('LoadingSkeleton animates with AnimatedOpacity', (
-        WidgetTester tester,
-      ) async {
-        // Arrange
-        await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
-          ),
-        );
-
-        // Act - pump to start animation
-        await tester.pump();
-
-        // Assert - AnimatedOpacity should be present
-        expect(find.byType(AnimatedOpacity), findsOneWidget);
-      });
-    });
-
-    group('Animation works', () {
-      testWidgets('skeleton has animation controller', (
-        WidgetTester tester,
-      ) async {
-        // Arrange & Act
-        await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
-          ),
-        );
-
-        // Assert - AnimatedOpacity should be animating
-        expect(find.byType(AnimatedOpacity), findsOneWidget);
-      });
-
-      testWidgets('skeleton animation repeats', (WidgetTester tester) async {
-        // Arrange
-        await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
-          ),
-        );
-
-        // Act - pump multiple times to see animation progress
-        await tester.pump(const Duration(milliseconds: 500));
-        final opacity1 = tester
-            .widget<AnimatedOpacity>(find.byType(AnimatedOpacity))
-            .opacity;
-
-        await tester.pump(const Duration(milliseconds: 500));
-        final opacity2 = tester
-            .widget<AnimatedOpacity>(find.byType(AnimatedOpacity))
-            .opacity;
-
-        // Assert - opacity should change (animation is running)
-        expect(opacity1, isNotNull);
-        expect(opacity2, isNotNull);
-      });
-
-      test('LoadingSkeleton animation duration is 1.5s', () {
-        // Animation duration is configured in the widget
-        // Duration(milliseconds: 1500)
-        expect(true, true); // Verified in implementation
-      });
-
-      testWidgets('skeleton uses easeInOut curve', (WidgetTester tester) async {
-        // Arrange & Act
-        await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(body: LoadingSkeleton(itemCount: 1)),
-          ),
-        );
-
-        // Assert - animation should be smooth
-        expect(find.byType(AnimatedOpacity), findsOneWidget);
-      });
     });
 
     group('No layout shift', () {
@@ -277,18 +202,10 @@ void main() {
           ),
         );
 
-        // Assert - should use dark theme colors
-        expect(find.byType(Shimmer), findsWidgets);
-      });
-
-      test('skeleton base color is cardBackground', () {
-        // Shimmer base color is AppColors.cardBackground
-        expect(AppColors.cardBackground, isNotNull);
-      });
-
-      test('skeleton highlight color uses background with opacity', () {
-        // Shimmer highlight is AppColors.background.withOpacity(0.5)
-        expect(AppColors.background, isNotNull);
+        final shimmer = tester.widget<Shimmer>(find.byType(Shimmer));
+        final gradient = shimmer.gradient as LinearGradient;
+        expect(gradient.colors.first, AppColors.card);
+        expect(gradient.colors[2], AppColors.background.withValues(alpha: 0.5));
       });
 
       testWidgets('skeleton integrates with dark theme', (
@@ -406,14 +323,6 @@ void main() {
         // Assert - should render efficiently
         expect(stopwatch.elapsedMilliseconds, lessThan(200));
         expect(find.byType(LoadingSkeleton), findsNWidgets(3));
-      });
-
-      test('skeleton widget is stateful for animation', () {
-        // Arrange
-        const skeleton = LoadingSkeleton();
-
-        // Assert - must be stateful for animation
-        expect(skeleton, isA<StatefulWidget>());
       });
     });
 

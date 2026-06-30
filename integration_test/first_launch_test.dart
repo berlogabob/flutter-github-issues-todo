@@ -27,10 +27,7 @@ void main() {
 
       // STEP 2: Verify login options are available
       expect(find.text('Login with GitHub'), findsOneWidget);
-      expect(
-        find.text('Use Personal Access Token'),
-        findsOneWidget,
-      );
+      expect(find.text('Use Personal Access Token'), findsOneWidget);
       expect(find.text('Continue Offline'), findsOneWidget);
 
       // STEP 3: Tap Continue Offline for testing
@@ -116,10 +113,7 @@ void main() {
       expect(find.text('Continue'), findsOneWidget);
 
       // Enter a token
-      await tester.enterText(
-        find.byType(TextField),
-        'ghp_testToken123456789',
-      );
+      await tester.enterText(find.byType(TextField), 'ghp_testToken123456789');
       await tester.pumpAndSettle();
 
       // Verify Continue button is now enabled

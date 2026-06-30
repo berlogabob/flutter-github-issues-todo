@@ -11,7 +11,7 @@ import '../models/repo_item.dart';
 import '../models/issue_item.dart';
 import '../models/item.dart';
 import '../models/project_item.dart';
-import '../services/dashboard_service.dart';
+import '../services/github_api_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/conflict_detection_service.dart';
@@ -24,7 +24,7 @@ import '../widgets/repo_list.dart';
 import '../widgets/sync_cloud_icon.dart';
 import '../widgets/sync_status_widget.dart';
 import '../widgets/conflict_resolution_dialog.dart';
-import '../widgets/error_boundary.dart';
+import '../widgets/inline_error.dart';
 import 'create_issue_screen.dart';
 import '../utils/responsive_utils.dart';
 import 'issue_detail_screen.dart';
@@ -34,7 +34,6 @@ import 'settings_screen.dart';
 import 'repo_project_library_screen.dart';
 import '../providers/pinned_repos_provider.dart';
 import '../providers/repositories_provider.dart';
-import '../providers/app_providers.dart';
 
 /// MainDashboardScreen - Main screen with task hierarchy
 /// Implements brief section 7, screen 2
@@ -47,7 +46,7 @@ class MainDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
-  final DashboardService _dashboardService = DashboardService();
+  final GitHubApiService _githubApi = GitHubApiService();
   final LocalStorageService _localStorage = LocalStorageService();
   final SyncService _syncService = SyncService();
   final PendingOperationsService _pendingOps = PendingOperationsService();
@@ -124,7 +123,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   }
 
   Future<void> _loadHideUsernameSetting() async {
-    await ref.read(dashboardProvider.notifier).loadHideUsernameSetting();
+    final hide = await _localStorage.getHideUsernameSetting();
+    if (mounted) setState(() => _hideUsernameInRepo = hide);
   }
 
   Future<void> _loadDefaultRepoSetting() async {
@@ -567,7 +567,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
   Future<void> _loadSavedFilters() async {
     try {
       debugPrint('[Dashboard] Loading saved filters...');
-      final filters = await _dashboardService.loadSavedFilters();
+      final filters = await _localStorage.getFilters();
       if (mounted) {
         setState(() {
           _filterStatus = filters['filterStatus'] ?? 'open';
@@ -688,7 +688,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       debugPrint('=== Fetching Repositories (Page 1) ===');
 
       // Check if we have a token
-      final hasToken = await _dashboardService.getToken();
+      final hasToken = await _githubApi.getToken();
       debugPrint(
         'Token available: ${hasToken != null}, length: ${hasToken?.length ?? 0}',
       );
@@ -703,7 +703,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       // Don't do DNS lookup first as it can be unreliable
       try {
         debugPrint('Calling fetchMyRepositories()...');
-        final repos = await _dashboardService.fetchMyRepositories();
+        final repos = await _githubApi.fetchMyRepositories();
         debugPrint('✓ Fetched ${repos.length} repositories from GitHub');
 
         if (!mounted) return;
@@ -941,10 +941,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           final parts = repo.fullName.split('/');
           debugPrint('[Dashboard] Fetching issues for $repoKey...');
 
-          final issues = await _dashboardService.fetchIssues(
-            parts[0],
-            parts[1],
-          );
+          final issues = await _githubApi.fetchIssues(parts[0], parts[1]);
 
           if (mounted) {
             setState(() {
@@ -1278,7 +1275,7 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
         Expanded(
           child: RepoList(
             repositories: displayedRepos,
-            githubApi: _dashboardService,
+            githubApi: _githubApi,
             expandedRepoId: _expandedRepoId,
             onExpandToggle: _onRepoToggle,
             onIssueTap: _openIssueDetail,
@@ -1392,7 +1389,15 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   /// Get sync cloud state based on sync service status
   SyncCloudState _getSyncCloudState() {
-    return _dashboardService.getSyncCloudState(isOfflineMode: _isOfflineMode);
+    if (_isOfflineMode || !_syncService.isNetworkAvailable) {
+      return SyncCloudState.offline;
+    }
+    if (_syncService.isSyncing) return SyncCloudState.syncing;
+    if (_syncService.syncStatus == 'error' ||
+        _syncService.syncStatus == 'partial') {
+      return SyncCloudState.error;
+    }
+    return SyncCloudState.synced;
   }
 
   void _createNewIssue() async {

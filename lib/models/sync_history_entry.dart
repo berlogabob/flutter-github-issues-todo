@@ -51,11 +51,7 @@ class SyncHistoryEntry {
 }
 
 /// Sync result enumeration
-enum SyncResult {
-  success,
-  partial,
-  failed,
-}
+enum SyncResult { success, partial, failed }
 
 /// Sync statistics model
 class SyncStatistics {

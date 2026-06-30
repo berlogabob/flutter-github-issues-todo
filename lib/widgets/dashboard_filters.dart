@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
-import '../utils/responsive_utils.dart';
 
 /// Filter chips widget for main dashboard
 class DashboardFilters extends StatelessWidget {
@@ -35,35 +34,11 @@ class DashboardFilters extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          ResponsiveLayout(
-            mobile: _buildFiltersMobile(),
-            tablet: _buildFiltersTablet(),
-            desktop: _buildFiltersTablet(),
-          ),
-        ],
-      ),
+      child: Column(children: [_buildFilters()]),
     );
   }
 
-  Widget _buildFiltersMobile() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.start,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        _buildFilterChip('Open'),
-        _buildFilterChip('Closed'),
-        _buildFilterChip('All'),
-        _buildHideUsernameButton(),
-        if (pendingOperationsCount > 0) _buildPendingBadge(),
-      ],
-    );
-  }
-
-  Widget _buildFiltersTablet() {
+  Widget _buildFilters() {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -85,10 +60,7 @@ class DashboardFilters extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.primary,
-          width: 1,
-        ),
+        border: Border.all(color: AppColors.primary, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -21,26 +21,19 @@ class IssueConflict {
 
   bool get hasTitleConflict => conflictingFields.contains(ConflictField.title);
   bool get hasBodyConflict => conflictingFields.contains(ConflictField.body);
-  bool get hasLabelsConflict => conflictingFields.contains(ConflictField.labels);
-  bool get hasAssigneeConflict => conflictingFields.contains(ConflictField.assignee);
-  bool get hasStatusConflict => conflictingFields.contains(ConflictField.status);
+  bool get hasLabelsConflict =>
+      conflictingFields.contains(ConflictField.labels);
+  bool get hasAssigneeConflict =>
+      conflictingFields.contains(ConflictField.assignee);
+  bool get hasStatusConflict =>
+      conflictingFields.contains(ConflictField.status);
 }
 
 /// Fields that can have conflicts
-enum ConflictField {
-  title,
-  body,
-  labels,
-  assignee,
-  status,
-}
+enum ConflictField { title, body, labels, assignee, status }
 
 /// Conflict resolution choice
-enum ResolutionChoice {
-  useLocal,
-  useRemote,
-  merge,
-}
+enum ResolutionChoice { useLocal, useRemote, merge }
 
 /// Service for detecting conflicts between local and remote issues
 class ConflictDetectionService {
@@ -61,7 +54,7 @@ class ConflictDetectionService {
 
     // Create map of remote issues by number for quick lookup
     final remoteIssuesMap = {
-      for (final issue in remoteIssues) issue.number: issue
+      for (final issue in remoteIssues) issue.number: issue,
     };
 
     // Check each local issue for conflicts
@@ -72,8 +65,7 @@ class ConflictDetectionService {
       if (remoteIssue == null) continue;
 
       // Skip if local issue hasn't been modified
-      if (!localIssue.isLocalOnly &&
-          localIssue.localUpdatedAt == null) {
+      if (!localIssue.isLocalOnly && localIssue.localUpdatedAt == null) {
         continue;
       }
 

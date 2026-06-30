@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Removed generated Web output, obsolete reports, and disconnected runtime
+  agent scaffolding from the repository.
+- Replaced GoRouter, runtime dotenv loading, and the secondary HTTP client with
+  native routes, compile-time configuration, and Dio.
+- Moved GitHub Pages deployment to CI artifacts.
+
+### Removed
+
+- Removed unused providers, services, widgets, dependencies, and tautological
+  tests without changing reachable product features.
+
 ## [1.0.0] - 2026-06-02
 
 ### Fixed

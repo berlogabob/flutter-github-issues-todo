@@ -191,11 +191,7 @@ class AppConfig {
 
   /// Required OAuth scopes for GitHub API access.
   /// Includes repo, org management, and project permissions.
-  static const List<String> requiredScopes = [
-    'repo',
-    'read:org',
-    'project',
-  ];
+  static const List<String> requiredScopes = ['repo', 'read:org', 'project'];
 
   /// Default sync interval for automatic synchronization.
   static const Duration syncInterval = Duration(minutes: 5);

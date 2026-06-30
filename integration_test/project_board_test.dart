@@ -23,9 +23,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // STEP 1: Tap repository/project icon
-      final repoIcon = find.byWidgetPredicate(
-        (widget) => widget is IconButton,
-      );
+      final repoIcon = find.byWidgetPredicate((widget) => widget is IconButton);
       if (repoIcon.evaluate().isNotEmpty) {
         await tester.tap(repoIcon.first);
         await tester.pumpAndSettle();
@@ -64,10 +62,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Loading indicator should be available
-      expect(find.byWidgetPredicate(
-        (widget) => widget.toString().contains('BrailleLoader') ||
-                    widget is CircularProgressIndicator,
-      ), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.toString().contains('BrailleLoader') ||
+              widget is CircularProgressIndicator,
+        ),
+        findsWidgets,
+      );
     });
 
     testWidgets('Project board has refresh functionality', (tester) async {
@@ -94,7 +96,9 @@ void main() {
       expect(find.byIcon(Icons.add), findsWidgets);
     });
 
-    testWidgets('Project board columns are horizontally scrollable', (tester) async {
+    testWidgets('Project board columns are horizontally scrollable', (
+      tester,
+    ) async {
       app.main();
       await tester.pumpAndSettle();
 
@@ -116,10 +120,14 @@ void main() {
 
       // Issues should be draggable
       // Drag and drop functionality
-      expect(find.byWidgetPredicate(
-        (widget) => widget.toString().contains('Reorderable') ||
-                    widget.toString().contains('Draggable'),
-      ), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.toString().contains('Reorderable') ||
+              widget.toString().contains('Draggable'),
+        ),
+        findsWidgets,
+      );
     });
 
     testWidgets('Project board shows issue cards', (tester) async {
@@ -269,7 +277,9 @@ void main() {
       expect(find.text('Project Board'), findsWidgets);
     });
 
-    testWidgets('Project board handles network error gracefully', (tester) async {
+    testWidgets('Project board handles network error gracefully', (
+      tester,
+    ) async {
       app.main();
       await tester.pumpAndSettle();
 
